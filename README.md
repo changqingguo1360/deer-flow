@@ -277,6 +277,8 @@ make docker-logs    # View logs
 
 `make docker-start` starts `provisioner` only when `config.yaml` uses provisioner mode (`sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` with `provisioner_url`).
 
+> **Database note**: the compose stack ships without a postgres container. When `config.yaml` sets `database.backend: postgres`, the gateway container must reach your database via `host.docker.internal` (not `localhost`), and editing `.env` requires recreating the container (`make docker-stop && make docker-start`) — a plain `restart` does not re-read `env_file`. Full walkthrough incl. Linux listen_addresses/pg_hba caveats: [docs/DOCKER_DEV.md](docs/DOCKER_DEV.md).
+
 Docker builds use the upstream `uv` registry by default. If you need faster mirrors in restricted networks, export `UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple` and `NPM_REGISTRY=https://registry.npmmirror.com` before running `make docker-init` or `make docker-start`.
 
 Local AIO sandbox control traffic is always direct: loopback/private addresses,
