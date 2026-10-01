@@ -71,5 +71,5 @@ async def submit_fleet_job(
         "task_id": created["id"],
         "task_name": neutralize_untrusted_tags(created["task_name"]),
         "status": created["status"],
-        "message": ("Existing unfinished scheduled job reused; original arguments and tracking remain active." if created.get("reused_existing") else "Background job submitted; completion is tracked automatically."),
+        "message": ("Existing scheduled submission reused; original job and tracking are preserved." if created.get("reused_existing") else "Background job submitted; completion is tracked automatically."),
     }
