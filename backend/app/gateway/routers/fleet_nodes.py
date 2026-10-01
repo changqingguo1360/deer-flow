@@ -95,3 +95,21 @@ async def renew_attempt(request: Request, attempt_id: str, body: RenewRequest):
 @router.post("/attempts/{attempt_id}/stopped")
 async def stopped_attempt(request: Request, attempt_id: str, body: StopRequest):
     return await attempt_operation(request, attempt_id, body, "stopped")
+
+
+class CompleteRequest(AttemptRequest):
+    manifest: dict
+
+
+@router.post("/attempts/{attempt_id}/complete")
+async def complete_attempt(request: Request, attempt_id: str, body: CompleteRequest):
+    principal = require_node(request)
+    runtime = get_fleet_runtime(request.app)
+    if runtime.manifests is None:
+        raise HTTPException(status_code=503, detail="Fleet artifacts unavailable")
+    try:
+        return await runtime.manifests.complete(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump())
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Attempt unavailable") from None
+    except (ValueError, OSError):
+        raise HTTPException(status_code=409, detail="Completion not accepted") from None

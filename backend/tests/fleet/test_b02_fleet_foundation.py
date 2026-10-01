@@ -18,7 +18,8 @@ def service_class():
 def settings(tmp_path):
     from deerflow_ecs_fleet.config import FleetConfig
 
-    return FleetConfig(enabled=True, jobs_enabled=True, nas_root=tmp_path, profiles={"batch": {"image": "sha256:" + "a" * 64, "cpu_millis": 1000, "memory_mib": 512}})
+    (tmp_path / ".deerflow-fleet-root").write_text("fleet-test\n")
+    return FleetConfig(enabled=True, jobs_enabled=True, nas_root=tmp_path, nas_identity="fleet-test", profiles={"batch": {"image": "sha256:" + "a" * 64, "cpu_millis": 1000, "memory_mib": 512}})
 
 
 @pytest.mark.integration

@@ -385,7 +385,7 @@ and private restart journals exist; tests exercise real TCP Gateway loss and a l
 start-grant response with local Docker. Bootstrap must finish stop reconciliation
 before claiming work. Stop every owned residual before reporting recovery failure;
 missing journals or a stop RPC failure must not leave other owned containers running.
-Public worker startup, NAS sealing, remote Agent and
+Public worker startup, input mount integration, remote Agent and
 continuations are pending; consult the root delivery roadmap before
 enabling or advertising Fleet execution. Dependency installation remains operator
 controlled through the extension manager; do not add an unconditional host dependency.
@@ -405,5 +405,12 @@ traversal; `artifacts` owns bounded manifest metadata and verified copies/reads.
 blocking filesystem methods must run in asyncio.to_thread from async services.
 Do not create the NAS root or sentinel automatically on a missing mount. A task only
 mounts its outputs; its sealed copy is a separate tree. A successful file seal alone
-is not job completion: B07 still needs the accepted-manifest transaction and host
-owner/thread download authorization before exposing this capability publicly.
+is not job completion: persistence.manifests requires durable physical stop proof,
+zero exit, current attempt/token/session and unexpired lease/deadline, then verifies
+sealed files and rechecks the DB clock before the atomic completion commit.
+The host fleet_artifacts router uses threads:read + thread ownership + manifest
+user/thread filters. Stream the verified descriptor, never reopen it through FileResponse.
+Worker publication journals the sealed manifest before complete; a lost accepted
+completion is replayable after restart. Unknown/quarantined attempts stay unknown
+on late stopped acknowledgements. nas_identity is explicit and the sentinel is checked
+before Fleet migrations. Immutable input mounts and public worker startup remain pending.

@@ -21,6 +21,7 @@ def enabled_config(**overrides):
         "enabled": True,
         "jobs_enabled": True,
         "nas_root": "/srv/deerflow-data",
+        "nas_identity": "fleet-test",
         "profiles": {
             "batch-standard": {
                 "kind": "job",

@@ -84,10 +84,27 @@ and digest on the same open descriptor subsequently returned to the reader; repl
 the pathname cannot redirect that reader. Missing sentinel after prepare also blocks
 seal. These synchronous filesystem operations must be called through asyncio.to_thread.
 
-B07 service integration is still pending: immutable input registration/read-only
-mounts, accepted-manifest transaction, host download authorization and worker result
-publication. B08–B12, all C and all continuation tasks remain pending. There is no
-manifest completion endpoint or public runnable worker deployment yet.
+B07 accepted-manifest service integration now exists. Enabled jobs require explicit
+nas_identity; service startup validates the NAS sentinel before migrations/ready.
+Completion locks job → node → attempt, authenticates node/session/token, requires the
+active stopped zero-exit attempt and a live lease/deadline, verifies the sealed NAS
+manifest/files in a thread, then rechecks the Postgres clock before atomically inserting
+the manifest and finishing the job. Concurrent/repeated completion returns one accepted
+manifest, including a replay after lease expiry; changed completion data is rejected.
+Unknown/quarantined execution cannot be revived by a late stopped acknowledgement.
+
+The host complete route uses node bearer authentication; GET manifest/download routes
+use the existing threads:read permission and real thread-store ownership checks plus
+manifest user/thread filters. Downloads stream the verified open descriptor, force
+attachment/octet-stream/nosniff and expose no internal NAS prefix. NAS reads do not
+block the event loop. The worker seals only after physical stop, journals the exact
+manifest before complete, and can replay a lost accepted-completion response after
+restart without another execution. Existing McpTaskService polling receives completed
+and the accepted manifest ID through the original tracking row.
+
+B07 immutable input registration/read-only mounts remain pending. B08–B12, all C and
+all continuation tasks remain pending. There is no public runnable worker deployment
+or model-visible Fleet submission tool yet.
 No remote Agent run has executed and no business ECS has been deployed.
 
 ## Verification evidence
@@ -102,12 +119,12 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 338 passed, zero skipped, four existing
+Current combined verification: 371 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
 ```bash
-FLEET_TEST_CONTAINERS=1 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py -q -p no:cacheprovider
+FLEET_TEST_CONTAINERS=1 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_mcp_tasks_router.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py -q -p no:cacheprovider
 ```
 
 This is component and adjacent regression coverage, not the B release gate or the
@@ -127,8 +144,9 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 1. Integrate B06 private credential loading and operator worker startup with
    B07 workspace preparation and B11 reproducible deployment. Core startup orphan,
    engine stop failure and concurrent shutdown scenarios now have real evidence.
-2. Deliver B07 NAS sentinel, authorized mounts, sealing and manifest completion;
-   then B08 cancellation/recovery fault cases. Keep success gated on accepted artifacts.
+2. Finish B07 immutable input registration and read-only mounts. NAS sentinel,
+   sealing, accepted manifests and user download/result publication are now exercised;
+   then deliver B08 cancellation/recovery fault cases.
 3. B09 wires the tested invocation helper into model-visible submission; B10 handles
    scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.
 
@@ -161,3 +179,30 @@ escape, owner/attempt/job mismatch, parent symlink, post-prepare sentinel disapp
 separate attempts, stopped-only immutable copies, descriptor-stable reads, unsafe
 file kinds and byte limits. Combined real Fleet/adjacent regression is 338 passed,
 zero skipped. This is filesystem evidence, not B07 complete/DB/HTTP acceptance.
+
+## B07 accepted-manifest/publication slice evidence
+
+Filesystem baseline: commit 07febc50. Fourteen manifest RED tests were observed before
+FleetManifests existed; two HTTP RED tests preceded the host artifact router; real
+worker publication RED proved the missing workspace/publication integration. A further
+unknown-before-stop RED exposed and fixed resurrection into running. Final suite:
+371 passed, zero skipped, four deprecation warnings. Scope is the combined command
+above, now including test_mcp_tasks_router.py. Entire backend Ruff lint passes and
+format --check verifies 1350 files; no production deployment or full-backend test gate
+is implied.
+
+Real Postgres tests cover five concurrent completes, exactly one accepted row,
+idempotent expiry replay, user/thread mismatch, late/unknown/noncurrent/cancelled and
+nonzero-exit attempts, token/node/session mismatch, missing physical stop, output
+budget, bad prefix/size/digest/symlink, NAS disappearance and expiry during NAS I/O.
+Wrong/missing/symlink NAS identity fails before schema migration. Closing jobs_enabled
+on service restart preserves accepted-work completion and owner reads.
+
+Real TCP host tests exercise node completion, repeat response, owner manifest/download,
+401 anonymous, 403 node credential download, 404 cross-user/thread/symlink and 409
+changed completion. They use actual Postgres thread metadata and the existing host
+permission/middleware flow; the session-user resolver is a test stub rather than a
+live login provider. Real Docker/TCP/Postgres worker tests execute the report once,
+seal and accept the output, poll the real McpTaskService to completed, and replay a
+committed completion with a deliberately lost response after restarting the worker.
+The attempt/manifest counts remain one; no business ECS/NAS data is accessed.

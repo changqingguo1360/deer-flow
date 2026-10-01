@@ -63,6 +63,29 @@ class NASWorkspace:
             raise ValueError("Workspace identity mismatch")
         return expected
 
+    def validate_root(self):
+        with self.directory():
+            pass
+
+    def verify_manifest(self, value):
+        manifest = SealedManifest.model_validate(value)
+        parts = relative_parts(manifest.output_prefix)
+        if len(parts) != 7 or parts[2] != "jobs" or parts[4] != "attempts" or parts[6] != "sealed" or any(re.fullmatch(NAME_PATTERN, part) is None for part in parts):
+            raise ValueError("Invalid sealed prefix")
+        with self.directory(parts) as fd:
+            metadata = os.open(MANIFEST_NAME, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
+            with os.fdopen(metadata, "rb") as file:
+                info = os.fstat(file.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > 2 * 1024 * 1024:
+                    raise ValueError("Unsafe sealed manifest")
+                stored = SealedManifest.model_validate_json(file.read(2 * 1024 * 1024 + 1))
+            if stored != manifest:
+                raise ValueError("Submitted manifest does not match sealed snapshot")
+            for row in manifest.files:
+                with open_verified_file(fd, row):
+                    pass
+        return manifest.model_dump()
+
     def prepare(self, claim, grant):
         parts = self.attempt_parts(claim, grant)
         with self.directory(parts, create=True) as fd:

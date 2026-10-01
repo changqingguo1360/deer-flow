@@ -18,13 +18,23 @@ class RecoveryRequired(RuntimeError):
 
 
 class NodeDaemon:
-    def __init__(self, *, client, containers, state_dir: Path, prepare_workspace, renew_seconds=30, safety_margin_seconds=5, poll_seconds=0.25):
+    def __init__(self, *, client, containers, state_dir: Path, prepare_workspace=None, workspace=None, renew_seconds=30, safety_margin_seconds=5, poll_seconds=0.25):
         if renew_seconds <= 0 or poll_seconds <= 0 or safety_margin_seconds < 0:
             raise ValueError("Invalid worker timing")
         self.client = client
         self.containers = containers
         self.journal = AttemptJournal(state_dir)
-        self.prepare_workspace = prepare_workspace
+        self.workspace = workspace
+        if workspace is not None and prepare_workspace is not None:
+            raise ValueError("Choose one workspace preparation interface")
+        if workspace is not None:
+
+            async def prepare(claim, grant):
+                return await asyncio.to_thread(workspace.prepare, claim, grant)
+
+            self.prepare_workspace = prepare
+        else:
+            self.prepare_workspace = prepare_workspace
         self.renew_seconds = renew_seconds
         self.margin = safety_margin_seconds
         self.poll_seconds = poll_seconds
@@ -49,20 +59,45 @@ class NodeDaemon:
             raise RecoveryRequired("Managed container has no private attempt journal")
         for row in records:
             ref = "fleet-" + row["claim"]["attempt_id"]
-            if row.get("reported"):
-                continue
-            row["stop_reason"] = row.get("stop_reason", "lease_lost")
-            observation = await self.containers.inspect(ref)
-            row["exit_code"] = observation["State"]["ExitCode"] if observation else row.get("exit_code", 137)
-            response = await self.client.attempt(row["claim"], "stopped", reason=row["stop_reason"], exit_code=row["exit_code"])
-            row["reported"] = True
-            row["server_state"] = response["state"]
-            await asyncio.to_thread(self.journal.save, row)
+            if not row.get("reported"):
+                row["stop_reason"] = row.get("stop_reason", "lease_lost")
+                observation = await self.containers.inspect(ref)
+                row["exit_code"] = observation["State"]["ExitCode"] if observation else row.get("exit_code", 137)
+                response = await self.client.attempt(row["claim"], "stopped", reason=row["stop_reason"], exit_code=row["exit_code"])
+                row["reported"] = True
+                row["server_state"] = response["state"]
+                await asyncio.to_thread(self.journal.save, row)
+            needs_completion = (row.get("server_state") == "running" and row.get("stop_reason") == "exit" and row.get("exit_code") == 0) or (row.get("completion_manifest") is not None and not row.get("completion_reported"))
+            if self.workspace is not None and needs_completion:
+                if not await self.publish_record(row):
+                    raise RecoveryRequired("Completion acknowledgement remains pending")
         health = await self.client.heartbeat()
         if health["health"] != "online":
             raise RecoveryRequired("Node retains unresolved execution; operator reconciliation required")
         self._ready = True
         return health
+
+    async def publish_record(self, record):
+        try:
+            if record.get("completion_manifest") is None:
+                grant = record["grant"]
+                record["completion_manifest"] = await asyncio.to_thread(self.workspace.seal, record["claim"], grant, stopped=True, max_bytes=grant["launch_spec"]["profile"]["max_output_bytes"])
+                record["completion_reported"] = False
+                # Persist the exact sealed snapshot before the HTTP commit,
+                # so a lost completion response can replay after restart.
+                await asyncio.to_thread(self.journal.save, record)
+            try:
+                response = await self.client.attempt(record["claim"], "complete", manifest=record["completion_manifest"])
+            except httpx.HTTPError:
+                self._ready = False
+                return False
+            record["completion_reported"] = True
+            record["server_state"] = response["state"]
+            await asyncio.to_thread(self.journal.save, record)
+            return True
+        except BaseException:
+            self._ready = False
+            raise
 
     async def execute_one(self):
         if not self._ready:
@@ -181,9 +216,12 @@ class NodeDaemon:
                     record["reported"] = True
                     record["server_state"] = response["state"]
                     await asyncio.to_thread(self.journal.save, record)
-        if not record["reported"] or record.get("server_state") == "unknown":
+                    if self.workspace is not None and response["state"] == "running" and reason == "exit" and record["exit_code"] == 0:
+                        await self.publish_record(record)
+        pending = not record["reported"] or (record.get("completion_manifest") is not None and not record.get("completion_reported"))
+        if pending or record.get("server_state") == "unknown":
             self._ready = False
-        return {"attempt_id": attempt_id, "report_pending": not record["reported"], "state": record.get("server_state"), "stop_reason": reason}
+        return {"attempt_id": attempt_id, "report_pending": pending, "state": record.get("server_state"), "stop_reason": reason}
 
     async def run(self, *, stop: asyncio.Event, max_parallel=1):
         if max_parallel < 1:

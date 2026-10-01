@@ -1,5 +1,6 @@
 """Fleet schema lifecycle follows host persistence startup and shares no models."""
 
+import asyncio
 from pathlib import Path
 
 from alembic import command
@@ -31,6 +32,8 @@ class FleetService:
         self.attempts = None
         self.jobs = None
         self.reconciler = None
+        self.workspace = None
+        self.manifests = None
 
     async def start(self, deps) -> None:
         self.ready = False
@@ -40,6 +43,11 @@ class FleetService:
         if engine is None:
             raise ValueError("Fleet requires a bound Postgres session factory")
         self.config.validate_host(database_backend=engine.dialect.name)
+        if self.config.nas_root is not None and self.config.nas_identity is not None:
+            from .workspace import NASWorkspace
+
+            self.workspace = NASWorkspace(self.config.nas_root, identity=self.config.nas_identity)
+            await asyncio.to_thread(self.workspace.validate_root)
         async with engine.begin() as connection:
             await connection.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": MIGRATION_LOCK})
             await connection.run_sync(upgrade_connection)
@@ -53,6 +61,10 @@ class FleetService:
         self.nodes = NodeRegistry(deps.session_factory)
         self.scheduler = FleetScheduler(deps.session_factory, self.config)
         self.attempts = JobAttempts(deps.session_factory, self.config)
+        if self.workspace is not None:
+            from .persistence.manifests import FleetManifests
+
+            self.manifests = FleetManifests(deps.session_factory, attempts=self.attempts, workspace=self.workspace)
         self.ready = True
 
     def bind_tracking(self, reader):
@@ -78,3 +90,5 @@ class FleetService:
         self.nodes = None
         self.scheduler = None
         self.attempts = None
+        self.workspace = None
+        self.manifests = None

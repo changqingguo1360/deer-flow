@@ -951,3 +951,15 @@ attempt/grant scope, independent sealed copies and bounded verified reads. RED w
 observed before implementation and for foreign-job claim tampering. Combined regression
 passes 338 tests, zero skipped. Input registration/readonly mounts, manifest persistence,
 complete HTTP and owner/thread download remain pending; B07 7.1–7.4 remain unchecked.
+
+
+B07 accepted-manifest/publication adjustment: complete uses a separately committed
+physical stopped proof, then validates sealed files and inserts the accepted manifest
+in one locked transaction; it rechecks Postgres clock after NAS I/O. Real HTTP tests
+and real Docker worker publication/restart lost-response tests now complement the
+filesystem tests. Five concurrent completion calls produce exactly one manifest;
+the original long-task tracking row becomes completed. NAS identity is explicit and
+checked before migrations. Downloads use host threads permission/ownership and
+manifest user/thread filtering. 371 adjacent tests pass without skips. Immutable input
+registration/read-only mounts still prevent whole B07 task acceptance; B08–B12 and all
+C/continuation tasks remain outstanding.

@@ -44,6 +44,7 @@ class FleetConfig(BaseModel):
     queue_timeout_seconds: int = Field(default=1800, ge=1)
     staged_timeout_seconds: int = Field(default=600, ge=1)
     nas_root: Path | None = None
+    nas_identity: str | None = Field(default=None, pattern=NAME_PATTERN)
     profiles: dict[str, ExecutionProfile] = Field(default_factory=dict)
 
     @field_validator("profiles")
@@ -68,6 +69,8 @@ class FleetConfig(BaseModel):
         if self.enabled and self.jobs_enabled:
             if self.nas_root is None or not self.nas_root.is_absolute():
                 raise ValueError("Enabled jobs require an absolute NAS root")
+            if self.nas_identity is None:
+                raise ValueError("Enabled jobs require an explicit NAS deployment identity")
             if not any(profile.kind == "job" for profile in self.profiles.values()):
                 raise ValueError("Enabled jobs require at least one explicit job profile")
         if self.agents_enabled and not any(profile.kind == "agent" for profile in self.profiles.values()):

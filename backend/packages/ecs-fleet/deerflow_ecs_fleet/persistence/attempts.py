@@ -104,7 +104,7 @@ class JobAttempts:
             if job.cancel_requested_at is not None:
                 attempt.state = job.state = "cancelled"
                 attempt.finished_at = job.finished_at = now
-            elif reason != "exit" or attempt.lease_expires_at <= now or attempt.node_session_id != node.session_id:
+            elif job.state in {"unknown", "quarantined"} or attempt.state in {"unknown", "quarantined"} or reason != "exit" or attempt.lease_expires_at <= now or attempt.node_session_id != node.session_id:
                 attempt.state = job.state = "unknown"
             elif exit_code != 0:
                 attempt.state = job.state = "failed"

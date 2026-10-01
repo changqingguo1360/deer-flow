@@ -47,7 +47,7 @@
 
 ## 7. B07 实现不可变输入、产物校验和读取授权
 
-- [ ] 7.1 写并运行 backend/tests/fleet/test_b07_fleet_durable_jobs.py，确认 B07 行为测试 RED。
+- [x] 7.1 写并运行 backend/tests/fleet/test_b07_fleet_durable_jobs.py，确认 B07 行为测试 RED。
 - [ ] 7.2 完成计划列出的接口、事务和部署接线；满足 `Attempt isolated artifacts and accepted manifest`。
 - [ ] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
 - [ ] 7.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
@@ -126,3 +126,16 @@ attempt/grant scope, independent sealed copies and bounded verified reads. RED w
 observed before implementation and for foreign-job claim tampering. Combined regression
 passes 338 tests, zero skipped. Input registration/readonly mounts, manifest persistence,
 complete HTTP and owner/thread download remain pending; B07 7.1–7.4 remain unchecked.
+
+
+B07 accepted-manifest/publication progress: test_b07_fleet_durable_jobs.py RED preceded
+FleetManifests; real HTTP and real Docker publication also have observed RED/GREEN.
+371 component/adjacent tests pass, zero skipped (full command in implementation evidence).
+Current active stopped attempt + token/session + live DB lease/deadline + independently
+verified sealed files gate the atomic completion commit; duplicate completion returns
+one accepted manifest. Host downloads check threads:read, thread ownership and manifest
+user/thread. Worker persists a sealed manifest before complete and replays a lost
+accepted completion after restart, updating the original McpTaskService row to completed.
+Immutable input registration/read-only mount integration remains incomplete, so 7.2–7.4
+and the B release gate remain unchecked. This slice is committed as
+`feat(fleet): accept sealed manifests and publish worker results`.
