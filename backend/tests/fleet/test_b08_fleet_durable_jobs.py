@@ -134,3 +134,71 @@ async def test_background_queue_does_not_starve_staged_expiry(fleet_database, tm
     finally:
         await reconciler.stop()
         await fleet.stop()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+@pytest.mark.parametrize("winner", ["complete", "cancel"])
+async def test_concurrent_cancel_complete_respects_first_committed_transition(fleet_database, tmp_path, monkeypatch, winner):
+    import asyncio
+    import threading
+
+    fleet, claim, args, manifest = await sealed_attempt(fleet_database, tmp_path)
+    engine, sf, _ = fleet_database
+    await bind(fleet, engine, sf)
+    active = []
+    release_thread = threading.Event()
+    release_cancel = asyncio.Event()
+    try:
+        if winner == "complete":
+            entered = threading.Event()
+            verify = fleet.workspace.verify_manifest
+
+            def held_verify(value):
+                entered.set()
+                if not release_thread.wait(3):
+                    raise TimeoutError("Test manifest barrier timed out")
+                return verify(value)
+
+            monkeypatch.setattr(fleet.workspace, "verify_manifest", held_verify)
+            complete = asyncio.create_task(fleet.manifests.complete(**args, manifest=manifest))
+            active.append(complete)
+            assert await asyncio.to_thread(entered.wait, 2)
+            cancel = asyncio.create_task(fleet.jobs.cancel(claim.job_id, user_id="u", thread_id="t"))
+            active.append(cancel)
+            await asyncio.sleep(0.05)
+            assert not cancel.done()
+            release_thread.set()
+            accepted, cancelled = await asyncio.gather(complete, cancel)
+            assert accepted["state"] == cancelled["state"] == "succeeded"
+            assert accepted["manifest_id"] == cancelled["accepted_manifest_id"]
+        else:
+            import deerflow_ecs_fleet.job_service as module
+
+            entered = asyncio.Event()
+            apply_cancel = module.cancel_stopped_attempt
+
+            async def held_cancel(session, job, now):
+                entered.set()
+                await release_cancel.wait()
+                return await apply_cancel(session, job, now)
+
+            monkeypatch.setattr(module, "cancel_stopped_attempt", held_cancel)
+            cancel = asyncio.create_task(fleet.jobs.cancel(claim.job_id, user_id="u", thread_id="t"))
+            active.append(cancel)
+            await asyncio.wait_for(entered.wait(), timeout=2)
+            complete = asyncio.create_task(fleet.manifests.complete(**args, manifest=manifest))
+            active.append(complete)
+            await asyncio.sleep(0.05)
+            assert not complete.done()
+            release_cancel.set()
+            cancelled, rejected = await asyncio.gather(cancel, complete, return_exceptions=True)
+            assert cancelled["state"] == "cancelled" and isinstance(rejected, ValueError)
+        async with engine.connect() as conn:
+            assert (await conn.execute(text("SELECT count(*) FROM fleet_artifact_manifests"))).scalar_one() == (1 if winner == "complete" else 0)
+            assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
+    finally:
+        release_thread.set()
+        release_cancel.set()
+        await asyncio.gather(*active, return_exceptions=True)
+        await fleet.stop()

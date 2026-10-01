@@ -167,3 +167,19 @@ class InputManifestRow(FleetBase):
         CheckConstraint("total_bytes >= 0", name="ck_fleet_input_bytes"),
         Index("ix_fleet_inputs_owner", "user_id", "thread_id", "sealed_at"),
     )
+
+
+class RecoveryEventRow(FleetBase):
+    __table__ = Table(
+        "fleet_recovery_events",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("job_id", String(64), ForeignKey("fleet_jobs.id"), nullable=False),
+        Column("attempt_id", String(64), ForeignKey("fleet_attempts.id"), nullable=False, unique=True),
+        Column("operator_id", String(64), nullable=False),
+        Column("action", String(32), nullable=False),
+        Column("note", Text, nullable=False),
+        timestamp("created_at"),
+        CheckConstraint("action = 'fail_stopped'", name="ck_fleet_recovery_action"),
+        Index("ix_fleet_recovery_job", "job_id", "created_at"),
+    )

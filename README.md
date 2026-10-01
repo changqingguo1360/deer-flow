@@ -1582,7 +1582,9 @@ including a lost completion response. Thread-owned input uploads create immutabl
 version IDs; workers pin and verify those versions, mount only declared inputs read-only,
 and can reuse accepted results as later job inputs. Cancellation retains capacity
 until durable stop confirmation; expired queued jobs close even without an available
-node. Public worker deployment and remote
+node. Session administrators can review stopped unknown jobs and close them as failed
+with a durable audit record; see the [reconciliation guide](docs/ecs-fleet-recovery.md).
+Public worker deployment and remote
 Agent runs are not available yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

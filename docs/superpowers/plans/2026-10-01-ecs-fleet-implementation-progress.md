@@ -10,7 +10,7 @@ OpenSpec changes has met its release gate; do not archive them or mark IMPLEMENT
 - B01: standalone optional package, strict profiles and identity-free JobSpec;
   disabled installation does not import the host runtime. Host dependency manager
   installation and deployable configuration remain to be exercised.
-- B02: seven private fleet_ tables plus independent fleet_alembic_version migration;
+- B02: eight private fleet_ tables plus independent fleet_alembic_version migration;
   service startup serializes migrations using a Postgres advisory transaction lock.
 - B03: host-only bearer authentication for worker routes, persisted hashed node
   credentials, node session fencing and heartbeat. Attempt endpoints and cross-node
@@ -102,7 +102,7 @@ manifest before complete, and can replay a lost accepted-completion response aft
 restart without another execution. Existing McpTaskService polling receives completed
 and the accepted manifest ID through the original tracking row.
 
-B07 immutable input registration/read-only mounts are implemented and exercised. B08 is in progress; B09–B12, all C and
+B07 immutable input registration/read-only mounts are implemented and exercised. B08 cancellation/recovery is locally accepted; B09–B12, all C and
 all continuation tasks remain pending. There is no public runnable worker deployment
 or model-visible Fleet submission tool yet.
 No remote Agent run has executed and no business ECS has been deployed.
@@ -119,7 +119,7 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 392 passed, zero skipped, four existing
+Current combined verification: 406 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
@@ -144,8 +144,8 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 1. Integrate B06 private credential loading and operator worker startup with
    B07 workspace preparation and B11 reproducible deployment. Core startup orphan,
    engine stop failure and concurrent shutdown scenarios now have real evidence.
-2. Finish B08 operator recovery management. Cancellation/revocation and queued
-   deadline cases are now verified. B07 NAS sentinel, immutable inputs,
+2. Deliver B09 model-visible controlled submission and durable result notification.
+   B08 cancellation, deadline reconciliation and audited operator closure are verified. B07 NAS sentinel, immutable inputs,
    read-only mounts, accepted manifests and user download/result publication are exercised.
 3. B09 wires the tested invocation helper into model-visible submission; B10 handles
    scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.
@@ -268,3 +268,41 @@ unknown non-retry and deadline candidate selection. Combined Fleet/adjacent veri
 pass (1356 files). OpenSpec strict validation passes all three changes. Whole B08 remains
 partial until operator recovery management is delivered; B09–B12/C/continuations are
 pending and no production deployment or B release acceptance is claimed.
+
+
+## B08 audited operator recovery acceptance
+
+Cancellation baseline: commit 2e8a92a3. Eight recovery RED assertions preceded the
+private recovery service; two HTTP RED assertions preceded the host router. Independent
+f0004_recovery adds fleet_recovery_events, separate from host metadata. Resolution locks
+job → node → attempt → reservation, checks expected current uncertain attempt, durable
+stopped_at and released capacity, requires explicit side-effect review and a bounded
+note, and atomically closes job/attempt as failed with one immutable audit event.
+Concurrent identical requests and service reconstruction return the same record;
+changed request/attempt, missing stop, unreleased capacity, absent review or successful
+accepted output reject. Injected audit insert failure rolls back both states. Late
+stopped/complete replies cannot rewrite the original outcome or accept success.
+
+Host GET /api/fleet/recovery/jobs, POST /{job_id}/resolve and GET /{job_id}/events
+require actual administrator session and normal CSRF. Actor identity is server-derived;
+forged body actor, boolean coercion and unknown fields reject. Anonymous/member/node,
+trusted internal and auth-disabled fallback identities cannot use the management
+boundary. Session resolution is a test stub; real middleware/permissions, TCP and SQL
+execute. Closing jobs_enabled preserves existing-work recovery after actual Fleet
+service restart.
+
+The real credential-revocation Docker scenario now completes the recovery loop:
+unknown/quarantine → current authenticated stop replay → capacity released but claim
+blocked → original McpTaskService row input_required → audited operator resolution →
+the same tracking row failed → worker bootstrap/online admission restored. Actual
+counter remains one start and attempt count remains one. Two additional concurrent
+cancel/complete tests hold the real job lock through explicit filesystem/cancellation
+barriers and verify both commit orders, with one accepted manifest or none as appropriate.
+
+Independent read-only review found no correctness/security blocker. Final combined
+regression scope recorded above: 406 passed, zero skipped, four existing warnings.
+Entire backend Ruff lint/format pass (1361 files); all three OpenSpec changes pass strict
+validation. README, backend AGENTS, shared contract and docs/ecs-fleet-recovery.md match
+implemented behavior. B08 is locally accepted; B09–B12 and C/continuations remain
+pending. This is not the B release gate, full backend test gate or a production ECS/NAS
+deployment. Previous pending statements are historical checkpoints.

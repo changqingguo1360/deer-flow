@@ -35,6 +35,9 @@ NodePrincipal，且用户/管理员路由不接受它。extension router 仍只�
 | `POST /api/fleet/jobs` | user / 有效 C attempt | user 来自鉴权，C 的 parent 来自 LaunchSpec；提交 staged job |
 | `GET /api/fleet/jobs/{id}` | owner user | 执行状态、取消意图、接受产物；越权统一 404 |
 | `POST /api/fleet/jobs/{id}/cancel` | owner user | durable intent，返回 202；不宣称进程已停止 |
+| `GET /api/fleet/recovery/jobs` | admin session | 分页查看 unknown/quarantined 的停机确认与资源释放状态 |
+| `POST /api/fleet/recovery/jobs/{id}/resolve` | admin session | expected_attempt_id + side_effects_reviewed=true + note；仅确认停机且资源已释放的 unknown 可审计关闭为 failed |
+| `GET /api/fleet/recovery/jobs/{id}/events` | admin session | 查看不可变的操作者/原因/时间记录；不返回 node token 或 NAS 路径 |
 | `GET /api/fleet/artifacts/{manifest_id}/{path}` | owner user | 只读 accepted manifest 中安全路径 |
 | `GET /api/fleet/agent-tasks/{id}` | owner user | 目标状态/current_run/generation/children/恢复原因 |
 | `POST /api/fleet/agent-tasks/{id}/cancel` | owner user | expected_generation；永久取消目标和未完成 awaited children |
@@ -148,3 +151,16 @@ ECS，全部使用本地容器与隔离 DB schema。
 
 每个阶段生成报告记录命令、commit、通过/失败/跳过数、关键 DB row/PID/manifest 证据。
 报告中的日志需脱敏；测试模拟业务副作用用本地 stub HTTP 服务计数，不能发送真实邮件或调用生产 API。
+
+
+## B08 operator reconciliation implementation note
+
+Recovery APIs require an actual administrator session and normal CSRF. Internal/PAT,
+node and auth-disabled fallback identities are not administrator sessions. The actor is
+server-derived; request bodies forbid operator/user identity fields. Reconciliation is
+not a physical stop override and does not make uncertain output successful. The body
+is `{expected_attempt_id, side_effects_reviewed: true, note}`; false/coerced confirmation
+and unknown fields return 422. Missing job returns 404, changed attempt/stop/resource
+preconditions or changed historical resolution returns 409. Same operator/note replay
+returns the original event. Existing work may be reconciled with jobs_enabled=false.
+The original tracking row observes failed through its existing polling/notification path.

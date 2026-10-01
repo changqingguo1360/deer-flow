@@ -221,6 +221,26 @@ async def test_b06_contract(fleet_database, tmp_path, fault):
             assert (await conn.execute(text("SELECT count(*) FROM fleet_attempts"))).scalar_one() == 1
             assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
         assert (output / "count").read_text().splitlines() == ["start"]
+        if fault == "credential_revoked":
+            from datetime import UTC, datetime, timedelta
+
+            now = datetime.now(UTC)
+            await tasks.run_once(now=now + timedelta(seconds=10))
+            records = await tasks.list_tasks(user_id="u", thread_id="t")
+            assert records[0]["id"] == tracked["id"] and records[0]["status"] == "input_required"
+            unresolved = await fleet.recovery.list_unresolved()
+            assert unresolved[0]["stop_confirmed"] and unresolved[0]["capacity_released"]
+            resolution = await fleet.recovery.resolve(job_id=tracked["remote_task_id"], expected_attempt_id=ref.removeprefix("fleet-"), operator_id="admin", note="Inspected stopped counter and one start", side_effects_reviewed=True)
+            assert resolution["state"] == "failed"
+            await tasks.run_once(now=now + timedelta(seconds=80))
+            records = await tasks.list_tasks(user_id="u", thread_id="t")
+            assert len(records) == 1 and records[0]["id"] == tracked["id"] and records[0]["status"] == "failed"
+            await restarted.bootstrap()
+            assert await restarted.execute_one() is None
+            assert (output / "count").read_text().splitlines() == ["start"]
+            async with engine.connect() as conn:
+                assert (await conn.execute(text("SELECT count(*) FROM fleet_attempts"))).scalar_one() == 1
+                assert (await conn.execute(text("SELECT count(*) FROM fleet_recovery_events"))).scalar_one() == 1
     finally:
         permit_stop_ack.set()
         if execution is not None and not execution.done():

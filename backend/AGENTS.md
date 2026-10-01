@@ -435,4 +435,19 @@ staged rows plus only expired queued rows, ordered by their relevant deadline, s
 large waiting queue cannot hide staged expiry. Node credential revocation rejects
 subsequent worker HTTP operations; local daemon stop is independent, and capacity
 remains charged until authenticated stop acknowledgement. Unknown never requeues
-started execution automatically. B08 operator recovery management remains pending.
+started execution automatically. B08 operator recovery management is implemented in gateway/routers/fleet_recovery.py
+and the private FleetRecovery service. Management requires auth_source=session plus
+require_admin_user, derives operator_id from the server principal, and uses normal
+CSRF validation. PAT, internal, auth-disabled fallback and node identities cannot use
+these routes. A valid administrator session remains required even with auth disabled.
+
+The independent f0004_recovery migration owns fleet_recovery_events. Resolution checks
+expected current attempt, unknown/quarantined state, no accepted manifest, durable
+stopped_at and a released reservation under job → node → attempt → reservation locks.
+Explicit side-effect review and a note are required. The job and attempt become failed
+in the same transaction as the unique immutable per-attempt audit record. Repeated
+same operator/note requests return the original record; altered requests conflict.
+Audit insert failure rolls back state. Never expose an operator flag that invents
+physical stop, accepts uncertain output or automatically retries a started attempt.
+Closing jobs_enabled preserves reconciliation for accepted work. See
+[reconciliation guide](../docs/ecs-fleet-recovery.md).

@@ -55,9 +55,9 @@
 ## 8. B08 实现取消、unknown 和状态对账
 
 - [x] 8.1 写并运行 backend/tests/fleet/test_b08_fleet_durable_jobs.py，确认 B08 行为测试 RED。
-- [ ] 8.2 完成计划列出的接口、事务和部署接线；满足 `Honest cancellation and uncertain execution`。
-- [ ] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 8.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 8.2 完成计划列出的接口、事务和部署接线；满足 `Honest cancellation and uncertain execution`。
+- [x] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 8.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 9. B09 暴露受控工具并复用长期任务通知
 
@@ -161,3 +161,16 @@ until stop is durable, and unknown never re-executes. Combined verification: 392
 zero skipped; backend Ruff lint/format1356 files and OpenSpec strict3/3 pass. Independent
 review approves this slice. Keep B08 8.2–8.4 unchecked: operator recovery management is
 still pending. Slice: `fix(fleet): reconcile cancellation only after durable physical stop`.
+
+
+B08 operator recovery acceptance follow-up: independent f0004_recovery audit, real
+PostgreSQL concurrent/idempotent resolution and audit-write rollback, admin-session
+only real TCP APIs with CSRF/server-derived actor, and actual Docker unknown→operator
+closure→same tracking row failed→worker admission recovery all pass. No late success
+or stop message can replace the recorded uncertain outcome. Explicit concurrent
+cancel/complete barriers verify both transaction orders. Final Fleet/adjacent command:
+406 passed, zero skipped, four existing warnings; backend Ruff lint/format1361 files and
+OpenSpec strict3/3 pass. Independent review approves code/security. B08 acceptance is
+complete for these isolated local services; prior partial paragraphs are historical.
+B release gate/B09–B12/C/continuations remain pending. Slice:
+`feat(fleet): audit operator resolution of stopped unknown jobs`.
