@@ -1022,3 +1022,15 @@ and format check (1365 files) and git diff whitespace check pass. This slice doe
 not yet prove full run_agent submission followed by worker completion, busy-thread
 notification retry, service restart and exactly one accepted notification receipt.
 B09 remains partial; its full acceptance checkboxes and B release gate remain open.
+
+
+### B09 uncertain-status disclosure regression — 2026-10-02
+
+Unknown/quarantined Fleet snapshots previously included the internal job handle in
+input_required, which the user task detail and notification event forwarded. Two
+observed RED tests reproduce that disclosure using the actual public projections.
+The adapter now returns reconciliation instructions without that handle; public
+tracking ID and honest uncertain state remain available. Focused Fleet driver,
+cancellation, public status and MCP task route regression: 19 passed. Scoped Ruff
+lint and format checks pass after import sorting. Full B09 notification acceptance
+remains pending; this fix does not alter internal ownership or operator recovery.

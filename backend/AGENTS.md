@@ -398,7 +398,9 @@ are available. Harness code must not import app or the optional Fleet package.
 runtime; its model schema contains no owner, node, image, credential or link-mode
 controls. Only approved job profile names are exposed. Tool visibility is gated in
 both subagent configurations; shutdown clears the bridge before stopping task tracking.
-B09 notification acceptance through a full scripted run remains pending.
+Unknown/quarantined snapshots expose reconciliation instructions through the original
+tracking ID; do not include the private Fleet job handle in public input_required or
+notification payloads. B09 full scripted-run notification acceptance remains pending.
 
 Fleet task retries use TaskSubmission.tracking_task_id to opt into the host
 McpTaskRepository.create_idempotent boundary. Ordinary MCP drivers retain duplicate

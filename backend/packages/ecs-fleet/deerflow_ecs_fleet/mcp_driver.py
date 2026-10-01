@@ -44,7 +44,7 @@ class FleetTaskDriver:
             return TaskSnapshot(status=TaskStatus.FAILED, error=job["error"])
         if state == "cancelled":
             return TaskSnapshot(status=TaskStatus.CANCELLED)
-        return TaskSnapshot(status=TaskStatus.INPUT_REQUIRED, input_required={"reason": "execution_unknown", "job_id": job["id"], "message": "Physical execution status requires operator reconciliation"})
+        return TaskSnapshot(status=TaskStatus.INPUT_REQUIRED, input_required={"reason": "execution_unknown", "message": "Physical execution status requires operator reconciliation"})
 
     async def get_status(self, task):
         await self.jobs.get(task.remote_task_id, user_id=task.user_id, thread_id=task.thread_id)

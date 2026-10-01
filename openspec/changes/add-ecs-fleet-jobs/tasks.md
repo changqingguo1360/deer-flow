@@ -1,7 +1,7 @@
 # B：持久 Job 与共用 Fleet 基础 tasks
 
 前置：无；在现有个人 ECS worktree 开始。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-b-jobs.md)。
-所有勾选项是未来实施，不因规划/校验成功而勾选。
+仅在实际实施和验收后勾选；规划或 CLI 校验成功不能代替功能验收。未勾选项仍需完成，部分 slice 的证据记录在文末。
 
 ## 1. B01 建立可选包、配置和协议边界
 
@@ -198,3 +198,15 @@ and format check (1365 files) and git diff whitespace check pass. This slice doe
 not yet prove full run_agent submission followed by worker completion, busy-thread
 notification retry, service restart and exactly one accepted notification receipt.
 B09 remains partial; its full acceptance checkboxes and B release gate remain open.
+
+
+### B09 uncertain-status disclosure regression — 2026-10-02
+
+Unknown/quarantined Fleet snapshots previously included the internal job handle in
+input_required, which the user task detail and notification event forwarded. Two
+observed RED tests reproduce that disclosure using the actual public projections.
+The adapter now returns reconciliation instructions without that handle; public
+tracking ID and honest uncertain state remain available. Focused Fleet driver,
+cancellation, public status and MCP task route regression: 19 passed. Scoped Ruff
+lint and format checks pass after import sorting. Full B09 notification acceptance
+remains pending; this fix does not alter internal ownership or operator recovery.
