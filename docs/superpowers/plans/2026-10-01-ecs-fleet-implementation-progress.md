@@ -638,3 +638,46 @@ installation and Fleet tools: 18 passed, zero skipped, 28.03 seconds. Four chang
 files pass Ruff check/format; OpenSpec strict validates all three changes; diff check
 passes. Earlier implementer broader scope: 26 passed, zero skipped. Full containerized
 Compose and final full B regression remain pending; this does not complete B/C/BC.
+
+
+## B12 full local Compose daemon acceptance — 2026-10-02
+
+Two distinct UUID public worker daemons run the committed Compose configuration with
+the retained built content ID, private 0600 credentials and independent journals. Actual
+CA-verified HTTPS reaches a loopback Gateway on macOS Docker Desktop. PG sessions differ;
+Docker inspection proves image identity, read-only root, dropped capabilities and no
+published/exposed worker ports. The drained node has zero attempts. Actual completion
+starts one job, survives admission closure, publishes one sealed manifest, leaves original
+tracking completed and releases capacity; modifying the writable attempt cannot change
+the sealed result. Actual SIGTERM stops the still-held job, reports a durable journal,
+releases proved-stopped capacity and preserves unknown/input_required rather than success.
+Execution waits on an explicit release file; complete releases only after charged-capacity
+and disable rejection checks, while TERM never releases. A 60-second deadline bounds it.
+
+Compose acceptance: implementer final 2 passed, zero skipped, 8.85 seconds; root earlier
+enhanced file 2 passed, zero skipped, 11.53 seconds. Root explicit matrix including final
+release-barrier Compose, installation and gate guards: 237 passed, zero skipped, two known
+warnings, 113.27 seconds, with hostile PYTEST_ADDOPTS='-k nonexistent' ignored. Retained
+actual report /private/tmp/fleet-b12-compose-root-final-gate.xml. The gate now preflights
+frozen base digest, CLI SHA256 and absolute existing build artifacts; guard tests had
+genuine 9 RED/11 passed before validation, then 20 passed.
+
+The first matrix exposed a test observation race (236 passed, one failed): HTTP count
+creation preceded content flush. The job now writes an acknowledgement after successful
+HTTP completion; bounded polling requires its actual contents and both effect counters
+before cutting control. All exactly-one assertions remain strict. The final marker-content
+refinement was made after the 237-test matrix collected its files; root separately reran
+that final partition file successfully (1 passed, zero skipped). These are fixture fixes,
+not a new production protocol RED. Spec and quality reviews approve the final four files.
+
+No Linux Compose runtime or production ECS/NAS deployment is claimed. B03 session-admin
+node registration/state/credential management remains a real spec gap; trusted CLI is
+additional and cannot replace the promised HTTP path/profile restrictions. Final full B
+regressions and that follow-up remain required before C. Historical initial RED evidence
+for B01/B02 and B03 authentication is not explicitly recorded and will not be invented.
+
+Full default target before this slice: 13176 passed, 172 skipped, one deselected, one
+failed, 264.48 seconds. The failure was UV_NO_SYNC=1 inherited by a fixture that must
+install a temporary wheel; without it the exact test passes. Final default target must
+run without that environment setting. Blocking-I/O after startup follow-up: 75 passed,
+zero skipped, two known warnings, 4.05 seconds.

@@ -13,36 +13,76 @@ from pathlib import Path
 
 def validate_environment(environ):
     if not environ.get("TEST_POSTGRES_URI", "").startswith("postgresql+asyncpg://"):
-        raise ValueError("B gate requires explicit TEST_POSTGRES_URI (isolated PostgreSQL)")
+        raise ValueError(
+            "B gate requires explicit TEST_POSTGRES_URI (isolated PostgreSQL)"
+        )
     if environ.get("FLEET_TEST_CONTAINERS") != "1":
         raise ValueError("B gate requires FLEET_TEST_CONTAINERS=1")
-    if not re.fullmatch(r"sha256:[a-f0-9]{64}", environ.get("FLEET_TEST_WORKER_IMAGE", "")):
-        raise ValueError("B gate requires a locally built FLEET_TEST_WORKER_IMAGE content ID")
+    if not re.fullmatch(
+        r"sha256:[a-f0-9]{64}", environ.get("FLEET_TEST_WORKER_IMAGE", "")
+    ):
+        raise ValueError(
+            "B gate requires a locally built FLEET_TEST_WORKER_IMAGE content ID"
+        )
     if not Path(environ.get("FLEET_TEST_DOCKER_SOCKET", "")).is_absolute():
-        raise ValueError("B gate requires an explicit absolute FLEET_TEST_DOCKER_SOCKET")
+        raise ValueError(
+            "B gate requires an explicit absolute FLEET_TEST_DOCKER_SOCKET"
+        )
+
+    if not re.fullmatch(
+        r"[^\s@]+@sha256:[a-f0-9]{64}", environ.get("FLEET_WORKER_BASE", "")
+    ):
+        raise ValueError("B gate requires a frozen FLEET_WORKER_BASE image digest")
+    if not re.fullmatch(r"[a-f0-9]{64}", environ.get("FLEET_DOCKER_CLI_SHA256", "")):
+        raise ValueError("B gate requires a verified FLEET_DOCKER_CLI_SHA256")
+    artifacts = Path(environ.get("FLEET_BUILD_ARTIFACTS", ""))
+    if not artifacts.is_absolute() or not artifacts.is_dir():
+        raise ValueError(
+            "B gate requires FLEET_BUILD_ARTIFACTS as an absolute existing directory"
+        )
 
 
 def validate_report(path, *, required_modules=()):
     root = ET.parse(path).getroot()
     cases = list(root.iter("testcase"))
     skipped = sum(case.find("skipped") is not None for case in cases)
-    failed = sum(case.find("failure") is not None or case.find("error") is not None for case in cases)
+    failed = sum(
+        case.find("failure") is not None or case.find("error") is not None
+        for case in cases
+    )
     if not cases or skipped or failed:
-        raise ValueError(f"B gate rejected report: collected={len(cases)}, skipped={skipped}, failed={failed}")
+        raise ValueError(
+            f"B gate rejected report: collected={len(cases)}, skipped={skipped}, failed={failed}"
+        )
     observed = {case.get("classname", "") for case in cases}
-    missing = {module for module in required_modules if not any(name == module or name.startswith(module + ".") for name in observed)}
+    missing = {
+        module
+        for module in required_modules
+        if not any(name == module or name.startswith(module + ".") for name in observed)
+    }
     if missing:
-        raise ValueError("B gate report missing required modules: " + ", ".join(sorted(missing)))
+        raise ValueError(
+            "B gate report missing required modules: " + ", ".join(sorted(missing))
+        )
     return {"collected": len(cases), "passed": len(cases), "skipped": skipped}
 
 
 def select_test_files(directory):
-    return sorted(path for path in directory.glob("test_*.py") if re.fullmatch(r"test_b(?:0[1-9]|1[0-2])_.+\.py", path.name) or path.name == "test_b_acceptance.py")
+    return sorted(
+        path
+        for path in directory.glob("test_*.py")
+        if re.fullmatch(r"test_b(?:0[1-9]|1[0-2])_.+\.py", path.name)
+        or path.name == "test_b_acceptance.py"
+    )
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--report", type=Path, help="Keep the actual pytest JUnit report at this new path")
+    parser.add_argument(
+        "--report",
+        type=Path,
+        help="Keep the actual pytest JUnit report at this new path",
+    )
     args = parser.parse_args(argv)
     try:
         validate_environment(os.environ)
@@ -60,7 +100,20 @@ def main(argv=None):
     # An exclusive new report prevents passing a stale successful report after a failed run.
     with tempfile.TemporaryDirectory(prefix="fleet-b-gate-") as temporary:
         report = Path(temporary) / "pytest.xml"
-        command = [sys.executable, "-m", "pytest", *selected, "-o", "addopts=", "-q", "-p", "no:cacheprovider", "--tb=short", "--show-capture=no", f"--junitxml={report}"]
+        command = [
+            sys.executable,
+            "-m",
+            "pytest",
+            *selected,
+            "-o",
+            "addopts=",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "--tb=short",
+            "--show-capture=no",
+            f"--junitxml={report}",
+        ]
         environ = dict(os.environ)
         environ.pop("PYTEST_ADDOPTS", None)
         result = subprocess.run(command, cwd=backend, env=environ, check=False)

@@ -167,22 +167,29 @@ resources are provisioned by this guide's local tests.
 
 Concrete worker JSON, pinned artifact layout, hash-lock preparation, offline build and
 Compose environment/launch commands are in [the worker guide](../../docker/fleet/README.md).
-The local acceptance path uses two actual host CLI workers with real TCP/PG/NAS/Docker;
-the built Linux image additionally verifies its actual entry and Docker control. Rendered
-Compose mounts and zero ports are checked, but full containerized Compose daemon
-execution and production ECS/NAS deployment are not claimed by those local tests.
+The local acceptance path covers two host CLI workers and two containerized public
+workers launched through the committed Compose configuration. On macOS Docker Desktop,
+actual verified HTTPS connects these containers to the loopback Gateway; independent
+credentials/journals, PG tracking, NAS output and Docker stop evidence are exercised.
+Worker containers publish no ports. Linux Compose configuration has not been independently
+executed; production ECS/NAS deployment is outside this local acceptance.
 
 
 ## Explicit local B test gate
 
 From the repository root, supply an isolated PostgreSQL fixture database, a running
-local Docker engine, the verified built worker content ID and its actual host socket:
+local Docker engine, the verified built worker content ID and its actual host socket.
+Retain the frozen base, CLI hash and artifact directory used for that build; the committed
+Compose configuration requires these values even when launching without rebuilding:
 
 ```bash
 TEST_POSTGRES_URI=<isolated-postgresql+asyncpg-uri> \
 FLEET_TEST_CONTAINERS=1 \
 FLEET_TEST_WORKER_IMAGE=sha256:<verified-local-image-content-id> \
 FLEET_TEST_DOCKER_SOCKET=<absolute-local-docker-socket> \
+FLEET_WORKER_BASE=python@sha256:<verified-base-digest> \
+FLEET_DOCKER_CLI_SHA256=<verified-cli-sha256> \
+FLEET_BUILD_ARTIFACTS=<absolute-existing-artifact-directory> \
 backend/.venv/bin/python scripts/fleet_b_gate.py --report /tmp/fleet-b-report.xml
 ```
 
@@ -199,6 +206,6 @@ counter and the job's output counter independently record the business effects.
 Physical watchdog stop precedes the database lease deadline. Recovery preserves
 unknown execution, replays durable stopped proof and never starts the job again.
 
-The current test matrix does not by itself close outstanding startup/packaging and
-full Compose daemon acceptance. The delivery roadmap and implementation evidence
+The test matrix includes installed Gateway startup and full local Compose daemon acceptance.
+Session-admin node management and final full regressions remain outstanding for overall B. The delivery roadmap and implementation evidence
 remain authoritative for B completion; C and continuations are still pending.

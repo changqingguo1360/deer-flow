@@ -10,7 +10,15 @@ spec = importlib.util.spec_from_file_location("fleet_b_gate", ROOT / "scripts/fl
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
 
-ENV = {"TEST_POSTGRES_URI": "postgresql+asyncpg://test@127.0.0.1/test", "FLEET_TEST_CONTAINERS": "1", "FLEET_TEST_WORKER_IMAGE": "sha256:" + "a" * 64, "FLEET_TEST_DOCKER_SOCKET": "/tmp/docker.sock"}
+ENV = {
+    "TEST_POSTGRES_URI": "postgresql+asyncpg://test@127.0.0.1/test",
+    "FLEET_TEST_CONTAINERS": "1",
+    "FLEET_TEST_WORKER_IMAGE": "sha256:" + "a" * 64,
+    "FLEET_TEST_DOCKER_SOCKET": "/tmp/docker.sock",
+    "FLEET_WORKER_BASE": "python@sha256:" + "b" * 64,
+    "FLEET_DOCKER_CLI_SHA256": "c" * 64,
+    "FLEET_BUILD_ARTIFACTS": str(ROOT),
+}
 
 
 @pytest.mark.parametrize("missing", list(ENV))
@@ -55,3 +63,26 @@ def test_b_gate_selection_excludes_continuations_and_c(tmp_path):
     for name in ["test_b00_contract.py", "test_b01_contract.py", "test_b12_compose.py", "test_b13_contract.py", "test_b_acceptance.py", "test_bc_01_contract.py", "test_c01_contract.py"]:
         (tmp_path / name).touch()
     assert [path.name for path in gate.select_test_files(tmp_path)] == ["test_b01_contract.py", "test_b12_compose.py", "test_b_acceptance.py"]
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("FLEET_WORKER_BASE", "python:latest"),
+        ("FLEET_WORKER_BASE", "python@sha256:" + "z" * 64),
+        ("FLEET_DOCKER_CLI_SHA256", "c" * 63),
+        ("FLEET_DOCKER_CLI_SHA256", "z" * 64),
+        ("FLEET_BUILD_ARTIFACTS", "relative-artifacts"),
+    ],
+)
+def test_explicit_gate_rejects_invalid_compose_prerequisites(name, value):
+    with pytest.raises(ValueError, match=name):
+        gate.validate_environment(ENV | {name: value})
+
+
+def test_explicit_gate_requires_existing_artifact_directory(tmp_path):
+    for path in (tmp_path / "missing", tmp_path / "file"):
+        if path.name == "file":
+            path.touch()
+        with pytest.raises(ValueError, match="FLEET_BUILD_ARTIFACTS"):
+            gate.validate_environment(ENV | {"FLEET_BUILD_ARTIFACTS": str(path)})

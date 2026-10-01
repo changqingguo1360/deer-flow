@@ -128,7 +128,11 @@ async def test_b12_contract(fleet_database, tmp_path):
             " except OSError: time.sleep(.05)\n"
             "else: raise RuntimeError('HTTP mock did not become ready')",
         )
-        script = f"echo first >> /output/count; wget -q -O /dev/null http://{address}:8080/cgi-bin/effect || exit 9; while [ ! -f /output/allow-second ]; do sleep .1; done; echo second >> /output/count; wget -q -O /dev/null http://{address}:8080/cgi-bin/effect"
+        script = (
+            f"echo first >> /output/count; wget -q -O /dev/null http://{address}:8080/cgi-bin/effect || exit 9; "
+            "echo acknowledged > /output/first-http-done; while [ ! -f /output/allow-second ]; do sleep .1; done; "
+            f"echo second >> /output/count; wget -q -O /dev/null http://{address}:8080/cgi-bin/effect"
+        )
         request = TaskSubmitRequest(
             user_id="u",
             thread_id="t",
@@ -144,11 +148,20 @@ async def test_b12_contract(fleet_database, tmp_path):
         await daemon.bootstrap()
         execution = asyncio.create_task(daemon.execute_one())
         for _ in range(200):
-            if (mock_dir / "count").exists():
+            # The server opens its counter before flushing. Wait for the job's
+            # successful HTTP acknowledgement and both first-effect contents.
+            if (
+                (output / "first-http-done").exists()
+                and (output / "first-http-done").read_text().strip() == "acknowledged"
+                and (output / "count").read_text().splitlines() == ["first"]
+                and (mock_dir / "count").exists()
+                and (mock_dir / "count").read_text().splitlines() == ["effect"]
+            ):
                 break
             if execution.done():
                 await execution
             await asyncio.sleep(0.03)
+        assert (output / "first-http-done").read_text().strip() == "acknowledged"
         assert (output / "count").read_text().splitlines() == ["first"]
         assert (mock_dir / "count").read_text().splitlines() == ["effect"]
         async with engine.connect() as conn:
