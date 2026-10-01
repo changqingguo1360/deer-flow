@@ -788,10 +788,12 @@ Observed RED/GREEN and full verification are recorded in implementation-progress
 
 **Files:**
 - Create: `docker/fleet/compose.yaml`
-- Create: `docker/fleet/worker.Dockerfile`
+- Create: `docker/fleet/worker.Dockerfile` and `.dockerignore`, platform-specific runtime hash lock
 - Create: `docker/fleet/README.md`
 - Create: `docs/deployment/ecs-fleet.md`
-- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/worker/__main__.py`
+- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/worker/__main__.py` and `operator.py`
+- Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/nodes.py`
+- Test: `backend/tests/fleet/test_b11_worker_entry.py`, `test_b11_worker_image.py`
 - Modify: `README.md`
 - Modify: `backend/AGENTS.md`
 - Modify: `frontend/AGENTS.md`
@@ -801,7 +803,7 @@ Observed RED/GREEN and full verification are recorded in implementation-progress
 
 **OpenSpec:** `fleet-job-integration` / `Reproducible deployment and safe disabling`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 构建镜像并验证 digest；本地两 worker 与 NAS fixture 部署；drain 后无新 claim；disable 后查 DB/日志仍有可定位记录；核对所有端口显式绑定。
+- [x] **Step 1 — 场景搭建与失败测试。** 构建镜像并验证 digest；本地两 worker 与 NAS fixture 部署；drain 后无新 claim；disable 后查 DB/日志仍有可定位记录；核对所有端口显式绑定。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -817,15 +819,15 @@ async def test_b11_contract(fleet_probe):
     assert observed['worker_public_ports'] == 0
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_b11_fleet_job_integration.py::test_b11_contract -vv
+PYTHONPATH=. uv run pytest tests/fleet/test_b11_worker_entry.py -vv
 ```
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # Configuration defaults: all Fleet feature flags false; profiles explicit.
@@ -836,7 +838,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b11_fleet_job_integration.py::test_b
 
 C 镜像入口本阶段不实现；Docker 测试镜像可无外网依赖，生产镜像 digest 由部署者提供，不提交真实凭据。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b11_fleet_job_integration.py -vv
@@ -845,13 +847,19 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b11 提供可重复部署、兼容检查与迁移回退说明"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `11.1` 至 `11.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `11.1` 至 `11.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+
+B11 execution note: actual host CLI workers, image entry/Linux Docker control and
+rendered Compose are verified. The real process chain was added GREEN after entry/
+operator/shutdown REDs; fixture failures are not RED. Full containerized Compose daemon
+acceptance remains for B12, alongside the required fault/gate matrix. Detailed commands,
+artifact source/digests, counts and local scope are in implementation-progress.md.
 
 ### Task B12: B 集成故障验收与进入 C 的门槛
 

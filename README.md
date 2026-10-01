@@ -1598,6 +1598,11 @@ reuse the original unfinished job, arguments and task tracking for that slot; ca
 pending or an uncertain execution still occupies it. A terminal job permits a new cycle.
 The chat task card shows uncertain Fleet execution as “需要确认” / “Needs confirmation”,
 preserves pending cancellation and degraded tracking, and does not imply physical stop.
-Public worker deployment and remote Agent runs are not available yet. All Fleet flags default to disabled. See the
+The public worker CLI and trusted operator commands now have local real-process
+acceptance. A hashed offline Linux worker image and outbound-only Compose helper are
+available; see the [deployment guide](docs/deployment/ecs-fleet.md). Local tests cover
+two host worker processes, image entry/Docker control and rendered Compose configuration.
+Full Compose daemon acceptance, the B release gate and production ECS deployment remain
+pending. Remote Agent runs are not available yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

@@ -474,3 +474,73 @@ B10 acceptance covers supported reuse_thread scheduled Fleet slots. No productio
 worker/ECS/NAS deployment or remote Agent execution is claimed. All feature flags
 remain disabled by default; B11 deployment and B12 release gate remain pending before C.
 Implementation commit: `6236636c` — `feat(fleet): deduplicate scheduled slots with durable invocation receipts`.
+
+
+## B11 public worker/operator and offline image — 2026-10-02
+
+Public POSIX worker entry reads bounded JSON settings and an owned/private regular
+credential file, validates NAS identity, separates private persistent state, and locks
+one daemon incarnation before opening a session. Signals request graceful stop; shutdown
+fails nonzero if a stop acknowledgement or completion is pending. Spec review caught
+and fixed the stopped-zero-exit/server-running/no-manifest gap; it now uses the same
+completion recovery condition as bootstrap. Existing journals remain available for replay.
+
+The trusted operator CLI uses private database settings and existing locked Fleet
+migrations on the existing host schema. Public register/issue/revoke/drain/disable/
+enable/status commands replace handwritten SQL. Issue reserves an exclusive mode600
+file, fsyncs bytes/directory, prints only credential ID, and revokes on failed delivery.
+Register does not overwrite an existing budget; disable rejects charged capacity.
+History, stopped proof and unreleased resources remain queryable after disabling.
+
+Two actual host CLI workers run against real TCP/Gateway node routes, isolated Postgres,
+NAS fixture and Docker. Old protocol and stale claims are rejected; draining node has
+zero starts; the active node executes one script/output. Closing admission while it is
+charged preserves accepted work, and disabling charged capacity fails. Accepted results
+remain recorded after completion/disable. Real SIGTERM during a running Docker job
+proves stop, durable acknowledgement and release_stopped capacity while unknown history
+remains retained. Correct physical-stop release assertions are not labeled feature RED.
+
+Genuine RED: two missing runnable-entry assertions, absent public registration/CLI,
+missing enable choice, unreported shutdown and the stopped-zero-exit completion gap.
+Fixture/dataclass corrections and initial incorrect quarantine-after-proved-stop test
+expectations are not behavioral RED evidence. Final focused B11: 20 passed, zero skipped,
+two existing websockets deprecation warnings, 10.59 seconds.
+
+The worker-only image copies the exact Fleet source, installs hashed offline pydantic/
+httpx wheels, and contains the verified real static Linux Docker CLI. No Gateway or C
+entry is provided. A Dockerfile-specific whitelist excludes unrelated config/runtime data.
+Image entry --help and real DockerContainers.inspect through its Linux CLI/socket are
+verified; actual PortBindings are empty. Rendered Compose preserves identical absolute
+host/NAS path and has zero worker ports, private state/credential binds and no auto-created
+host paths. Frozen CP314/Linux aarch64 artifact reference lock and complete build commands
+are in docker/fleet/README.md; other platforms need their own reviewed matching artifacts.
+
+Actual offline build base:
+python@sha256:51dafde81dbdb6ebde285137a295cf18a47ca95234fe388a343719cb97305b3d
+Static CLI source: https://download.docker.com/linux/static/stable/aarch64/docker-29.2.0.tgz
+CLI archive SHA256: e1590e656abaf2dfe8a1d724d99b82644446fe24844f438ea000e08006774717
+Final local worker image ID: sha256:c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8
+Built worker/__main__.py SHA256 equals final source:
+b3a24d92198f16f436169be841b4067424b958eaf73cb3e8e1b7ebd9b38a9f06
+
+Final expanded B01–B11/Gateway/notification/scheduler regression: 699 passed, zero
+skipped, four existing warnings, 66.07 seconds. Command is the B10 expanded command
+above with these additional explicit prerequisites:
+
+```bash
+FLEET_TEST_WORKER_IMAGE=sha256:c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8
+FLEET_TEST_DOCKER_SOCKET=<local-host-docker-socket>
+```
+
+FLEET_TEST_CONTAINERS=1 and the isolated TEST_POSTGRES_URI remain required. B11 entry,
+real worker integration and image files are included by tests/fleet. Full Ruff check and
+format check pass (1375 Python files), diff whitespace passes, OpenSpec strict validates
+all three changes. Spec and quality reviews approve the scoped local deployment slice.
+B10 replay message follow-up 9cdd7924 also has 26 passing graph/PG tool tests; wording
+preserves terminal truth instead of calling a replayed completed submission active.
+
+Scope: two supported host CLI workers, actual image entry/Docker control, and rendered
+Compose. Full containerized Compose daemon execution and production ECS/NAS are not
+claimed. B12 must finish the release fault/gate acceptance before C. Feature flags remain
+disabled by default; no production credentials/images are supplied or deployments made.
+Implementation commit: `feat(fleet): add public worker entry and reproducible deployment helpers`.

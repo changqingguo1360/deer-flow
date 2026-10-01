@@ -74,7 +74,9 @@ precedence. The API's optional `execution_uncertain` flag maps Fleet input_requi
 “需要确认” / “Needs confirmation”; ordinary MCP input requests keep their normal label.
 Pending cancellation stays active until a terminal status arrives. Preserve degraded
 tracking separately, and never add public RunStatus values for these presentation states.
-Pure mapping tests live in the node project; actual card/details/cancel interactions live
+Fleet worker/operator deployment is documented in `../docs/deployment/ecs-fleet.md`;
+administrative machine actions remain outside the thread task UI. A task card label
+or cancellation request cannot prove physical stop. Pure mapping tests live in the node project; actual card/details/cancel interactions live
 in `thread-background-tasks.dom.test.tsx` with happy-dom.
 
 ## Code Style

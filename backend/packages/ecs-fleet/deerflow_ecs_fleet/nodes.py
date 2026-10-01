@@ -11,6 +11,38 @@ class NodeRegistry:
     def __init__(self, session_factory):
         self.sf = session_factory
 
+    async def register(self, *, node_id: str, name: str, cpu_millis: int, memory_mib: int) -> None:
+        import re
+
+        from .config import NAME_PATTERN
+
+        if not re.fullmatch(NAME_PATTERN, node_id) or not re.fullmatch(NAME_PATTERN, name):
+            raise ValueError("Invalid operator node identity")
+        if type(cpu_millis) is not int or not 1 <= cpu_millis <= 1_000_000 or type(memory_mib) is not int or not 1 <= memory_mib <= 4_194_304:
+            raise ValueError("Invalid operator node capacity")
+        async with self.sf.begin() as session:
+            # Existing budgets cannot be silently changed on re-registration.
+            session.add(NodeRow(id=node_id, name=name, cpu_millis=cpu_millis, memory_mib=memory_mib))
+
+    async def status(self, node_id: str) -> dict:
+        from .persistence.models import ReservationRow
+
+        async with self.sf() as session:
+            node = await session.get(NodeRow, node_id)
+            if node is None:
+                raise ValueError("Unknown node")
+            attempts = (await session.execute(select(AttemptRow.id, AttemptRow.job_id, AttemptRow.state, AttemptRow.process_ref, AttemptRow.stopped_at).where(AttemptRow.node_id == node_id))).mappings().all()
+            reservations = (
+                (await session.execute(select(ReservationRow.attempt_id, ReservationRow.state, ReservationRow.cpu_millis, ReservationRow.memory_mib).where(ReservationRow.node_id == node_id, ReservationRow.state != "released")))
+                .mappings()
+                .all()
+            )
+            return {
+                "node": {"id": node.id, "name": node.name, "admin_state": node.admin_state, "health": node.health, "cpu_millis": node.cpu_millis, "memory_mib": node.memory_mib},
+                "attempts": [dict(row) | {"stopped_at": row["stopped_at"].isoformat() if row["stopped_at"] else None} for row in attempts],
+                "unreleased_reservations": [dict(row) for row in reservations],
+            }
+
     async def open_session(self, node_id: str, *, protocol_version: int) -> dict:
         if protocol_version != 1:
             raise ValueError("Incompatible Fleet protocol")

@@ -451,7 +451,25 @@ user/thread filters. Stream the verified descriptor, never reopen it through Fil
 Worker publication journals the sealed manifest before complete; a lost accepted
 completion is replayable after restart. Unknown/quarantined attempts stay unknown
 on late stopped acknowledgements. nas_identity is explicit and the sentinel is checked
-before Fleet migrations. Public worker startup remains pending.
+before Fleet migrations. B11 public POSIX worker entry is worker/__main__.py:
+`python -m deerflow_ecs_fleet.worker --settings <absolute-json>`. Node credentials are
+read only from owned private regular no-follow files; bounded settings preflight NAS,
+separate private state, and hold an incarnation lock before session bootstrap. Signals
+stop the daemon and retained journals must have acknowledged stop/completion; a stopped
+zero-exit/server-running record without a manifest still requires recovery and nonzero
+exit. Do not print HTTP/Docker/config exceptions that may carry secrets.
+The trusted operator module registers nodes without SQL, issues exclusive/fsynced
+private credential files, revokes credentials, drains/disables/enables and queries safe
+execution/capacity history. It uses existing Fleet locked migrations on an already
+bootstrapped host database, never host ORM tables. Existing node budgets are not silently
+replaced. Disable rejects charged capacity; enable never requeues unknown work.
+The worker-only image copies exact Fleet source plus hashed offline pydantic/httpx
+runtime dependencies and a real static Linux Docker CLI. The daemon owns Docker control;
+job containers never inherit its credentials/state/socket. Compose publishes no worker
+ports and refuses missing host binds; NAS paths stay identical to host paths. Gateway
+and workers need compatible NAS UIDs because workspaces are private 0700.
+B11 tests cover two actual host CLI workers plus image entry/control and Compose render;
+full containerized daemon deployment and B12 remain pending. See ../docs/deployment/ecs-fleet.md.
 
 InputManifests uses the independent f0003_inputs migration and private
 fleet_input_manifests table. Thread-owned multipart uploads use threads:write,

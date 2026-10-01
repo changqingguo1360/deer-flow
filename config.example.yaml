@@ -2810,7 +2810,8 @@ authorization:
 #       label: example                    # extension-private values, if any
 
 
-# ECS Fleet package is in development; no runnable worker deployment is available yet.
+# ECS Fleet host worker CLI/deployment helpers are locally verified; B release gate remains pending.
+# See docs/deployment/ecs-fleet.md; full Compose daemon/production deployment is not yet verified.
 # All Fleet flags default to false. Install only with the trusted extension manager.
 # The example is intentionally disabled; configure absolute NAS root and immutable
 # image digests after the B release gate passes. See docs/superpowers/plans/
