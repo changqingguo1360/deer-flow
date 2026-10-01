@@ -1,5 +1,6 @@
 """Immutable input registration and authorization are persisted in real Postgres."""
 
+import asyncio
 import importlib.util
 from io import BytesIO
 
@@ -34,7 +35,14 @@ async def test_input_versions_are_pinned_and_owned(fleet_database, tmp_path):
     async with engine.begin() as conn:
         await conn.execute(text("UPDATE fleet_jobs SET state='queued',queued_at=clock_timestamp()"))
         await conn.execute(text("INSERT INTO fleet_nodes (id,name,cpu_millis,memory_mib,session_id,health,last_seen_at) VALUES ('n','n',1000,512,'s','online',clock_timestamp())"))
-    claim = await fleet.scheduler.claim_job("n", node_session_id="s")
+    # Background reconciliation may briefly hold the queued job row. Claim
+    # uses SKIP LOCKED, so a temporary None is a valid admission outcome.
+    for _ in range(40):
+        claim = await fleet.scheduler.claim_job("n", node_session_id="s")
+        if claim is not None:
+            break
+        await asyncio.sleep(0.05)
+    assert claim is not None, "Queued job was not claimed within the bounded wait"
     grant = await fleet.attempts.authorize_start(node_id="n", node_session_id="s", attempt_id=claim.attempt_id, token=claim.token)
     assert job["id"] == claim.job_id
     assert [row["id"] for row in grant["launch_spec"]["inputs"]] == [original["id"]]

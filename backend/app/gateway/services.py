@@ -1201,6 +1201,8 @@ async def start_run(
     *,
     idempotency_key: str | None = None,
     require_existing_thread: bool = False,
+    trusted_schedule_id: str | None = None,
+    trusted_schedule_mode: str = "reuse_thread",
 ) -> RunRecord:
     """Create a RunRecord and launch the background agent task.
 
@@ -1321,6 +1323,11 @@ async def start_run(
             # ``body.config`` is free-form and copied verbatim by
             # ``build_run_config``; scrub internal-only keys smuggled there.
             strip_internal_context_keys(config)
+        from app.fleet.scheduled_jobs import apply_scheduled_job_context
+
+        if trusted_schedule_id is not None and not is_internal_caller:
+            raise HTTPException(status_code=403, detail="Scheduled identity requires internal authentication")
+        apply_scheduled_job_context(config, schedule_id=trusted_schedule_id, context_mode=trusted_schedule_mode)
         internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
         inject_authenticated_user_context(
             config,
@@ -1519,6 +1526,8 @@ async def launch_scheduled_thread_run(
         if_not_exists="create",
         feedback_keys=None,
     )
+    if getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL:
+        raise HTTPException(status_code=403, detail="Scheduled launch requires internal authentication")
     scheduled_task_run_id = (metadata or {}).get("scheduled_task_run_id")
     idempotency_key = f"scheduled-task:{scheduled_task_run_id}" if isinstance(scheduled_task_run_id, str) else None
     record = await start_run(
@@ -1526,6 +1535,7 @@ async def launch_scheduled_thread_run(
         thread_id,
         request,
         idempotency_key=idempotency_key,
+        **({"trusted_schedule_id": metadata["scheduled_task_id"], "trusted_schedule_mode": metadata.get("scheduled_context_mode", "reuse_thread")} if metadata and "scheduled_task_id" in metadata else {}),
     )
     return {"run_id": record.run_id, "thread_id": record.thread_id}
 

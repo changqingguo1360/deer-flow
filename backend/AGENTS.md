@@ -410,6 +410,27 @@ Fleet task retries use TaskSubmission.tracking_task_id to opt into the host
 McpTaskRepository.create_idempotent boundary. Ordinary MCP drivers retain duplicate
 remote-handle rejection. Never infer invocation identity from provider call IDs alone:
 use the graph-injected ExecutionInfo helper in deerflow.mcp.tasks.invocation.
+B10 scheduled job identity is injected only by the internal scheduler launch through
+`start_run(trusted_schedule_id=...)`. Strip client-supplied scheduled_task_id from both
+context and configurable before injection; request metadata never grants this identity.
+The scheduler supplies its server-owned context mode. Scheduled Fleet jobs require
+`reuse_thread`; reject `fresh_thread_per_run` before creating work, and do not expose
+canonical tracking across threads. Operator `scheduled_job_slots` maps bounded slot
+names to existing job profiles; the
+model may select an approved slot, not a dedupe key. Per-owner schedule/slot admission
+uses a PostgreSQL transaction advisory lock before job locks, and checks original
+invocation identity before unfinished group reuse. Unknown/quarantined and cancellation
+pending jobs keep the slot; terminal jobs permit a new occurrence.
+`TaskSubmission.reuse_existing` explicitly selects a read-only canonical tracking lookup
+outside compensation: never cancel older accepted work on a missing tracking row.
+Original-invocation retry retains create_idempotent recovery. Cross-occurrence reuse
+preserves the original run, name and arguments. The private f0005_job_invocations
+migration owns immutable invocation receipts and backfills existing canonical jobs.
+Every admission records requested owner/key/thread/run/spec/group -> canonical job,
+including reuse decisions. All submission paths serialize owner+invocation before
+schedule-group/job locks. Receipt replay precedes active-group lookup and stays bound
+to the original job after terminal state or a newer cycle; never rebind a lost response. API execution_uncertain is additive and
+true only for Fleet input_required with execution_unknown; public status remains unchanged.
 Worker start/renew/stopped requests require node + session + attempt token; closing
 new-work flags must not cut off these accepted-work endpoints. The persisted start
 grant freezes the claim's profile. Stop acknowledgement can release capacity but

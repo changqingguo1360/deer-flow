@@ -256,6 +256,7 @@ export interface Translations {
     resultArtifact: string;
     inputRequired: string;
     inputUnavailable: string;
+    reconciliationRequired: string;
     lastPollError: string;
     created: (time: string) => string;
     updated: (time: string) => string;
@@ -263,6 +264,7 @@ export interface Translations {
       submitted: string;
       working: string;
       inputRequired: string;
+      uncertain: string;
       completed: string;
       failed: string;
       cancelled: string;

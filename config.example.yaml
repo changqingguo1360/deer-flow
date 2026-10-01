@@ -2827,3 +2827,8 @@ authorization:
 #       jobs_enabled: false
 #       agents_enabled: false
 #       continuations_enabled: false
+#       scheduled_job_slots: {}    # named slot -> approved job profile; default empty
+#       # Scheduled Fleet jobs require scheduler context_mode: reuse_thread.
+#       # Example after declaring a matching job profile under profiles:
+#       # scheduled_job_slots:
+#       #   daily-report: batch

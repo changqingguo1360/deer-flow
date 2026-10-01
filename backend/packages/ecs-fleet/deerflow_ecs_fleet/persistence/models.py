@@ -183,3 +183,21 @@ class RecoveryEventRow(FleetBase):
         CheckConstraint("action = 'fail_stopped'", name="ck_fleet_recovery_action"),
         Index("ix_fleet_recovery_job", "job_id", "created_at"),
     )
+
+
+class JobInvocationRow(FleetBase):
+    """Immutable admission receipt, including invocations that reused work."""
+
+    __table__ = Table(
+        "fleet_job_invocations",
+        metadata,
+        Column("user_id", String(64), primary_key=True),
+        Column("idempotency_key", String(128), primary_key=True),
+        Column("thread_id", String(64), nullable=False),
+        Column("source_run_id", String(64)),
+        Column("spec", json_type, nullable=False),
+        Column("dedupe_group", String(128)),
+        Column("job_id", String(64), ForeignKey("fleet_jobs.id"), nullable=False),
+        timestamp("created_at"),
+        Index("ix_fleet_job_invocations_job", "job_id"),
+    )

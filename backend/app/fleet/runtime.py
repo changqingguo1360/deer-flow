@@ -26,4 +26,4 @@ def install_fleet_tools(app, submitter):
     if not runtime.ready or runtime.jobs is None or submitter is None:
         raise RuntimeError("Fleet submission requires its ready tracking driver and task service")
     names = tuple(sorted(name for name, profile in runtime.config.profiles.items() if profile.kind == "job"))
-    set_fleet_job_submitter(submitter, profile_names=names)
+    set_fleet_job_submitter(submitter, profile_names=names, scheduled_job_slots=runtime.config.scheduled_job_slots)

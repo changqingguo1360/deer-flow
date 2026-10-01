@@ -309,11 +309,11 @@ export const enUS: Translations = {
   backgroundTasks: {
     label: "Background tasks",
     title: "Background tasks",
-    description: "Long-running MCP work for this chat.",
+    description: "Background computation and long-running tasks for this chat.",
     active: "Active",
     recent: "Recent",
     empty: "No background tasks yet",
-    emptyHint: "Long-running MCP tasks started in this chat will appear here.",
+    emptyHint: "Background tasks started in this chat will appear here.",
     loadFailed: "Couldn't load background tasks",
     retry: "Try again",
     cancel: "Cancel task",
@@ -334,12 +334,15 @@ export const enUS: Translations = {
     inputRequired: "Input required",
     inputUnavailable:
       "This integration cannot send your response back to the remote task yet.",
+    reconciliationRequired:
+      "The execution result is still uncertain. Ask an administrator to reconcile it.",
     lastPollError: "Latest status error",
     created: (time) => `Started ${time}`,
     updated: (time) => `Updated ${time}`,
     status: {
       submitted: "Submitted",
       working: "Working",
+      uncertain: "Needs confirmation",
       inputRequired: "Input needed",
       completed: "Completed",
       failed: "Failed",

@@ -20,6 +20,16 @@ class FleetTaskDriver:
         # Provider tool_call_id is deliberately excluded: it is not globally
         # unique and may be reused by a later model turn.
         key = hashlib.sha256(("\0".join([request.user_id, request.run_id or "", invocation])).encode()).hexdigest()
+        schedule_id = request.driver_data.get("scheduled_task_id")
+        slot = request.driver_data.get("job_slot")
+        group = None
+        if schedule_id is not None or slot is not None:
+            if not isinstance(schedule_id, str) or not schedule_id or len(schedule_id) > 128:
+                raise ValueError("Scheduled job requires trusted schedule identity")
+            approved = self.jobs.config.scheduled_job_slots.get(slot) if isinstance(slot, str) else None
+            if approved is None or request.arguments.get("profile") != approved:
+                raise ValueError("Scheduled job requires an approved slot and matching profile")
+            group = hashlib.sha256((schedule_id + "\0" + slot).encode()).hexdigest()
         job = await self.jobs.submit(
             user_id=request.user_id,
             thread_id=request.thread_id,
@@ -27,9 +37,9 @@ class FleetTaskDriver:
             tracking_task_id=request.local_task_id,
             idempotency_key=key,
             spec=JobSpec.model_validate(request.arguments),
-            dedupe_group=request.driver_data.get("dedupe_group"),
+            dedupe_group=group,
         )
-        return TaskSubmission(remote_task_id=job["id"], snapshot=self.snapshot(job), driver_data={"fleet_tracking_id": job["tracking_task_id"]}, tracking_task_id=job["tracking_task_id"])
+        return TaskSubmission(remote_task_id=job["id"], snapshot=self.snapshot(job), driver_data={"fleet_tracking_id": job["tracking_task_id"]}, tracking_task_id=job["tracking_task_id"], reuse_existing=job.get("reused_existing", False))
 
     @staticmethod
     def snapshot(job):

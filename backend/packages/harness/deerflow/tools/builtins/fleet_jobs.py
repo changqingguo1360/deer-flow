@@ -6,7 +6,7 @@ from langchain.tools import tool
 
 from deerflow.agents.middlewares.input_sanitization_middleware import neutralize_untrusted_tags
 from deerflow.mcp.tasks import TaskSubmitRequest
-from deerflow.mcp.tasks.fleet_runtime import get_fleet_job_submitter
+from deerflow.mcp.tasks.fleet_runtime import get_fleet_job_submitter, get_fleet_scheduled_job_slots
 from deerflow.mcp.tasks.invocation import durable_tool_invocation_id
 from deerflow.tools.types import Runtime
 
@@ -17,6 +17,7 @@ async def submit_fleet_job(
     task_name: Annotated[str, "A short name for this background computation."],
     profile: Annotated[str, "An operator-approved job profile name."],
     argv: Annotated[list[str], "Program and arguments inside the isolated job container."],
+    job_slot: Annotated[str | None, "Operator-approved named scheduled job slot; required for scheduled runs."] = None,
     input_manifests: Annotated[list[str] | None, "Immutable input or accepted result version IDs owned by this chat."] = None,
     code_artifact_id: Annotated[str | None, "Optional immutable code version ID; mounted read-only under /inputs/<id>."] = None,
     execution_timeout_seconds: Annotated[int, "Execution limit within the profile's authorized budget."] = 1800,
@@ -33,6 +34,17 @@ async def submit_fleet_job(
     thread_id = runtime.execution_info.thread_id
     if context.get("thread_id") not in {None, thread_id}:
         raise ValueError("Fleet submission requires consistent durable thread identity")
+    schedule_id = context.get("scheduled_task_id")
+    driver_data = {"invocation_id": invocation}
+    if schedule_id is not None or job_slot is not None:
+        if not isinstance(schedule_id, str) or not schedule_id:
+            raise ValueError("Job slot requires an authenticated scheduled run")
+        if context.get("scheduled_context_mode", "reuse_thread") != "reuse_thread":
+            raise ValueError("Fleet scheduled job slots require reuse_thread")
+        approved = get_fleet_scheduled_job_slots().get(job_slot) if isinstance(job_slot, str) else None
+        if approved is None or approved != profile:
+            raise ValueError("Scheduled job requires an approved slot and matching profile")
+        driver_data.update(scheduled_task_id=schedule_id, job_slot=job_slot)
     created = await get_fleet_job_submitter().submit(
         driver_name="fleet",
         request=TaskSubmitRequest(
@@ -52,7 +64,12 @@ async def submit_fleet_job(
                 "queue_timeout_seconds": queue_timeout_seconds,
                 "link_mode": "detached",
             },
-            driver_data={"invocation_id": invocation},
+            driver_data=driver_data,
         ),
     )
-    return {"task_id": created["id"], "task_name": neutralize_untrusted_tags(task_name), "status": created["status"], "message": "Background job submitted; completion is tracked automatically."}
+    return {
+        "task_id": created["id"],
+        "task_name": neutralize_untrusted_tags(created["task_name"]),
+        "status": created["status"],
+        "message": ("Existing unfinished scheduled job reused; original arguments and tracking remain active." if created.get("reused_existing") else "Background job submitted; completion is tracked automatically."),
+    }

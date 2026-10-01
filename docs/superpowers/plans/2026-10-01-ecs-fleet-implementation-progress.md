@@ -384,3 +384,93 @@ B09 final review: admission is held before the actual Docker job completes. Clea
 now guarantees Fleet shutdown despite earlier cleanup errors and bounds TCP server
 shutdown; the focused real chain passed again after that change. Spec and quality
 re-reviews approve the local slice. Acceptance commit: `test(fleet): verify real job notification lifecycle`.
+
+
+## B10 scheduled named slots and truthful task visibility — 2026-10-02
+
+FleetConfig.scheduled_job_slots defaults empty and maps bounded operator names to
+existing job profiles. The model can select an approved slot but cannot supply a
+schedule identity or dedupe group. The actual scheduler forwards its context mode;
+only internal launch passes trusted_schedule_id/trusted_schedule_mode to start_run.
+Raw context and configurable copies lose both reserved keys, including auth-disabled
+external callers. Fleet scheduled jobs require reuse_thread; fresh_thread_per_run is
+rejected before the first submission, preserving canonical thread tracking.
+
+A per-owner schedule+slot advisory transaction lock precedes job locks, including
+empty groups. Original invocation retry is checked first, even after a terminal cycle
+or newer occurrence. New occurrences reuse staged/queued/claimed/running/unknown/
+quarantined work; pending cancellation still occupies the slot. Reuse keeps original
+arguments, tracking ID/name/source run. TaskSubmission.reuse_existing selects a
+read-only host lookup outside compensation; missing original tracking causes a retry
+without cancelling older accepted work. The original invocation can still repair its
+own uncommitted tracking row. Terminal work permits a new occurrence.
+
+Quality review caught a lost-response replay gap in cross-occurrence reuse. Two genuine
+Pg REDs showed replay binding to a new job after the original became terminal or a
+newer cycle was active. f0005_job_invocations now persists immutable owner/key/thread/
+source run/requested spec/group -> canonical job receipts for every admission decision,
+including reuse, and backfills existing canonical jobs. All submissions serialize
+owner+invocation before group/job locks; receipt lookup precedes active-group lookup.
+Replay never changes its job binding; conflicting request identity is rejected. Host
+service coverage preserves the original terminal tracking/name/run without compensation.
+
+Public task statuses remain unchanged. execution_uncertain is additive and specific
+to Fleet input_required + execution_unknown. The UI maps it to Needs confirmation /
+需要确认, retains active polling and pending cancellation, preserves degraded tracking,
+and gives terminal status precedence over stale flags. Ordinary MCP input requests
+and old payloads without the flag keep their prior presentation. No machine UI added.
+
+RED evidence: seven initial backend failures covered absent slot config/public flag
+and real Pg active-group uniqueness failures; host canonical group reuse, trusted
+context helper and tool schema also had behavior failures before implementation.
+The mode review fix had three further REDs: missing actual scheduler mode forwarding,
+fresh mode reaching submission, and raw forged mode surviving scrub. UI pure mapping
+had ten RED assertions before implementation; actual card DOM tests had two behavior
+failures for unknown badge/details before wiring, alongside two existing behavior passes.
+The full runtime acceptance was added GREEN; fixture/collection failures are not RED.
+
+Actual runtime acceptance extends test_b09_fleet_job_integration.py with
+test_real_scheduled_slots_http_boundary_and_one_docker_execution. It exercises the
+production internal launch and original run_agent; only external LLM replies are
+scripted. Four forged external HTTP payloads cannot establish schedule identity/mode.
+Two internal scheduled occurrences complete their Agent runs while the original job
+remains unfinished. Both return original tracking/name/source run. The real TCP node
+client and Docker job write the counter once; Pg records one job, attempt, accepted
+manifest and tracked notification. This is local isolated PG/SQLite/NAS fixture/Docker,
+not production ECS/NAS or a full Gateway process restart.
+
+Existing B07 input test now waits at most two seconds for a claim rather than asserting
+on its first SKIP LOCKED result; background reconciliation may briefly hold that row.
+It still requires actual admission and verifies the frozen input snapshot. No scheduler
+business behavior was changed for this test stabilization.
+
+Frontend: 26 passed, zero skipped/todo; pnpm check (lint + tsc) passed. Dependencies
+installed offline with frozen lockfile from local cache; no dependency/lock changes.
+UI specification and quality reviews approved. Backend specification review approved
+supported reuse_thread scope after early-mode rejection. Final backend quality review
+and expanded configured regression are recorded below after completion.
+
+Final review: backend specification and quality re-review approve the immutable receipt
+fix. Focused PG B10/foundation/driver: 26 passed, including a populated f0004→f0005
+migration. Real Agent/TCP/Docker B09+B10: 2 passed, two known deprecation warnings.
+The final expanded configured regression: 679 passed, zero skipped, four existing
+warnings. Backend Ruff check and format check pass (1370 Python files).
+OpenSpec strict validation: 3/3 changes pass. git diff --check passes.
+
+Final backend command (from backend, local isolated fixture URI supplied):
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 TEST_POSTGRES_URI=<local-test-uri> FLEET_TEST_CONTAINERS=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_mcp_tasks_router.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py tests/test_gateway_startup.py tests/test_gateway_lifespan_shutdown.py tests/test_authorization_tool_filter.py tests/test_extension_app_loading.py tests/test_runtime_lifecycle_e2e.py tests/test_gateway_services.py tests/test_scheduler_config.py tests/test_scheduled_task_service.py tests/test_scheduled_task_lifecycle.py tests/test_scheduled_task_queue.py tests/test_scheduled_task_claims.py tests/test_scheduled_task_dispatch_race.py tests/test_scheduled_task_postgres.py -q -p no:cacheprovider --tb=short --show-capture=no
+```
+
+Frontend commands (repo root, both PASS; 26 scoped tests):
+
+```bash
+python3 scripts/pnpm.py rstest run tests/unit/core/background-tasks tests/unit/components/workspace/thread-background-tasks.dom.test.tsx
+python3 scripts/pnpm.py check
+```
+
+B10 acceptance covers supported reuse_thread scheduled Fleet slots. No production
+worker/ECS/NAS deployment or remote Agent execution is claimed. All feature flags
+remain disabled by default; B11 deployment and B12 release gate remain pending before C.
+Implementation commit: `feat(fleet): deduplicate scheduled slots with durable invocation receipts`.

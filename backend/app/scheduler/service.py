@@ -253,6 +253,7 @@ class ScheduledTaskService:
                     "scheduled_task_id": task["id"],
                     "scheduled_task_run_id": task_run_id,
                     "scheduled_trigger": trigger,
+                    "scheduled_context_mode": task.get("context_mode", "fresh_thread_per_run"),
                 },
             )
             launch_succeeded = True

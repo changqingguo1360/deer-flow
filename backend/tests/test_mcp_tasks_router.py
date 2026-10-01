@@ -89,6 +89,7 @@ async def test_list_returns_only_safe_current_user_thread_fields(monkeypatch) ->
             "error": None,
             "tracking_degraded": True,
             "cancel_requested": False,
+            "execution_uncertain": False,
         }
     ]
 
@@ -218,3 +219,19 @@ async def test_cancel_rejected_when_availability_flag_missing(monkeypatch) -> No
 
     assert excinfo.value.status_code == 503
     service.cancel_task.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("driver,reason,expected", [("fleet", "execution_unknown", True), ("fleet", "question", False), ("ordinary_mcp", "execution_unknown", False)])
+async def test_list_and_detail_flag_only_fleet_execution_uncertainty(monkeypatch, driver, reason, expected):
+    repo = FakeRepository([_record(driver_name=driver, status="input_required", input_required={"reason": reason})])
+    monkeypatch.setattr(mcp_tasks, "get_current_user", AsyncMock(return_value="user-1"))
+    listed = await mcp_tasks.list_mcp_tasks.__wrapped__(thread_id="thread-1", request=_request(repo), limit=25)
+    detail = await mcp_tasks.get_mcp_task.__wrapped__(thread_id="thread-1", task_id="mcp-task-1", request=_request(repo))
+    assert listed[0]["execution_uncertain"] is expected
+    assert detail["execution_uncertain"] is expected
+    assert detail["input_required"]["reason"] == reason
+    for payload in [listed[0], detail]:
+        assert "remote_task_id" not in payload
+        assert "driver_name" not in payload
+        assert "driver_data" not in payload

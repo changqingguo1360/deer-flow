@@ -721,12 +721,12 @@ git commit -m "feat(fleet): b09 暴露受控工具并复用长期任务通知"
 - Modify: `frontend/src/components/workspace/thread-background-tasks.tsx`
 - Modify: `frontend/src/core/i18n/locales/en-US.ts`
 - Modify: `frontend/src/core/i18n/locales/zh-CN.ts`
-- Test: `backend/tests/fleet/test_b10_fleet_job_integration.py`
+- Test: `backend/tests/fleet/test_b10_scheduled_jobs.py` and `test_b09_fleet_job_integration.py::test_real_scheduled_slots_http_boundary_and_one_docker_execution`
 - Docs: `README.md`、`backend/AGENTS.md`；涉及前端时同步 `frontend/AGENTS.md`。
 
 **OpenSpec:** `fleet-job-integration` / `Scheduled job deduplication and truthful UI`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 内部 scheduler launch 提供可信 schedule ID，客户端伪造同名字段无效；连续触发同 slot；前端用 unknown/cancel-pending 数据渲染任务摘要。
+- [x] **Step 1 — 场景搭建与失败测试。** 内部 scheduler launch 提供可信 schedule ID，客户端伪造同名字段无效；连续触发同 slot；前端用 unknown/cancel-pending 数据渲染任务摘要。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -742,15 +742,15 @@ async def test_b10_contract(fleet_probe):
     assert observed['unknown_label'] == '需要确认'
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_b10_fleet_job_integration.py::test_b10_contract -vv
+PYTHONPATH=. uv run pytest tests/fleet/test_b10_scheduled_jobs.py -vv
 ```
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # dedupe_group = authenticated schedule_id + named job_slot, not free-form model input.
@@ -760,22 +760,29 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b10_fleet_job_integration.py::test_b
 
 前端先写纯状态映射单测，再 DOM/交互用例；不新增机器管理 UI。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_b10_fleet_job_integration.py -vv
+PYTHONPATH=. uv run pytest tests/fleet/test_b10_scheduled_jobs.py tests/fleet/test_b09_fleet_job_integration.py -vv
 PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 ```
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b10 接入定时 job 去重和任务可见性"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `10.1` 至 `10.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `10.1` 至 `10.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+
+B10 execution note: named Fleet slots require scheduler reuse_thread. The internal
+scheduler context mode is trusted explicitly; fresh_thread_per_run is rejected before
+submission to preserve original-thread tracking. f0005 invocation receipts persist
+reuse decisions across terminal/new cycles. Real assertions are read directly from
+production runtime, PostgreSQL and TCP/Docker fixtures; a generic FleetProbe is not used.
+Observed RED/GREEN and full verification are recorded in implementation-progress.md.
 
 ### Task B11: 提供可重复部署、兼容检查与迁移回退说明
 

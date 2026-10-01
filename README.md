@@ -1590,6 +1590,14 @@ user, thread and durable invocation identity; models choose only approved job pr
 and execution arguments. Local end-to-end tests cover a completed Agent submission
 run, actual worker completion, busy-thread notification deferral, task-service restarts
 and lost notification launch responses with one persisted notification run and receipt.
+Scheduled submissions use the internally authenticated schedule identity and an
+operator-declared `scheduled_job_slots` name bound to a job profile. These scheduled
+tasks require `reuse_thread` so tracking and completion stay in the original chat;
+`fresh_thread_per_run` is rejected before Fleet submission. Later occurrences
+reuse the original unfinished job, arguments and task tracking for that slot; cancellation
+pending or an uncertain execution still occupies it. A terminal job permits a new cycle.
+The chat task card shows uncertain Fleet execution as “需要确认” / “Needs confirmation”,
+preserves pending cancellation and degraded tracking, and does not imply physical stop.
 Public worker deployment and remote Agent runs are not available yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

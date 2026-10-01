@@ -141,6 +141,7 @@ class TaskSubmission:
     snapshot: TaskSnapshot
     driver_data: dict[str, Any] = field(default_factory=dict)
     tracking_task_id: str | None = None
+    reuse_existing: bool = False
 
     def __post_init__(self) -> None:
         if self.tracking_task_id is not None:

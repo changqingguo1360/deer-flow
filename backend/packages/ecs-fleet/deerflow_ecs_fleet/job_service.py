@@ -1,16 +1,17 @@
 """Durable staged jobs activate only after their matching tracking row commits."""
 
+import hashlib
 import re
 from datetime import timedelta
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from .cancellation import cancel_stopped_attempt
 from .config import NAME_PATTERN
 from .persistence.inputs import resolve_inputs
-from .persistence.models import JobRow
+from .persistence.models import JobInvocationRow, JobRow
 from .protocol import JobSpec
 
 
@@ -44,6 +45,53 @@ class FleetJobService:
             raise ValueError("Job exceeds operator time budget")
         payload = spec.model_dump()
         async with self.sf.begin() as session:
+            # All invocations share one identity namespace, whether they create
+            # work or reuse it, and whether the request has a scheduled group.
+            invocation_lock = int.from_bytes(hashlib.sha256(("fleet-invocation\0" + user_id + "\0" + idempotency_key).encode()).digest()[:8], "big", signed=True)
+            await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": invocation_lock})
+            receipt = await session.get(JobInvocationRow, (user_id, idempotency_key))
+            if receipt is not None:
+                if receipt.thread_id != thread_id or receipt.source_run_id != source_run_id or receipt.spec != payload or receipt.dedupe_group != dedupe_group:
+                    raise ValueError("Submission key belongs to different input")
+                canonical = await session.get(JobRow, receipt.job_id, with_for_update=True)
+                if canonical is None or canonical.user_id != user_id or canonical.thread_id != thread_id:
+                    raise ValueError("Submission receipt has an invalid job binding")
+                result = self.summary(canonical)
+                if canonical.idempotency_key != idempotency_key:
+                    result["reused_existing"] = True
+                return result
+
+            def record_invocation(job_id):
+                session.add(JobInvocationRow(user_id=user_id, idempotency_key=idempotency_key, thread_id=thread_id, source_run_id=source_run_id, spec=payload, dedupe_group=dedupe_group, job_id=job_id))
+
+            if dedupe_group is not None:
+                # Group admission serializes before any job lock, including the
+                # empty-group case where row locks cannot prevent two inserts.
+                lock_key = int.from_bytes(hashlib.sha256((user_id + "\0" + dedupe_group).encode()).digest()[:8], "big", signed=True)
+                await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": lock_key})
+            original = (await session.execute(select(JobRow).where(JobRow.user_id == user_id, JobRow.idempotency_key == idempotency_key).with_for_update())).scalar_one_or_none()
+            if original is not None:
+                if original.thread_id != thread_id or original.source_run_id != source_run_id or original.spec != payload or original.dedupe_group != dedupe_group:
+                    raise ValueError("Submission key belongs to different input")
+                record_invocation(original.id)
+                return self.summary(original)
+            if dedupe_group is not None:
+                active = (
+                    await session.execute(
+                        select(JobRow)
+                        .where(
+                            JobRow.user_id == user_id,
+                            JobRow.dedupe_group == dedupe_group,
+                            JobRow.state.in_(["staged", "queued", "claimed", "running", "unknown", "quarantined"]),
+                        )
+                        .with_for_update()
+                    )
+                ).scalar_one_or_none()
+                if active is not None:
+                    if active.thread_id != thread_id:
+                        raise ValueError("Scheduled job slot belongs to another thread")
+                    record_invocation(active.id)
+                    return {**self.summary(active), "reused_existing": True}
             await resolve_inputs(session, user_id=user_id, thread_id=thread_id, spec=spec, max_bytes=self.config.max_input_bytes)
             now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
             values = dict(
@@ -65,6 +113,7 @@ class FleetJobService:
             job = (await session.execute(select(JobRow).where(JobRow.user_id == user_id, JobRow.idempotency_key == idempotency_key).with_for_update())).scalar_one()
             if job.thread_id != thread_id or job.source_run_id != source_run_id or job.spec != payload or job.dedupe_group != dedupe_group:
                 raise ValueError("Submission key belongs to different input")
+            record_invocation(job.id)
             return self.summary(job)
 
     async def get(self, job_id: str, *, user_id: str, thread_id: str) -> dict:

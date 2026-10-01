@@ -104,6 +104,18 @@ class McpTaskService:
         submission = await driver.submit(driver_request)
         if submission.tracking_task_id is not None:
             local_task_id = submission.tracking_task_id
+        if submission.reuse_existing:
+            # This driver returned accepted work owned by an earlier run. A
+            # failed lookup cannot authorize cancelling or replacing that work.
+            if submission.tracking_task_id is None:
+                raise McpTaskProtocolError("Existing task reuse requires tracking identity")
+            existing = await self._repository.get(local_task_id, user_id=request.user_id)
+            if existing is None:
+                raise RuntimeError("Original tracking commit is pending; retry submission")
+            expected = {"thread_id": request.thread_id, "server_name": request.server_name, "driver_name": driver_name, "remote_task_id": submission.remote_task_id}
+            if any(existing.get(key) != value for key, value in expected.items()):
+                raise DuplicateMcpRemoteTaskError("Tracking identity belongs to another execution")
+            return {**existing, "reused_existing": True}
         driver_data = {**request.driver_data, **submission.driver_data}
         task_reference = TaskReference(
             local_task_id=local_task_id,

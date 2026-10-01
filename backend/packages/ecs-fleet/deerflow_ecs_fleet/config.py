@@ -47,6 +47,7 @@ class FleetConfig(BaseModel):
     nas_identity: str | None = Field(default=None, pattern=NAME_PATTERN)
     max_input_bytes: int = Field(default=64 * 1024 * 1024, gt=0, le=2**31 - 1)
     profiles: dict[str, ExecutionProfile] = Field(default_factory=dict)
+    scheduled_job_slots: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("profiles")
     @classmethod
@@ -59,6 +60,14 @@ class FleetConfig(BaseModel):
 
     @model_validator(mode="after")
     def execution_dependencies(self) -> Self:
+        import re
+
+        for slot, profile_name in self.scheduled_job_slots.items():
+            if re.fullmatch(NAME_PATTERN, slot) is None:
+                raise ValueError("Invalid scheduled job slot name")
+            profile = self.profiles.get(profile_name)
+            if profile is None or profile.kind != "job":
+                raise ValueError("Scheduled job slots require an approved job profile")
         if self.renew_seconds * 2 >= self.lease_seconds:
             raise ValueError("Renew interval must be less than half the lease")
         if self.jobs_enabled and not self.enabled:

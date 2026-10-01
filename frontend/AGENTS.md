@@ -67,6 +67,16 @@ The frontend is a stateful chat application. Users create **threads** (conversat
 
 More specific `AGENTS.md` files under `src/` contain the frontend sections split from this file.
 
+### Background task presentation
+
+`core/background-tasks/fleet.ts` centralizes task card labels and active/cancellation
+precedence. The API's optional `execution_uncertain` flag maps Fleet input_required to
+“需要确认” / “Needs confirmation”; ordinary MCP input requests keep their normal label.
+Pending cancellation stays active until a terminal status arrives. Preserve degraded
+tracking separately, and never add public RunStatus values for these presentation states.
+Pure mapping tests live in the node project; actual card/details/cancel interactions live
+in `thread-background-tasks.dom.test.tsx` with happy-dom.
+
 ## Code Style
 
 - **Imports**: Enforced ordering (builtin → external → internal → parent → sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.

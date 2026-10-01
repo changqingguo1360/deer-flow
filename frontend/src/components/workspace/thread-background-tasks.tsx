@@ -24,10 +24,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  backgroundTaskPresentation,
   isActiveBackgroundTask,
   type BackgroundTask,
   type BackgroundTaskDetail,
-  type BackgroundTaskStatus,
+  type BackgroundTaskPresentation,
   useBackgroundTask,
   useBackgroundTasks,
   useCancelBackgroundTask,
@@ -193,9 +194,13 @@ function BackgroundTaskCard({
   const detailsQuery = useBackgroundTask(threadId, task.task_id, {
     enabled: detailsOpen,
   });
-  const active = isActiveBackgroundTask(task);
-  const cancelling = active && (task.cancel_requested || isCancelling);
-  const status = taskStatusPresentation(task.status, t.backgroundTasks.status);
+  const presentation = backgroundTaskPresentation(
+    task,
+    t.backgroundTasks,
+    isCancelling,
+  );
+  const { active, cancelling } = presentation;
+  const status = taskStatusPresentation(presentation.kind);
   const canShowDetails =
     task.cancel_requested ||
     (task.status !== "submitted" &&
@@ -225,7 +230,7 @@ function BackgroundTaskCard({
           <status.Icon
             className={cn("size-3", status.spinning && "animate-spin")}
           />
-          {cancelling ? t.backgroundTasks.cancelling : status.label}
+          {presentation.label}
         </Badge>
       </div>
 
@@ -338,6 +343,10 @@ function BackgroundTaskDetails({
   }
 
   if (!task) return null;
+  const { requiresReconciliation } = backgroundTaskPresentation(
+    task,
+    t.backgroundTasks,
+  );
 
   return (
     <div className="border-border mt-3 space-y-3 border-t pt-3">
@@ -381,17 +390,22 @@ function BackgroundTaskDetails({
         label={t.backgroundTasks.lastPollError}
         value={task.last_poll_error}
       />
-      {task.input_required != null && (
-        <div>
-          <TaskDetailField
-            label={t.backgroundTasks.inputRequired}
-            value={task.input_required}
-          />
-          <p className="text-muted-foreground mt-1 text-[11px]">
-            {t.backgroundTasks.inputUnavailable}
+      {task.input_required != null &&
+        (requiresReconciliation ? (
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            {t.backgroundTasks.reconciliationRequired}
           </p>
-        </div>
-      )}
+        ) : (
+          <div>
+            <TaskDetailField
+              label={t.backgroundTasks.inputRequired}
+              value={task.input_required}
+            />
+            <p className="text-muted-foreground mt-1 text-[11px]">
+              {t.backgroundTasks.inputUnavailable}
+            </p>
+          </div>
+        ))}
     </div>
   );
 }
@@ -425,59 +439,47 @@ function formatTaskDetailValue(value: unknown): string | null {
   }
 }
 
-type StatusTranslations = {
-  submitted: string;
-  working: string;
-  inputRequired: string;
-  completed: string;
-  failed: string;
-  cancelled: string;
-};
-
-function taskStatusPresentation(
-  status: BackgroundTaskStatus,
-  labels: StatusTranslations,
-) {
+function taskStatusPresentation(status: BackgroundTaskPresentation["kind"]) {
   switch (status) {
     case "submitted":
       return {
         Icon: Clock3Icon,
-        label: labels.submitted,
         className: "text-blue-700 dark:text-blue-300",
         spinning: false,
       };
     case "working":
       return {
         Icon: LoaderCircleIcon,
-        label: labels.working,
         className: "text-blue-700 dark:text-blue-300",
         spinning: true,
       };
     case "input_required":
       return {
         Icon: MessageCircleQuestionIcon,
-        label: labels.inputRequired,
+        className: "text-amber-700 dark:text-amber-300",
+        spinning: false,
+      };
+    case "uncertain":
+      return {
+        Icon: TriangleAlertIcon,
         className: "text-amber-700 dark:text-amber-300",
         spinning: false,
       };
     case "completed":
       return {
         Icon: CircleCheckIcon,
-        label: labels.completed,
         className: "text-emerald-700 dark:text-emerald-300",
         spinning: false,
       };
     case "failed":
       return {
         Icon: TriangleAlertIcon,
-        label: labels.failed,
         className: "text-destructive",
         spinning: false,
       };
     case "cancelled":
       return {
         Icon: CircleStopIcon,
-        label: labels.cancelled,
         className: "text-muted-foreground",
         spinning: false,
       };

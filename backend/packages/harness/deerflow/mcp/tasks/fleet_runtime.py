@@ -4,12 +4,14 @@ from .runtime import McpTaskConfigurationError, McpTaskSubmitter
 
 _submitter: McpTaskSubmitter | None = None
 _profile_names: tuple[str, ...] = ()
+_scheduled_job_slots: dict[str, str] = {}
 
 
-def set_fleet_job_submitter(submitter: McpTaskSubmitter | None, *, profile_names: tuple[str, ...] = ()) -> None:
-    global _submitter, _profile_names
+def set_fleet_job_submitter(submitter: McpTaskSubmitter | None, *, profile_names: tuple[str, ...] = (), scheduled_job_slots: dict[str, str] | None = None) -> None:
+    global _submitter, _profile_names, _scheduled_job_slots
     _submitter = submitter
     _profile_names = profile_names if submitter is not None else ()
+    _scheduled_job_slots = dict(scheduled_job_slots or {}) if submitter is not None else {}
 
 
 def is_fleet_job_runtime_available() -> bool:
@@ -25,3 +27,8 @@ def get_fleet_job_submitter() -> McpTaskSubmitter:
 def get_fleet_job_profile_names() -> tuple[str, ...]:
     """Expose names only; container image, network and credentials stay host-owned."""
     return _profile_names
+
+
+def get_fleet_scheduled_job_slots() -> dict[str, str]:
+    """Return only operator-approved named slot/profile bindings."""
+    return dict(_scheduled_job_slots)
