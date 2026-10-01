@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from sqlalchemy import func, select
 
+from .persistence.inputs import resolve_inputs
 from .persistence.models import AttemptRow, JobRow, NodeRow
 from .persistence.reservations import reserve
 from .protocol import JobSpec
@@ -62,6 +63,13 @@ class FleetScheduler:
                 profile = self.config.profiles.get(spec.profile)
                 if profile is None or profile.kind != "job":
                     continue
+                try:
+                    inputs = await resolve_inputs(session, user_id=job.user_id, thread_id=job.thread_id, spec=spec, max_bytes=self.config.max_input_bytes)
+                except (PermissionError, ValueError):
+                    job.state = "failed"
+                    job.error = "Pinned input unavailable or exceeds operator budget"
+                    job.finished_at = now
+                    continue
                 number = (await session.execute(select(func.coalesce(func.max(AttemptRow.attempt_no), 0)).where(AttemptRow.job_id == job.id))).scalar_one() + 1
                 attempt_id = str(uuid4())
                 token = secrets.token_urlsafe(48)
@@ -75,7 +83,7 @@ class FleetScheduler:
                     node_session_id=node.session_id,
                     token_hash=hashlib.sha256(token.encode()).hexdigest(),
                     state="claimed",
-                    launch_spec={"schema_version": 1, "spec": spec.model_dump(), "profile": profile.model_dump(), "user_id": job.user_id, "thread_id": job.thread_id},
+                    launch_spec={"schema_version": 1, "spec": spec.model_dump(), "profile": profile.model_dump(), "user_id": job.user_id, "thread_id": job.thread_id, "inputs": inputs},
                     output_prefix=prefix,
                     lease_expires_at=now + timedelta(seconds=self.config.lease_seconds),
                 )

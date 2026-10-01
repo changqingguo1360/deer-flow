@@ -154,3 +154,56 @@ def open_verified_file(directory_fd, metadata):
         os.close(parent)
         if fd is not None:
             os.close(fd)
+
+
+def create_artifact_file(directory_fd, path):
+    parts = relative_parts(path)
+    if MANIFEST_NAME in parts:
+        raise ValueError("Reserved manifest path")
+    parent = os.dup(directory_fd)
+    try:
+        for part in parts[:-1]:
+            try:
+                os.mkdir(part, mode=0o700, dir_fd=parent)
+            except FileExistsError:
+                pass
+            child = os.open(part, OPEN_DIRECTORY, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        return os.open(parts[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=parent)
+    finally:
+        os.close(parent)
+
+
+def copy_uploads(files, directory_fd, *, max_bytes):
+    if not files or len(files) > MAX_ENTRIES or max_bytes <= 0:
+        raise ValueError("Invalid input file count or budget")
+    rows = []
+    total = 0
+    seen = set()
+    for path, source in files:
+        relative_parts(path)
+        if path in seen:
+            raise ValueError("Duplicate input path")
+        seen.add(path)
+        target = create_artifact_file(directory_fd, path)
+        try:
+            digest = hashlib.sha256()
+            size = 0
+            source.seek(0)
+            while chunk := source.read(min(65536, max_bytes - total + 1)):
+                size += len(chunk)
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ValueError("Input byte budget exceeded")
+                digest.update(chunk)
+                view = memoryview(chunk)
+                while view:
+                    written = os.write(target, view)
+                    view = view[written:]
+            os.fchmod(target, 0o400)
+            os.fsync(target)
+            rows.append({"path": path, "size": size, "sha256": digest.hexdigest()})
+        finally:
+            os.close(target)
+    return sorted(rows, key=lambda row: row["path"]), total

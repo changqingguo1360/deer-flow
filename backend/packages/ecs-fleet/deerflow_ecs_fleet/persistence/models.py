@@ -151,3 +151,19 @@ class ArtifactManifestRow(FleetBase):
         timestamp("sealed_at"),
         CheckConstraint("total_bytes >= 0", name="ck_fleet_manifest_bytes"),
     )
+
+
+class InputManifestRow(FleetBase):
+    __table__ = Table(
+        "fleet_input_manifests",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("output_prefix", String(512), nullable=False, unique=True),
+        Column("files", json_type, nullable=False),
+        Column("total_bytes", Integer, nullable=False),
+        timestamp("sealed_at"),
+        CheckConstraint("total_bytes >= 0", name="ck_fleet_input_bytes"),
+        Index("ix_fleet_inputs_owner", "user_id", "thread_id", "sealed_at"),
+    )

@@ -135,6 +135,7 @@ class NodeDaemon:
             record["grant"] = grant
             await asyncio.to_thread(self.journal.save, record)
             output = await self.prepare_workspace(claim, grant)
+            input_dirs = await asyncio.to_thread(self.workspace.prepare_inputs, claim, grant) if self.workspace is not None else {}
             if Path(self.journal.root).resolve().is_relative_to(Path(output).resolve()):
                 raise ValueError("Private worker journal cannot be mounted into a job")
 
@@ -147,7 +148,7 @@ class NodeDaemon:
             watchdog = LeaseWatchdog(stop=stop_local, lease_seconds=remaining, safety_margin_seconds=self.margin)
             watchdog.deadline = sent + duration - self.margin
             watchdog_task = asyncio.create_task(watchdog.run())
-            launch_task = asyncio.create_task(self.containers.launch(grant, output_dir=output, deadline=watchdog.deadline))
+            launch_task = asyncio.create_task(self.containers.launch(grant, output_dir=output, input_dirs=input_dirs, deadline=watchdog.deadline))
             observation = await launch_task
             if observation["State"]["Status"] == "created":
                 raise RecoveryRequired("A previous one-shot start intent has uncertain launch status")

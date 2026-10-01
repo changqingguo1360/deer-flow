@@ -10,7 +10,7 @@ OpenSpec changes has met its release gate; do not archive them or mark IMPLEMENT
 - B01: standalone optional package, strict profiles and identity-free JobSpec;
   disabled installation does not import the host runtime. Host dependency manager
   installation and deployable configuration remain to be exercised.
-- B02: six private fleet_ tables plus independent fleet_alembic_version migration;
+- B02: seven private fleet_ tables plus independent fleet_alembic_version migration;
   service startup serializes migrations using a Postgres advisory transaction lock.
 - B03: host-only bearer authentication for worker routes, persisted hashed node
   credentials, node session fencing and heartbeat. Attempt endpoints and cross-node
@@ -102,7 +102,7 @@ manifest before complete, and can replay a lost accepted-completion response aft
 restart without another execution. Existing McpTaskService polling receives completed
 and the accepted manifest ID through the original tracking row.
 
-B07 immutable input registration/read-only mounts remain pending. B08–B12, all C and
+B07 immutable input registration/read-only mounts are implemented and exercised. B08–B12, all C and
 all continuation tasks remain pending. There is no public runnable worker deployment
 or model-visible Fleet submission tool yet.
 No remote Agent run has executed and no business ECS has been deployed.
@@ -119,7 +119,7 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 371 passed, zero skipped, four existing
+Current combined verification: 384 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
@@ -144,9 +144,8 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 1. Integrate B06 private credential loading and operator worker startup with
    B07 workspace preparation and B11 reproducible deployment. Core startup orphan,
    engine stop failure and concurrent shutdown scenarios now have real evidence.
-2. Finish B07 immutable input registration and read-only mounts. NAS sentinel,
-   sealing, accepted manifests and user download/result publication are now exercised;
-   then deliver B08 cancellation/recovery fault cases.
+2. Deliver B08 cancellation/recovery fault cases. B07 NAS sentinel, immutable inputs,
+   read-only mounts, accepted manifests and user download/result publication are exercised.
 3. B09 wires the tested invocation helper into model-visible submission; B10 handles
    scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.
 
@@ -206,3 +205,38 @@ live login provider. Real Docker/TCP/Postgres worker tests execute the report on
 seal and accept the output, poll the real McpTaskService to completed, and replay a
 committed completion with a deliberately lost response after restarting the worker.
 The attempt/manifest counts remain one; no business ECS/NAS data is accessed.
+
+
+## B07 immutable-input slice evidence
+
+Publication baseline: commit 0c9dd640. Input-registry RED preceded implementation;
+HTTP upload/metadata RED preceded the host router. Real Docker input execution RED
+preceded readonly mount integration. Combined regression: 384 passed, zero skipped,
+four existing deprecation warnings. Entire backend Ruff lint passes; format --check
+verifies 1354 files. All three OpenSpec changes pass strict validation.
+
+The private f0003_inputs migration owns fleet_input_manifests. Fresh upload IDs pin
+immutable filenames/size/digests; registration, submission and claim enforce owner,
+thread and byte/metadata limits. Code versions share the same authorization boundary.
+Missing, oversized, duplicate or escaping files cannot create a submission. Worker
+rejects changed source bytes, symlinks, foreign prefixes, missing or extra snapshots.
+Real HTTP tests cover session + CSRF + thread ownership, distinct version IDs,
+metadata reads and node-bearer upload rejection. Session resolver remains a stub;
+thread metadata, permissions and PostgreSQL are real.
+
+Real Docker executes the declared code version, reads a specified older input,
+rejects writes to readonly inputs and cannot see an unrequested newer version.
+Mount inspection proves only outputs are read-write. Lost accepted-completion replay
+still executes once. A second real job reuses the first accepted output manifest as
+its authorized readonly input and produces another accepted output. The first job's
+tracking remains canonical. No production ECS/NAS is accessed. Public worker startup,
+B08–B12, C and continuations remain pending; no proposal is release-complete.
+
+
+Independent input review found and reproduced upload-version relabelling and unlisted
+materialization content. Three new RED cases (wrong version, extra file, extra empty
+directory) preceded the fix. Workers now bind uploaded prefix identity to version ID
+and reject the complete destination inventory unless it matches manifest files and
+their parent directories. Focused PostgreSQL/Docker validation: 15 passed. Independent
+re-review confirmed both findings resolved and found no new blocker. Full combined
+regression after the fix: 384 passed, zero skipped, four existing warnings.

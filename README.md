@@ -1578,7 +1578,9 @@ and staged job tracking. The worker client, private restart journal and local Do
 watchdog are tested through real HTTP/containers, including Gateway loss and a lost
 start response. NAS identity checks, sealed-manifest completion, owner/thread download
 and worker result publication are tested through real Docker, HTTP and Postgres,
-including a lost completion response. Immutable input mounts, public worker deployment
-and remote Agent runs are not available yet. All Fleet flags default to disabled. See the
+including a lost completion response. Thread-owned input uploads create immutable
+version IDs; workers pin and verify those versions, mount only declared inputs read-only,
+and can reuse accepted results as later job inputs. Public worker deployment and remote
+Agent runs are not available yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

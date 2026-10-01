@@ -45,6 +45,7 @@ class FleetConfig(BaseModel):
     staged_timeout_seconds: int = Field(default=600, ge=1)
     nas_root: Path | None = None
     nas_identity: str | None = Field(default=None, pattern=NAME_PATTERN)
+    max_input_bytes: int = Field(default=64 * 1024 * 1024, gt=0, le=2**31 - 1)
     profiles: dict[str, ExecutionProfile] = Field(default_factory=dict)
 
     @field_validator("profiles")

@@ -385,7 +385,7 @@ and private restart journals exist; tests exercise real TCP Gateway loss and a l
 start-grant response with local Docker. Bootstrap must finish stop reconciliation
 before claiming work. Stop every owned residual before reporting recovery failure;
 missing journals or a stop RPC failure must not leave other owned containers running.
-Public worker startup, input mount integration, remote Agent and
+Public worker startup, remote Agent and
 continuations are pending; consult the root delivery roadmap before
 enabling or advertising Fleet execution. Dependency installation remains operator
 controlled through the extension manager; do not add an unconditional host dependency.
@@ -404,7 +404,8 @@ Fleet `workspace.NASWorkspace` owns the explicit deployment sentinel and descrip
 traversal; `artifacts` owns bounded manifest metadata and verified copies/reads. These
 blocking filesystem methods must run in asyncio.to_thread from async services.
 Do not create the NAS root or sentinel automatically on a missing mount. A task only
-mounts its outputs; its sealed copy is a separate tree. A successful file seal alone
+mounts its own outputs read-write and only declared input/code versions read-only
+under /inputs/<version-id>; its sealed output copy is a separate tree. A successful file seal alone
 is not job completion: persistence.manifests requires durable physical stop proof,
 zero exit, current attempt/token/session and unexpired lease/deadline, then verifies
 sealed files and rechecks the DB clock before the atomic completion commit.
@@ -413,4 +414,14 @@ user/thread filters. Stream the verified descriptor, never reopen it through Fil
 Worker publication journals the sealed manifest before complete; a lost accepted
 completion is replayable after restart. Unknown/quarantined attempts stay unknown
 on late stopped acknowledgements. nas_identity is explicit and the sentinel is checked
-before Fleet migrations. Immutable input mounts and public worker startup remain pending.
+before Fleet migrations. Public worker startup remains pending.
+
+InputManifests uses the independent f0003_inputs migration and private
+fleet_input_manifests table. Thread-owned multipart uploads use threads:write,
+existing thread ownership and normal session/CSRF middleware. Each upload creates a
+fresh immutable version; same filenames never replace previous versions. Submission
+and claim both resolve only same-user/same-thread registered inputs or accepted output
+manifests. Frozen launch_spec includes the declared versions' metadata, bounded by
+max_input_bytes and the metadata limit. Worker NAS verification precedes copying only
+manifest-listed files into attempt-scoped inputs; Docker mounts exactly those IDs
+read-only. No entire NAS root or undeclared version may be mounted.

@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from .config import NAME_PATTERN
+from .persistence.inputs import resolve_inputs
 from .persistence.models import JobRow
 from .protocol import JobSpec
 
@@ -42,6 +43,7 @@ class FleetJobService:
             raise ValueError("Job exceeds operator time budget")
         payload = spec.model_dump()
         async with self.sf.begin() as session:
+            await resolve_inputs(session, user_id=user_id, thread_id=thread_id, spec=spec, max_bytes=self.config.max_input_bytes)
             now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
             values = dict(
                 id=str(uuid4()),

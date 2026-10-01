@@ -5,6 +5,7 @@ import inspect
 import json
 import os
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 from types import SimpleNamespace
 
 import pytest
@@ -51,6 +52,12 @@ async def test_real_worker_accepts_manifest_and_replays_lost_completion(fleet_da
     async with engine.begin() as conn:
         await conn.execute(text("INSERT INTO fleet_nodes (id,name,cpu_millis,memory_mib) VALUES ('n','worker',1000,512)"))
     credential = await fleet.credentials.issue("n", lifetime_seconds=600)
+    data = await fleet.inputs.register(user_id="u", thread_id="t", files=[("data.txt", BytesIO(b"report ready"))])
+    newer = await fleet.inputs.register(user_id="u", thread_id="t", files=[("data.txt", BytesIO(b"newer bytes"))])
+    script = (
+        "set -eu\necho start >> /output/count\ncat /inputs/" + data["id"] + "/data.txt > /output/report.txt\n" + "if echo corrupt > /inputs/" + data["id"] + "/data.txt; then exit 23; fi\n" + "test ! -e /inputs/" + newer["id"] + "\n"
+    ).encode()
+    code = await fleet.inputs.register(user_id="u", thread_id="t", files=[("run.sh", BytesIO(script))])
     tracked = await tasks.submit(
         driver_name="fleet",
         request=TaskSubmitRequest(
@@ -61,7 +68,7 @@ async def test_real_worker_accepts_manifest_and_replays_lost_completion(fleet_da
             task_name="report",
             tool_call_id="call",
             driver_data={"invocation_id": "invocation"},
-            arguments={"task_name": "report", "profile": "batch", "argv": ["sh", "-c", "echo start >> /output/count; printf 'report ready' > /output/report.txt"], "execution_timeout_seconds": 15},
+            arguments={"task_name": "report", "profile": "batch", "argv": ["sh", "/inputs/" + code["id"] + "/run.sh"], "input_manifests": [data["id"]], "code_artifact_id": code["id"], "execution_timeout_seconds": 15},
         ),
     )
     await fleet.jobs.reconcile(tracked["remote_task_id"])
@@ -98,7 +105,10 @@ async def test_real_worker_accepts_manifest_and_replays_lost_completion(fleet_da
             ref = (await conn.execute(text("SELECT process_ref FROM fleet_attempts"))).scalar_one()
             assert (await conn.execute(text("SELECT state FROM fleet_jobs"))).scalar_one() == "succeeded"
             assert (await conn.execute(text("SELECT count(*) FROM fleet_artifact_manifests"))).scalar_one() == 1
-        assert not json.loads(await docker("inspect", ref))[0]["State"]["Running"]
+        inspection = json.loads(await docker("inspect", ref))[0]
+        assert not inspection["State"]["Running"]
+        mounts = {row["Destination"]: row["RW"] for row in inspection["Mounts"]}
+        assert mounts == {"/output": True, "/inputs/" + data["id"]: False, "/inputs/" + code["id"]: False}
         if fault == "completion_reply_lost":
             server.should_exit = True
             await task
@@ -120,13 +130,38 @@ async def test_real_worker_accepts_manifest_and_replays_lost_completion(fleet_da
         async with engine.connect() as conn:
             assert (await conn.execute(text("SELECT count(*) FROM fleet_attempts"))).scalar_one() == 1
             assert (await conn.execute(text("SELECT count(*) FROM fleet_artifact_manifests"))).scalar_one() == 1
+        if fault == "normal":
+            version = row["result"]["manifest_id"]
+            followup = await tasks.submit(
+                driver_name="fleet",
+                request=TaskSubmitRequest(
+                    user_id="u",
+                    thread_id="t",
+                    run_id="r",
+                    server_name="fleet",
+                    task_name="reuse-result",
+                    tool_call_id="next",
+                    driver_data={"invocation_id": "next-invocation"},
+                    arguments={"task_name": "reuse-result", "profile": "batch", "argv": ["sh", "-c", "cat /inputs/" + version + "/report.txt > /output/reused.txt"], "input_manifests": [version], "execution_timeout_seconds": 15},
+                ),
+            )
+            await fleet.jobs.reconcile(followup["remote_task_id"])
+            reused = await asyncio.wait_for(daemon.execute_one(), timeout=10)
+            assert reused["state"] == "succeeded" and not reused["report_pending"]
+            async with engine.connect() as conn:
+                assert (await conn.execute(text("SELECT count(*) FROM fleet_artifact_manifests"))).scalar_one() == 2
+                assert (await conn.execute(text("SELECT count(*) FROM fleet_attempts"))).scalar_one() == 2
+                prefix = (await conn.execute(text("SELECT output_prefix FROM fleet_artifact_manifests WHERE id=(SELECT accepted_manifest_id FROM fleet_jobs WHERE id=:id)"), {"id": followup["remote_task_id"]})).scalar_one()
+            assert (tmp_path / prefix / "reused.txt").read_bytes() == b"report ready"
     finally:
         for client in clients:
             await client.close()
         server.should_exit = True
         await task
         sock.close()
-        if ref:
-            await docker("rm", "-f", ref)
+        async with engine.connect() as conn:
+            owned_refs = (await conn.execute(text("SELECT process_ref FROM fleet_attempts WHERE process_ref IS NOT NULL"))).scalars().all()
+        for owned_ref in owned_refs:
+            await docker("rm", "-f", owned_ref)
         await tasks.stop()
         await fleet.stop()

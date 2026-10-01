@@ -71,7 +71,7 @@ class DockerContainers:
             os.close(fd)
         return True
 
-    async def launch(self, grant, *, output_dir: Path, deadline=None):
+    async def launch(self, grant, *, output_dir: Path, input_dirs=None, deadline=None):
         if not grant.get("authorized") or grant.get("lease_seconds_remaining", 0) <= 0 or grant.get("execution_seconds_remaining", 0) <= 0:
             raise ValueError("Valid start authorization required")
         attempt_id = grant["attempt_id"]
@@ -88,7 +88,21 @@ class DockerContainers:
         argv = grant["launch_spec"]["spec"]["argv"]
         if not argv or any(not isinstance(value, str) or "\0" in value for value in argv):
             raise ValueError("Invalid execution argv")
-        fingerprint = hashlib.sha256(json.dumps([grant["launch_spec"], output], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        input_dirs = input_dirs or {}
+        spec = grant["launch_spec"]["spec"]
+        declared = set(spec.get("input_manifests", [])) | ({spec["code_artifact_id"]} if spec.get("code_artifact_id") else set())
+        if set(input_dirs) != declared:
+            raise ValueError("Missing or unauthorized input mount")
+        mounts = {}
+        for identity, path in input_dirs.items():
+            if not re.fullmatch(NAME_PATTERN, identity):
+                raise ValueError("Invalid input mount identity")
+            actual = Path(path).resolve(strict=True)
+            expected = Path(output).parent / "inputs" / identity
+            if actual != expected or "," in str(actual):
+                raise ValueError("Input mount escapes attempt workspace")
+            mounts[identity] = str(actual)
+        fingerprint = hashlib.sha256(json.dumps([grant["launch_spec"], output, mounts], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         observation = await self.inspect(ref)
         if observation is None:
             args = [
@@ -130,6 +144,8 @@ class DockerContainers:
                 profile.image,
                 *argv,
             ]
+            for identity, path in sorted(mounts.items()):
+                args[1:1] = ["--mount", "type=bind,src=" + path + ",dst=/inputs/" + identity + ",readonly"]
             if node_id is not None:
                 args[1:1] = ["--label", "deerflow.fleet.node=" + node_id]
             if deadline is not None and time.monotonic() >= deadline:

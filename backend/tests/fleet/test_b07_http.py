@@ -26,6 +26,7 @@ def require_routes():
 @pytest.mark.asyncio
 async def test_complete_and_download_across_real_http(fleet_database, tmp_path, monkeypatch):
     artifact_router = require_routes()
+    assert importlib.util.find_spec("app.gateway.routers.fleet_inputs") is not None, "Host immutable input upload route missing"
     fleet, claim, args, manifest = await sealed_attempt(fleet_database, tmp_path)
     credential = await fleet.credentials.issue("n", lifetime_seconds=600)
     app = FastAPI()
@@ -40,6 +41,7 @@ async def test_complete_and_download_across_real_http(fleet_database, tmp_path, 
     app.add_middleware(CSRFMiddleware)
     app.include_router(importlib.import_module("app.gateway.routers.fleet_nodes").router)
     app.include_router(artifact_router)
+    app.include_router(importlib.import_module("app.gateway.routers.fleet_inputs").router)
 
     async def session_user(request):
         user = request.cookies.get("access_token")
@@ -64,6 +66,18 @@ async def test_complete_and_download_across_real_http(fleet_database, tmp_path, 
             assert (await client.get(base)).status_code == 401
             assert (await client.get(base, headers=headers)).status_code == 403
             owner = {"Cookie": "access_token=u"}
+            upload_headers = {"Cookie": "access_token=u; csrf_token=fleet-test", "X-CSRF-Token": "fleet-test"}
+            inputs = "/api/threads/t/fleet/inputs"
+            uploaded = await client.post(inputs, headers=upload_headers, files={"files": ("data.txt", b"original")})
+            assert uploaded.status_code == 201, uploaded.text
+            input_id = uploaded.json()["id"]
+            later = await client.post(inputs, headers=upload_headers, files={"files": ("data.txt", b"later")})
+            assert later.status_code == 201 and later.json()["id"] != input_id
+            assert (await client.get(inputs + "/" + input_id, headers=owner)).json()["files"] == uploaded.json()["files"]
+            assert (await client.get(inputs + "/" + input_id, headers={"Cookie": "access_token=other"})).status_code == 404
+            assert (await client.get(inputs.replace("/threads/t/", "/threads/other-thread/") + "/" + input_id, headers=owner)).status_code == 404
+            assert (await client.post(inputs, headers=headers, files={"files": ("data.txt", b"x")})).status_code == 403
+            assert (await client.post(inputs, headers=upload_headers, files={"files": ("../escape", b"x")})).status_code == 409
             public = await client.get(base, headers=owner)
             assert public.status_code == 200, public.text
             assert "output_prefix" not in public.json() and "user_id" not in public.json()
@@ -96,5 +110,7 @@ def test_gateway_mounts_fleet_manifest_routes():
     from app.gateway.app import create_app
 
     paths = {route.path for route in create_app().routes}
+    assert "/api/threads/{thread_id}/fleet/inputs" in paths
+    assert "/api/threads/{thread_id}/fleet/inputs/{input_id}" in paths
     assert "/api/threads/{thread_id}/fleet/manifests/{manifest_id}" in paths
     assert "/api/threads/{thread_id}/fleet/manifests/{manifest_id}/files/{relative_path:path}" in paths

@@ -34,6 +34,7 @@ class FleetService:
         self.reconciler = None
         self.workspace = None
         self.manifests = None
+        self.inputs = None
 
     async def start(self, deps) -> None:
         self.ready = False
@@ -62,8 +63,10 @@ class FleetService:
         self.scheduler = FleetScheduler(deps.session_factory, self.config)
         self.attempts = JobAttempts(deps.session_factory, self.config)
         if self.workspace is not None:
+            from .persistence.inputs import InputManifests
             from .persistence.manifests import FleetManifests
 
+            self.inputs = InputManifests(deps.session_factory, workspace=self.workspace, config=self.config)
             self.manifests = FleetManifests(deps.session_factory, attempts=self.attempts, workspace=self.workspace)
         self.ready = True
 
@@ -92,3 +95,4 @@ class FleetService:
         self.attempts = None
         self.workspace = None
         self.manifests = None
+        self.inputs = None

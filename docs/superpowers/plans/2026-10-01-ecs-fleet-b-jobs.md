@@ -526,7 +526,7 @@ git commit -m "feat(fleet): b06 实现守护进程、启动授权与本地 watch
 
 **OpenSpec:** `fleet-durable-jobs` / `Attempt isolated artifacts and accepted manifest`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 真实临时 NAS 目录与两个用户；只读输入、独立输出；构造 ../ 与 symlink 链；封存后重复 complete 并用另一用户下载。
+- [x] **Step 1 — 场景搭建与失败测试。** 真实临时 NAS 目录与两个用户；只读输入、独立输出；构造 ../ 与 symlink 链；封存后重复 complete 并用另一用户下载。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -542,7 +542,7 @@ async def test_b07_contract(fleet_probe):
     assert observed['accepted_manifest_count'] == 1
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b07_fleet_durable_jobs.py::test_b07_contract -vv
@@ -550,7 +550,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b07_fleet_durable_jobs.py::test_b07_
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # input manifest pins immutable versions; mount only allowlisted paths read-only.
@@ -561,7 +561,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b07_fleet_durable_jobs.py::test_b07_
 
 校验与读取避免 TOCTOU：封存目录不可再由旧容器写入，读取不重新跟随可替换 symlink。NAS sentinel 缺失不得回退本地同名目录。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b07_fleet_durable_jobs.py -vv
@@ -570,13 +570,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b07 实现不可变输入、产物校验和读取授权"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `7.1` 至 `7.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `7.1` 至 `7.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task B08: 实现取消、unknown 和状态对账
 
@@ -963,3 +963,15 @@ checked before migrations. Downloads use host threads permission/ownership and
 manifest user/thread filtering. 371 adjacent tests pass without skips. Immutable input
 registration/read-only mounts still prevent whole B07 task acceptance; B08–B12 and all
 C/continuation tasks remain outstanding.
+
+
+B07 immutable input acceptance follow-up: input versions persist in f0003_inputs;
+thread-owned session/CSRF uploads, submission/claim pinning, code artifacts, readonly
+Docker mounts and accepted-output reuse are implemented. Independent review failures
+for version relabelling and extra materialized files/directories now have RED/GREEN
+regressions. Full Fleet/adjacent scope: 384 passed, zero skipped, four warnings;
+backend Ruff lint/format1354 files and OpenSpec strict3/3 pass. B07 task acceptance
+is complete for the isolated real PostgreSQL/HTTP/Docker/NAS fixture scope. Prior
+paragraphs are historical slice checkpoints. Public deployment and B12 release gate
+remain unaccepted, and C/continuations remain pending. This follow-up slice is
+`feat(fleet): pin immutable inputs and mount verified versions read-only`.

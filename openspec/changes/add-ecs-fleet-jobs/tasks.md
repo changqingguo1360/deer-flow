@@ -48,9 +48,9 @@
 ## 7. B07 实现不可变输入、产物校验和读取授权
 
 - [x] 7.1 写并运行 backend/tests/fleet/test_b07_fleet_durable_jobs.py，确认 B07 行为测试 RED。
-- [ ] 7.2 完成计划列出的接口、事务和部署接线；满足 `Attempt isolated artifacts and accepted manifest`。
-- [ ] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 7.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 7.2 完成计划列出的接口、事务和部署接线；满足 `Attempt isolated artifacts and accepted manifest`。
+- [x] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 7.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 8. B08 实现取消、unknown 和状态对账
 
@@ -139,3 +139,15 @@ accepted completion after restart, updating the original McpTaskService row to c
 Immutable input registration/read-only mount integration remains incomplete, so 7.2–7.4
 and the B release gate remain unchecked. This slice is committed as
 `feat(fleet): accept sealed manifests and publish worker results`.
+
+
+B07 immutable input acceptance follow-up: input versions persist in f0003_inputs;
+thread-owned session/CSRF uploads, submission/claim pinning, code artifacts, readonly
+Docker mounts and accepted-output reuse are implemented. Independent review failures
+for version relabelling and extra materialized files/directories now have RED/GREEN
+regressions. Full Fleet/adjacent scope: 384 passed, zero skipped, four warnings;
+backend Ruff lint/format1354 files and OpenSpec strict3/3 pass. B07 task acceptance
+is complete for the isolated real PostgreSQL/HTTP/Docker/NAS fixture scope. Prior
+paragraphs are historical slice checkpoints. Public deployment and B12 release gate
+remain unaccepted, and C/continuations remain pending. This follow-up slice is
+`feat(fleet): pin immutable inputs and mount verified versions read-only`.
