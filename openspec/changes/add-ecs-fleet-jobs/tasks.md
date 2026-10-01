@@ -410,3 +410,16 @@ Compose. Full containerized Compose daemon execution and production ECS/NAS are 
 claimed. B12 must finish the release fault/gate acceptance before C. Feature flags remain
 disabled by default; no production credentials/images are supplied or deployments made.
 Implementation commit: `054d7007` — `feat(fleet): add public worker entry and reproducible deployment helpers`.
+
+
+## B12 partition/runner slice — 2026-10-02
+
+Real TCP control cut retains running Docker execution, then watchdog proves physical
+stop before lease expiry. Independent file and external HTTP counters each remain one;
+PG retains one attempt/zero untracked starts, unknown recovery never re-executes.
+The explicit runner refuses missing prerequisites, skipped/failed/incomplete actual
+JUnit and inherited test filters. Root final configured B matrix: 213 passed, zero
+skipped, two existing warnings, 80.11 seconds. Genuine gate RED/GREEN and final
+11 passing pure guard tests are recorded in implementation evidence. Spec and quality
+reviews approve this slice. B12 remains unchecked pending foundational startup/package
+acceptance, full Compose daemon and final required offline targets. C/BC stay pending.

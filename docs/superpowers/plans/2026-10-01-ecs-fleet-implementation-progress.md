@@ -544,3 +544,76 @@ Compose. Full containerized Compose daemon execution and production ECS/NAS are 
 claimed. B12 must finish the release fault/gate acceptance before C. Feature flags remain
 disabled by default; no production credentials/images are supplied or deployments made.
 Implementation commit: `054d7007` — `feat(fleet): add public worker entry and reproducible deployment helpers`.
+
+
+## B12 foundation audit and release-gate follow-up — 2026-10-02
+
+Read-only audit confirms later B07–B11 cover earlier B03–B06 component/deployment
+obligations; unchecked historical milestones still require an explicit evidence map.
+Two startup gaps remain real: optional install errors can silently omit enabled
+Fleet, and jobs_enabled=false bypasses the ready-runtime/durable-tracking check.
+Supported Gateway deployment must declare required:true and table_prefix:fleet_,
+and enabled Fleet must retain a ready service and durable tracking after admission
+closes. Generic optional extension semantics need not change.
+
+Before B acceptance, exercise the real extension-manager local install/entrypoint
+and packaged migration assets in an isolated checkout, plus host autogenerate table
+protection. Existing source-path fixtures are not that packaging evidence. Complete
+containerized Compose daemon execution, control-partition external side-effect
+observations and an explicit zero-skip release runner are also pending.
+
+Required blocking-I/O target executed with PYTHONDONTWRITEBYTECODE=1 UV_NO_SYNC=1
+make test-blocking-io: 75 passed, zero skipped, two existing warnings, 5.08 seconds.
+Full offline make test result and scoped follow-up are recorded below. B12 and overall B/C/BC
+remain incomplete; the audit itself is not implementation acceptance.
+
+
+## B12 TCP partition and explicit test runner slice — 2026-10-02
+
+The loopback fault proxy closes existing control connections and rejects new ones
+while the independent real Docker job remains running. A validated 30-second lease
+and 90-second execution budget distinguish lease watchdog stop from job timeout.
+An isolated HTTP mock runs in a separate non-root container with no published port.
+Actual output and external-request files each contain one effect. Docker inspect
+proves physical stop while the database lease is still live; permitting a second
+effect afterwards does not create it. After expiry, PG records unknown/quarantine;
+restart bootstrap replays stopped acknowledgement and releases proved-stopped
+capacity, but preserves unknown and blocks admission. Submission replay preserves
+the canonical tracking/job; one attempt and zero untracked authorized starts persist.
+This fault test adds real integration coverage to the existing production protocol;
+it did not expose a new protocol RED. The lease and side effects are actual observations.
+
+The explicit runner validates PG/Docker/image/socket prerequisites, fixes selection
+to B01–B12 plus its own behavior tests, clears inherited PYTEST_ADDOPTS and configured
+addopts, runs serial pytest and validates a freshly generated actual JUnit report.
+Empty/skipped/failed/error/missing-module reports fail; actual testcase count wins
+over XML summary claims. A new retained-report path is exclusive. Future C/BC tests
+do not enter B. Genuine gate RED/GREEN covers nine absent checks, missing module,
+then B00/B13/C/BC selection. Final pure gate tests: 11 passed, zero skipped.
+
+Root ran the final files with deliberately hostile PYTEST_ADDOPTS='-k nonexistent':
+213 passed, zero skipped, two existing warnings, 80.11 seconds. Actual report retained
+at /private/tmp/fleet-b12-root-gate.xml (local artifact); exact invocation:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 TEST_POSTGRES_URI=<isolated-postgresql+asyncpg-uri> FLEET_TEST_CONTAINERS=1 FLEET_TEST_WORKER_IMAGE=sha256:c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8 FLEET_TEST_DOCKER_SOCKET=<actual-absolute-local-socket> PYTEST_ADDOPTS='-k nonexistent' backend/.venv/bin/python scripts/fleet_b_gate.py --report /private/tmp/fleet-b12-root-gate.xml
+```
+
+Full default offline target (initial attempt, UV_NO_SYNC=1 UV_OFFLINE=1): 13146 passed,
+168 skipped, one deselected, six failed, 307.98 seconds. Failures include missing
+Fleet modules in the existing thread-ID route sweep and an oversized backend guide.
+The sweep now includes real Fleet input/artifact 422 cases. Detailed Fleet contracts
+moved intact to docs/ecs-fleet-development.md; shared durable MCP detail moved to its
+existing module guide, preserving all obligations within the backend soft budget.
+These two whole regression files pass: 73 tests, one existing warning, 2.06 seconds.
+Two local-HTTP Git extension fixtures were blocked by the explicit UV_OFFLINE setting;
+without that setting both pass. The other extension bootstrap and sandbox Docker
+test also pass on focused rerun; no unrelated production behavior was changed.
+The final full default target still needs to be rerun after startup/packaging fixes.
+
+Spec and quality reviews approve this scoped fault/runner slice. Required deployment
+docs now show --required, required:true, table_prefix:fleet_ and persistent tracking
+after admission closes. Actual foundational startup enforcement/installed-artifact
+tests and full containerized Compose daemon acceptance remain outstanding follow-ups.
+B12 whole-task and all B/C/BC release markers stay unchecked; passing this current
+test matrix is not completion of those remaining requirements. No ECS deployment.

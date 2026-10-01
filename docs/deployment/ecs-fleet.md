@@ -29,8 +29,41 @@ private permissions. Retain state across worker replacement.
 
 ## Trusted operator entry
 
-Install the trusted Fleet package in the host environment through the extension
-manager. Bootstrap host PostgreSQL first. Operator commands use an existing host
+Install the trusted Fleet package through the existing extension manager in an
+isolated/operator-controlled checkout. From backend, use the actual absolute source:
+
+```bash
+uv run --frozen --no-group extensions deerflow extensions install /absolute/deerflow/backend/packages/ecs-fleet --required
+```
+
+The manager snapshots local source into backend/extensions/sources, records the
+extension dependency group and lock, and discovers its installed entry point.
+Its default private Fleet config is inert. Before enabling Fleet, preserve/set this
+operator-owned plugin record in the active root config.yaml:
+
+```yaml
+plugins:
+  - name: ecs-fleet
+    package: deerflow-ecs-fleet
+    use: deerflow_ecs_fleet:install
+    enabled: true
+    required: true
+    table_prefix: fleet_
+    config:
+      enabled: true
+      jobs_enabled: false
+      agents_enabled: false
+      continuations_enabled: false
+```
+
+Append the explicit absolute NAS root/identity and approved profiles before opening
+job admission. Keep mcp_tasks.enabled=true and host PostgreSQL tracking available even
+when jobs_enabled=false, so accepted work can recover. required:true makes a package
+or install/config failure fatal; table_prefix protects existing Fleet tables during
+host autogenerate even when the extension is disabled. The manager does not add the
+prefix automatically. Rebuild/restart after package or startup configuration changes.
+Retain the existing operator config during replacement; do not edit a business
+checkout as a test fixture. Bootstrap host PostgreSQL first. Operator commands use an existing host
 schema and the same independent, locked Fleet migration chain; they do not create or
 migrate host tables. Read database credentials from a private owned JSON file:
 
@@ -135,3 +168,34 @@ The local acceptance path uses two actual host CLI workers with real TCP/PG/NAS/
 the built Linux image additionally verifies its actual entry and Docker control. Rendered
 Compose mounts and zero ports are checked, but full containerized Compose daemon
 execution and production ECS/NAS deployment are not claimed by those local tests.
+
+
+## Explicit local B test gate
+
+From the repository root, supply an isolated PostgreSQL fixture database, a running
+local Docker engine, the verified built worker content ID and its actual host socket:
+
+```bash
+TEST_POSTGRES_URI=<isolated-postgresql+asyncpg-uri> \
+FLEET_TEST_CONTAINERS=1 \
+FLEET_TEST_WORKER_IMAGE=sha256:<verified-local-image-content-id> \
+FLEET_TEST_DOCKER_SOCKET=<absolute-local-docker-socket> \
+backend/.venv/bin/python scripts/fleet_b_gate.py --report /tmp/fleet-b-report.xml
+```
+
+Choose a new report path; the runner refuses to overwrite an existing report. It
+creates a fresh pytest report, selects the B test modules, clears inherited pytest
+filters, and rejects a missing phase/module, empty report, skipped case or failure.
+The printed counts come from actual testcase records, not declared XML summary totals.
+Default optional integration skips remain available in the ordinary offline suite;
+they cannot satisfy this explicit gate.
+
+The B12 TCP proxy cuts both existing and new worker control connections while the
+Docker job continues. An isolated HTTP mock container publishes no ports; its request
+counter and the job's output counter independently record the business effects.
+Physical watchdog stop precedes the database lease deadline. Recovery preserves
+unknown execution, replays durable stopped proof and never starts the job again.
+
+The current test matrix does not by itself close outstanding startup/packaging and
+full Compose daemon acceptance. The delivery roadmap and implementation evidence
+remain authoritative for B completion; C and continuations are still pending.

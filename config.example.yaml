@@ -2821,7 +2821,7 @@ authorization:
 #     package: deerflow-ecs-fleet
 #     use: deerflow_ecs_fleet:install
 #     enabled: false
-#     required: false
+#     required: true
 #     table_prefix: fleet_
 #     config:
 #       enabled: false
