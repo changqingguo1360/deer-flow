@@ -40,7 +40,7 @@
 
 ## 6. B06 实现守护进程、启动授权与本地 watchdog
 
-- [ ] 6.1 写并运行 backend/tests/fleet/test_b06_fleet_durable_jobs.py，确认 B06 行为测试 RED。
+- [x] 6.1 写并运行 backend/tests/fleet/test_b06_fleet_durable_jobs.py，确认 B06 行为测试 RED。
 - [ ] 6.2 完成计划列出的接口、事务和部署接线；满足 `Authorized execution and stop on lease loss`。
 - [ ] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
 - [ ] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
@@ -97,6 +97,16 @@ Unchecked items retain incomplete wiring, release gates or commit-level acceptan
 Current B05/B06 partial status: canonical retry tracking, graph invocation identity,
 commit-failure compensation and worker attempt HTTP/lease components are verified.
 Real Docker verifies launch once, watchdog stop and refusal to stop unmanaged containers.
-307 component/adjacent tests pass with zero skips; full B06 daemon and B release gates
-remain pending. See the implementation evidence linked above. Do not equate partial
+319 component/adjacent tests pass with zero skips. B06 daemon/client and private
+journal now exercise real TCP Gateway loss and committed-start response loss;
+restart stop reconciliation gates claim. B06 startup orphan/concurrent shutdown
+coverage, deployable worker/NAS integration and B release gates remain pending. See the implementation evidence linked above. Do not equate partial
 component evidence with a completed requirement or mark remaining checkboxes early.
+
+B06 6.1 RED/GREEN evidence: test_b06_fleet_durable_jobs.py now exercises the actual
+HTTP/DB/container chain rather than FleetProbe. Missing-daemon RED was observed before
+implementation; lost-start-response RED exposed a claim-admission gap that is fixed.
+The isolated Postgres/Docker regression command in implementation evidence passes
+319 tests, zero skipped. Keep 6.2–6.4 unchecked until the remaining task-level acceptance
+and deployment boundaries are complete. This slice is committed as
+`feat(fleet): add durable worker daemon and restart stop barrier`.

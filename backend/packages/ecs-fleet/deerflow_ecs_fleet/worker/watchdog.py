@@ -22,9 +22,12 @@ class LeaseWatchdog:
             return False
         # Base the new bound on request send time: a delayed reply cannot add
         # its network round-trip time to the server's remaining lease.
-        self.deadline = (request_started_at if request_started_at is not None else time.monotonic()) + lease_seconds - self.margin
+        candidate = (request_started_at if request_started_at is not None else time.monotonic()) + lease_seconds - self.margin
+        if not math.isfinite(candidate):
+            return False
+        self.deadline = candidate
         self.changed.set()
-        return True
+        return candidate > time.monotonic()
 
     async def run(self) -> bool:
         try:

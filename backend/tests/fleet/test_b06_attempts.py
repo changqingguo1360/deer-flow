@@ -98,3 +98,37 @@ async def test_expired_attempt_requeues_only_without_start_grant(fleet_database,
     with pytest.raises(ValueError, match="lease|active"):
         await manager.authorize_start(**args)
     await fleet.stop()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_start_lease_is_bounded_by_execution_deadline(fleet_database, tmp_path):
+    fleet, claim, manager, args = await prepare(fleet_database, tmp_path)
+    engine, _, _ = fleet_database
+    async with engine.begin() as conn:
+        await conn.execute(text("UPDATE fleet_attempts SET launch_spec=jsonb_set(launch_spec, '{spec,execution_timeout_seconds}', '2')"))
+    grant = await manager.authorize_start(**args)
+    assert grant["node_id"] == "n"
+    async with engine.connect() as conn:
+        row = (await conn.execute(text("SELECT lease_expires_at,execution_deadline FROM fleet_attempts"))).one()
+        assert row.lease_expires_at <= row.execution_deadline
+    await fleet.stop()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_restart_can_release_never_authorized_attempt(fleet_database, tmp_path):
+    fleet, claim, manager, args = await prepare(fleet_database, tmp_path)
+    engine, _, _ = fleet_database
+    async with engine.begin() as conn:
+        await conn.execute(text("UPDATE fleet_nodes SET session_id='restart' WHERE id='n'"))
+    response = await manager.stopped(**(args | {"node_session_id": "restart"}), reason="lease_lost", exit_code=137)
+    assert response["state"] == "queued"
+    repeated = await manager.stopped(**(args | {"node_session_id": "restart"}), reason="lease_lost", exit_code=137)
+    assert repeated == response
+    async with engine.connect() as conn:
+        assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
+        assert (await conn.execute(text("SELECT active_attempt_id FROM fleet_jobs WHERE id=:id"), {"id": claim.job_id})).scalar_one() is None
+    with pytest.raises(ValueError, match="active|session"):
+        await manager.authorize_start(**args)
+    await fleet.stop()

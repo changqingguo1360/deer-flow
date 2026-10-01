@@ -380,8 +380,11 @@ runs until service shutdown. Execution → node → reservation is the lock orde
 node session rotation changes only node identity and retains old resource charges.
 
 Use `tests/fleet` with TEST_POSTGRES_URI pointing to an isolated test database.
-Tests create/drop random schemas, never real business schemas. Container control components exist, but the runnable worker daemon, NAS sealing,
-remote Agent and continuations are pending; consult the root delivery roadmap before
+Tests create/drop random schemas, never real business schemas. Worker client/daemon
+and private restart journals exist; tests exercise real TCP Gateway loss and a lost
+start-grant response with local Docker. Bootstrap must finish stop reconciliation
+before claiming work. Public worker startup, NAS sealing, remote Agent and
+continuations are pending; consult the root delivery roadmap before
 enabling or advertising Fleet execution. Dependency installation remains operator
 controlled through the extension manager; do not add an unconditional host dependency.
 

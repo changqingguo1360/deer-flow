@@ -928,6 +928,10 @@ in harness/deerflow/mcp/tasks/invocation.py; stable tracking identity is an opt-
 on TaskSubmission, with host create_idempotent validating the same owner/run/handle.
 
 B06 component evidence lives in test_b06_attempts.py, test_b06_worker_routes.py and
-test_b06_containers.py. Full daemon fault acceptance in test_b06_fleet_durable_jobs.py
-remains pending. Launch profile snapshots add migration f0002_launch_spec; they prevent
+test_b06_containers.py. The daemon client and private journal now have real TCP Gateway-loss and
+committed-start response-loss coverage in test_b06_fleet_durable_jobs.py. Bootstrap
+proves stops and replays pending acknowledgements before claims. Journal permissions,
+node ownership, late renewal and ungranted stop replay are covered. 319 adjacent
+regressions pass, zero skipped. Startup orphan/concurrent shutdown and operator
+worker/NAS integration still prevent whole-task acceptance. Launch profile snapshots add migration f0002_launch_spec; they prevent
 an operator profile edit between claim and start from changing reserved execution.

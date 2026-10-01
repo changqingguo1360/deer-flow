@@ -6,6 +6,7 @@ import json
 import os
 import re
 import stat
+import time
 from pathlib import Path
 
 from ..config import NAME_PATTERN, ExecutionProfile
@@ -31,8 +32,8 @@ class DockerContainers:
             raise
         return proc.returncode, stdout.decode(), stderr.decode()
 
-    async def checked(self, *args):
-        code, stdout, stderr = await self.command(*args)
+    async def checked(self, *args, timeout=15):
+        code, stdout, stderr = await self.command(*args, timeout=timeout)
         if code:
             raise DockerError(stderr.strip() or "Docker command failed")
         return stdout
@@ -70,13 +71,16 @@ class DockerContainers:
             os.close(fd)
         return True
 
-    async def launch(self, grant, *, output_dir: Path):
+    async def launch(self, grant, *, output_dir: Path, deadline=None):
         if not grant.get("authorized") or grant.get("lease_seconds_remaining", 0) <= 0 or grant.get("execution_seconds_remaining", 0) <= 0:
             raise ValueError("Valid start authorization required")
         attempt_id = grant["attempt_id"]
         if not re.fullmatch(NAME_PATTERN, attempt_id) or grant["process_ref"] != "fleet-" + attempt_id:
             raise ValueError("Invalid authorized process identity")
         ref = grant["process_ref"]
+        node_id = grant.get("node_id")
+        if node_id is not None and not re.fullmatch(NAME_PATTERN, node_id):
+            raise ValueError("Invalid authorized node identity")
         profile = ExecutionProfile.model_validate(grant["launch_spec"]["profile"])
         output = str(Path(output_dir).resolve(strict=True))
         if "," in output:
@@ -126,6 +130,10 @@ class DockerContainers:
                 profile.image,
                 *argv,
             ]
+            if node_id is not None:
+                args[1:1] = ["--label", "deerflow.fleet.node=" + node_id]
+            if deadline is not None and time.monotonic() >= deadline:
+                raise ValueError("Local launch deadline elapsed")
             code, _, stderr = await self.command(*args)
             if code and "already in use" not in stderr:
                 raise DockerError(stderr.strip() or "Docker create failed")
@@ -137,9 +145,28 @@ class DockerContainers:
             # A crash between fsync and docker start is uncertain, never an
             # excuse to issue another start. Reconciliation must stop/inspect it.
             if await asyncio.to_thread(self.mark_start, ref, fingerprint):
-                await self.checked("start", ref)
+                remaining = 15 if deadline is None else min(15, deadline - time.monotonic())
+                if remaining <= 0:
+                    raise ValueError("Local launch deadline elapsed")
+                await self.checked("start", ref, timeout=remaining)
                 observation = await self.inspect(ref)
         return observation
+
+    async def list_managed(self, node_id):
+        if not re.fullmatch(NAME_PATTERN, node_id):
+            raise ValueError("Invalid node identity")
+        names = await self.checked("ps", "-a", "--filter", "label=deerflow.fleet.node=" + node_id, "--format", "{{.Names}}")
+        rows = []
+        for ref in names.splitlines():
+            observation = await self.inspect(ref)
+            if observation is None:
+                continue
+            labels = observation["Config"].get("Labels") or {}
+            attempt_id = labels.get("deerflow.fleet.attempt", "")
+            if labels.get("deerflow.fleet.node") != node_id or not re.fullmatch(NAME_PATTERN, attempt_id) or ref != "fleet-" + attempt_id:
+                raise DockerError("Invalid managed container identity")
+            rows.append((ref, attempt_id))
+        return rows
 
     async def stop(self, ref) -> bool:
         if not re.fullmatch(r"fleet-[a-zA-Z0-9_.-]+", ref):
@@ -150,6 +177,10 @@ class DockerContainers:
         labels = observation["Config"].get("Labels") or {}
         if labels.get("deerflow.fleet.attempt") != ref.removeprefix("fleet-"):
             raise DockerError("Refusing to stop a container not managed by this Fleet attempt")
+        if observation["State"]["Status"] == "created":
+            # Removing an unstarted object fences a pending Docker start RPC.
+            await self.checked("rm", "-f", ref)
+            return await self.inspect(ref) is None
         if observation["State"]["Running"] or observation["State"].get("Paused"):
             code, _, stderr = await self.command("kill", ref)
             if code:

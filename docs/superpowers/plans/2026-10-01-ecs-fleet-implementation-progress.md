@@ -47,8 +47,24 @@ image IDs, read-only root filesystem, no-new-privileges, dropped capabilities, r
 and log bounds, and no Docker socket mount. Monotonic watchdog expiry actually kills
 the test container. Repeating launch, including after reconstructing the control
 object, never restarts a finished attempt. Stop refuses unrelated containers with
-similar names. The daemon/client, restart reconciliation barrier and full HTTP →
-worker → Docker fault scenario are still pending; B06 is not accepted as a whole.
+similar names. The daemon/client and private fsynced attempt journal now exist. Bootstrap rotates
+node session, verifies journal ownership, discovers only containers labeled for that
+node, proves residual executions stopped, replays pending stop acknowledgements, and
+requires online health before claim. A failed/uncertain execution closes local claim
+admission. Start authorization also bounds its lease by the execution deadline.
+Never-authorized attempts can be safely requeued and their stop acknowledgement is
+idempotent even after clearing active_attempt_id. Late renewal replies cannot extend
+a local lease past their send-time bound.
+
+Real TCP HTTP → authenticated host routes → Postgres → worker → Docker tests cover:
+(1) Gateway shutdown while an actual counter container runs, local stop despite lost
+renewals, quarantine before stop acknowledgement, restart replay and blocked claim;
+(2) a committed start grant whose HTTP response is dropped, no container launch,
+unknown state, released capacity after stop proof, and blocked subsequent claim.
+Private journal tests reject public permissions, symlinks and mismatched identities;
+foreign-node journals block engine access and claim. Duplicate launch remains covered
+by the real Docker component test. B06 deployment/startup orphan and concurrent daemon
+shutdown fault coverage are still pending; B06 is not accepted as a whole.
 
 B07–B12, all C and all continuation tasks remain pending. There is no sealed manifest
 completion endpoint, NAS isolation layer or public runnable worker deployment yet.
@@ -66,8 +82,8 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 307 passed, zero skipped, two existing
-Starlette/httpx deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
+Current combined verification: 319 passed, zero skipped, four existing
+Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
 ```bash
@@ -88,9 +104,19 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 
 ## Next steps
 
-1. Finish B06 daemon/client, private credential/attempt journal, startup reconciliation
-   before heartbeat/claim, and end-to-end control-channel loss with real Docker.
+1. Finish B06 startup orphan/container-engine fault and concurrent daemon shutdown
+   coverage; integrate private credential loading and operator worker startup with
+   B07 workspace preparation and B11 reproducible deployment.
 2. Deliver B07 NAS sentinel, authorized mounts, sealing and manifest completion;
    then B08 cancellation/recovery fault cases. Keep success gated on accepted artifacts.
 3. B09 wires the tested invocation helper into model-visible submission; B10 handles
    scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.
+
+## B06 daemon slice evidence
+
+RED was observed before daemon implementation (explicit missing-daemon assertion),
+for ungranted restart release and node-bound start grants, for repeated stop confirmation,
+for delayed renewal, and for claim admission after the committed start response was lost.
+The final command above passes 319 tests, zero skipped. These are isolated real local
+services and containers; no production ECS or NAS deployment is implied. The public
+worker command, NAS sentinel/authorized inputs and sealed result delivery remain pending.
