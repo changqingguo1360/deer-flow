@@ -50,6 +50,8 @@ class RunIdempotencyConflict(RuntimeError):
 
 
 class RunStore(abc.ABC):
+    supports_admission_participants = False
+
     @abc.abstractmethod
     async def put(
         self,

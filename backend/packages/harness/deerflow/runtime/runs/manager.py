@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy.exc import IntegrityError as SAIntegrityError
 
+from deerflow.runtime.execution.contracts import ExecutionPlan
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import is_lease_expired
 from deerflow.utils.time import now_iso as _now_iso
@@ -1433,6 +1434,7 @@ class RunManager:
         model_name: str | None = None,
         user_id: str | None = None,
         idempotency_key: str | None = None,
+        execution_plan: ExecutionPlan | None = None,
     ) -> RunRecord:
         """Atomically admit a normal agent run for a thread."""
         return await self._admit_thread_operation(
@@ -1446,6 +1448,7 @@ class RunManager:
             model_name=model_name,
             user_id=user_id,
             idempotency_key=idempotency_key,
+            execution_plan=execution_plan,
         )
 
     async def _close_cancelled_admission(self, record: RunRecord) -> None:
@@ -1506,6 +1509,7 @@ class RunManager:
         model_name: str | None = None,
         user_id: str | None = None,
         idempotency_key: str | None = None,
+        execution_plan: ExecutionPlan | None = None,
     ) -> RunRecord:
         """Atomically check for inflight runs and create a new one.
 
@@ -1521,6 +1525,13 @@ class RunManager:
         partial unique index on ``(thread_id) WHERE status IN
         ('pending','running')``.
         """
+        participant = execution_plan.participant if execution_plan else None
+        remote = bool(execution_plan and execution_plan.store_only)
+        if participant is not None:
+            if self._store is None or not self._store.supports_admission_participants:
+                raise RuntimeError("Remote admission requires a participating SQL RunStore")
+            if multitask_strategy != "reject":
+                raise UnsupportedStrategyError("Remote admission currently supports reject strategy only")
         run_id = str(uuid.uuid4())
         now = _now_iso()
 
@@ -1528,7 +1539,8 @@ class RunManager:
         if multitask_strategy not in _supported_strategies:
             raise UnsupportedStrategyError(f"Multitask strategy '{multitask_strategy}' is not yet supported. Supported strategies: {', '.join(_supported_strategies)}")
 
-        lease_expires_at = self._compute_lease_expires_at()
+        lease_expires_at = None if remote else self._compute_lease_expires_at()
+        owner_worker_id = None if remote else self._worker_id
         grace_seconds = self._run_ownership_config.grace_seconds if self._run_ownership_config else 10
 
         interrupted_records: list[RunRecord] = []
@@ -1546,13 +1558,14 @@ class RunManager:
             created_at=now,
             updated_at=now,
             model_name=model_name,
-            owner_worker_id=self._worker_id,
+            owner_worker_id=owner_worker_id,
+            store_only=remote,
             lease_expires_at=lease_expires_at,
             idempotency_key=idempotency_key,
         )
 
         async with self._lock:
-            if idempotency_key is not None:
+            if idempotency_key is not None and participant is None:
                 for existing in self._runs.values():
                     if existing.idempotency_key != idempotency_key:
                         continue
@@ -1580,7 +1593,7 @@ class RunManager:
             if multitask_strategy in ("interrupt", "rollback") and any(record.operation_kind != ThreadOperationKind.run for record in local_inflight):
                 raise ConflictError(f"Thread {thread_id} has an active checkpoint write")
 
-            if multitask_strategy == "reject" and local_inflight:
+            if multitask_strategy == "reject" and local_inflight and not (participant is not None and idempotency_key is not None):
                 raise ConflictError(f"Thread {thread_id} already has an active run")
 
             if multitask_strategy in ("interrupt", "rollback") and local_inflight:
@@ -1598,7 +1611,7 @@ class RunManager:
                     create_kwargs = {
                         "run_id": run_id,
                         "thread_id": thread_id,
-                        "owner_worker_id": self._worker_id,
+                        "owner_worker_id": owner_worker_id,
                         "lease_expires_at": lease_expires_at,
                         "operation_kind": operation_kind.value,
                         "multitask_strategy": "reject",
@@ -1612,6 +1625,8 @@ class RunManager:
                     }
                     if idempotency_key is not None:
                         create_kwargs["idempotency_key"] = idempotency_key
+                    if participant is not None:
+                        create_kwargs["participant"] = participant
                     try:
                         await self._call_store_with_retry(
                             "create_thread_operation_atomic",
@@ -1630,7 +1645,7 @@ class RunManager:
                     create_kwargs = {
                         "run_id": run_id,
                         "thread_id": thread_id,
-                        "owner_worker_id": self._worker_id,
+                        "owner_worker_id": owner_worker_id,
                         "lease_expires_at": lease_expires_at,
                         "operation_kind": operation_kind.value,
                         "multitask_strategy": multitask_strategy,
@@ -1644,6 +1659,8 @@ class RunManager:
                     }
                     if idempotency_key is not None:
                         create_kwargs["idempotency_key"] = idempotency_key
+                    if participant is not None:
+                        create_kwargs["participant"] = participant
                     # Interrupt / rollback: store-side claim + insert in one
                     # transaction. Retry on IntegrityError in case another
                     # worker races us between our SELECT FOR UPDATE and INSERT.

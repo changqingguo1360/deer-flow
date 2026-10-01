@@ -181,3 +181,28 @@ selects unified persistence. Even complete prerequisites cannot enable agents_en
 until the real runner and write fences are connected. C01 creates no claims or remote
 execution. B v1 job_wire explicitly excludes agent-only runtime_digest so retained
 worker images keep their existing strict profile schema.
+
+
+## C02 core atomic admission
+
+Harness execution/contracts defines RunExecutionParameters, ExecutionPlan and the
+RunAdmissionParticipant protocol; LocalExecutionBackend is the default. The host
+app/fleet/execution.py adapter receives only trusted operator/backend injection.
+services.start_run does not select remote execution from client metadata/config.
+
+RunRepository uses one RunAdmissionUnitOfWork session/transaction, preparing the
+Fleet task lock before core run insertion and inserting private launch/placement
+records before commit. Errors and cancellation roll back all four tables. Same-key
+retry compares the stored immutable inputs and original IDs/deadline; altered owner,
+thread, profile, input/configuration, streams, runtime/model version or references
+conflict. Prepared goal rows also roll back during reuse. Independent processes
+serialize on the database, not a process-local lock.
+
+Remote pending records keep owner/lease unset and store_only true, create no local
+task and receive no Gateway heartbeat renewal. Public kwargs contain only the safe
+backend/profile/version summary. Memory stores reject participation; existing Local
+store calls retain their signature. Input uses the deerflow-normalized-input-v1
+state/command envelope, preserving normalized message fields, plain strings and
+Command graph/update/resume/goto without lossy string conversion. C04 consumes
+the paired decoder. C03 claims/hydration/recovery and C10 public routing remain
+pending, and the Gateway activation guard is unchanged.

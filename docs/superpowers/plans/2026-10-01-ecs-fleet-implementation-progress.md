@@ -745,3 +745,36 @@ rejects agents_enabled until actual runner/fences exist. B old strict profile gr
 exclude runtime_digest and passed the retained unchanged image. No remote execution,
 C03 claim, public Agent HTTP summaries or production deployment is claimed.
 C02 and all remaining C/BC tasks remain active goal work.
+
+C01 implementation and local verification commit: d0ebd0f8.
+
+## C02 started — 2026-10-02
+
+Proceeding to core Local/Fleet backend registration and same-session atomic admission.
+C02 is not complete; no runnable remote Agent or claims are advertised. The worker
+image remains retained for B regressions.
+
+
+## C02 atomic admission locally verified — 2026-10-02
+
+Frozen nine backend files passed independent spec and quality/security review.
+Local baseline211/0; C02 eighteen scenarios + SQL/ownership/C01/B neighbors438/0.
+Initial RED1 is missing trusted production entry; independent-transaction negative
+control detects retained run count1 and correct SQL is restored before GREEN.
+Logs /private/tmp/c02-entry-red.log, c02-atomic-negative-control.log and
+c02-neighbor-green.log. Fixture failures are excluded from RED claims.
+
+Root actual PG C01+C02 41/0 (4.97s), report/log /private/tmp/fleet-c02-root.xml/.log;
+old-image B259/0 (122.79s), fleet-c02-root-b-gate.xml/.log; default backend13211pass,
+212 optionalskip/1deselected/19knownwarnings (270.34s), fleet-c02-root-full-test.log;
+blocking-I/O75/0 (4.39s), guidance92/0 (1.94s), full backendRuff1395clean.
+OpenSpec strict3/3 and diffcheck clean. No source changes occurred during final gates.
+
+Core run and Fleet goal/spec/placement use one caller session/transaction and
+rollback together on fault or cancellation. Same manager/restart/three independent
+processes reuse one immutable admission; changed inputs/identity conflict. Trusted
+remote pending rows have no Gateway ownership/lease or local task. Local defaults
+and memory/store interfaces retain compatibility. Versioned input preserves actual
+normalized messages and Command semantics. No migration was added in C02.
+Gateway remote activation remains closed; C03 ownership/recovery/claims, C04runner
+and remaining C/BC tasks are outstanding goal work.

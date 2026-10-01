@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.run.model import RunRow
+from deerflow.runtime.execution.contracts import RunAdmissionParticipant, RunAdmissionUnitOfWork
 from deerflow.runtime.runs.store.base import (
     LeaseRenewal,
     RunIdempotencyConflict,
@@ -32,6 +33,8 @@ def _lease_expired_or_null(lease_col, cutoff: datetime):
 
 
 class RunRepository(RunStore):
+    supports_admission_participants = True
+
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._sf = session_factory
 
@@ -679,7 +682,7 @@ class RunRepository(RunStore):
         run_id: str,
         *,
         thread_id: str,
-        owner_worker_id: str,
+        owner_worker_id: str | None,
         lease_expires_at: str | None,
         operation_kind: str = "run",
         multitask_strategy: str = "reject",
@@ -691,6 +694,7 @@ class RunRepository(RunStore):
         created_at: str | None = None,
         grace_seconds: int = 10,
         idempotency_key: str | None = None,
+        participant: RunAdmissionParticipant | None = None,
     ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Atomically create a run with cross-process thread-uniqueness.
 
@@ -730,59 +734,73 @@ class RunRepository(RunStore):
             "updated_at": now,
         }
 
-        async with self._sf() as session:
-            claimed: list[dict[str, Any]] = []
+        try:
+            async with RunAdmissionUnitOfWork(self._sf).transaction() as session:
+                if participant is not None:
+                    await participant.prepare(session)
+                    if idempotency_key is not None:
+                        existing = (await session.execute(select(RunRow).where(RunRow.idempotency_key == idempotency_key))).scalar_one_or_none()
+                        if existing is not None:
+                            stored = self._row_to_dict(existing)
+                            await participant.validate_reuse(session, stored)
+                            raise RunIdempotencyConflict(stored)
+                claimed: list[dict[str, Any]] = []
 
-            if multitask_strategy in ("interrupt", "rollback"):
-                stmt = (
-                    select(RunRow)
-                    .where(
-                        RunRow.thread_id == thread_id,
-                        RunRow.status.in_(("pending", "running")),
+                if multitask_strategy in ("interrupt", "rollback"):
+                    stmt = (
+                        select(RunRow)
+                        .where(
+                            RunRow.thread_id == thread_id,
+                            RunRow.status.in_(("pending", "running")),
+                        )
+                        .with_for_update()
                     )
-                    .with_for_update()
-                )
-                result = await session.execute(stmt)
-                for row in result.scalars():
-                    lease_expired = False
-                    if row.lease_expires_at is not None:
-                        # SQLite drops tzinfo on read despite
-                        # ``DateTime(timezone=True)`` (see ``_row_to_dict``).
-                        # Treat naive values as UTC — same convention as
-                        # ``coerce_iso`` — so the Python-side comparison
-                        # against the aware ``cutoff`` does not raise
-                        # ``TypeError: can't compare offset-naive and
-                        # offset-aware datetimes`` when heartbeat is enabled
-                        # on SQLite.
-                        row_lease = row.lease_expires_at
-                        if row_lease.tzinfo is None:
-                            row_lease = row_lease.replace(tzinfo=UTC)
-                        lease_expired = row_lease < cutoff
-                        if row_lease >= cutoff and row.owner_worker_id != owner_worker_id:
-                            # Live run owned by another worker — we cannot
-                            # interrupt it and the partial unique index would
-                            # reject our INSERT anyway. Surface as
-                            # ConflictError so the caller gets a clean signal
-                            # instead of a retry loop on IntegrityError.
-                            raise ConflictError(f"Thread {thread_id} already has an active run owned by another worker")
-                    if row.operation_kind != "run" and not lease_expired:
-                        raise ConflictError(f"Thread {thread_id} has an active checkpoint write")
-                    row.status = "interrupted"
-                    row.error = "Cancelled by newer run"
-                    row.owner_worker_id = owner_worker_id
-                    row.updated_at = now
-                    claimed.append(self._row_to_dict(row))
-
-            session.add(RunRow(run_id=run_id, **values))
-            try:
-                await session.commit()
-            except IntegrityError as exc:
-                await session.rollback()
-                if idempotency_key is not None:
+                    result = await session.execute(stmt)
+                    for row in result.scalars():
+                        lease_expired = False
+                        if row.lease_expires_at is not None:
+                            # SQLite drops tzinfo on read despite
+                            # ``DateTime(timezone=True)`` (see ``_row_to_dict``).
+                            # Treat naive values as UTC — same convention as
+                            # ``coerce_iso`` — so the Python-side comparison
+                            # against the aware ``cutoff`` does not raise
+                            # ``TypeError: can't compare offset-naive and
+                            # offset-aware datetimes`` when heartbeat is enabled
+                            # on SQLite.
+                            row_lease = row.lease_expires_at
+                            if row_lease.tzinfo is None:
+                                row_lease = row_lease.replace(tzinfo=UTC)
+                            lease_expired = row_lease < cutoff
+                            if row_lease >= cutoff and row.owner_worker_id != owner_worker_id:
+                                # Live run owned by another worker — we cannot
+                                # interrupt it and the partial unique index would
+                                # reject our INSERT anyway. Surface as
+                                # ConflictError so the caller gets a clean signal
+                                # instead of a retry loop on IntegrityError.
+                                raise ConflictError(f"Thread {thread_id} already has an active run owned by another worker")
+                        if row.operation_kind != "run" and not lease_expired:
+                            raise ConflictError(f"Thread {thread_id} has an active checkpoint write")
+                        row.status = "interrupted"
+                        row.error = "Cancelled by newer run"
+                        row.owner_worker_id = owner_worker_id
+                        row.updated_at = now
+                        claimed.append(self._row_to_dict(row))
+                new_row = RunRow(run_id=run_id, **values)
+                session.add(new_row)
+                await session.flush()
+                admitted = self._row_to_dict(new_row)
+                if participant is not None:
+                    await participant.insert(session, admitted)
+            return admitted, claimed
+        except IntegrityError as exc:
+            # The UoW has already rolled back core and participant writes.
+            # A concurrent process may have committed the same idempotency key.
+            if idempotency_key is not None:
+                async with self._sf() as session:
                     existing = (await session.execute(select(RunRow).where(RunRow.idempotency_key == idempotency_key))).scalar_one_or_none()
                     if existing is not None:
-                        raise RunIdempotencyConflict(self._row_to_dict(existing)) from exc
-                raise
-
-            new_row = await session.get(RunRow, run_id)
-            return self._row_to_dict(new_row), claimed
+                        stored = self._row_to_dict(existing)
+                        if participant is not None:
+                            await participant.validate_reuse(session, stored)
+                        raise RunIdempotencyConflict(stored) from exc
+            raise

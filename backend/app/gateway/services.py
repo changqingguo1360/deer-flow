@@ -1203,6 +1203,7 @@ async def start_run(
     require_existing_thread: bool = False,
     trusted_schedule_id: str | None = None,
     trusted_schedule_mode: str = "reuse_thread",
+    execution_backend=None,
 ) -> RunRecord:
     """Create a RunRecord and launch the background agent task.
 
@@ -1336,6 +1337,25 @@ async def start_run(
             request_context=getattr(body, "context", None),
         )
 
+        from deerflow.runtime.execution.contracts import RunExecutionParameters
+        from deerflow.runtime.execution.local import LocalExecutionBackend
+        from deerflow.runtime.user_context import AUTO, resolve_user_id
+
+        parameters = RunExecutionParameters(
+            thread_id=thread_id,
+            assistant_id=body.assistant_id,
+            user_id=owner_user_id or resolve_user_id(AUTO, method_name="start_run execution"),
+            graph_input=graph_input,
+            normalized_config=config,
+            stream_modes=tuple(stream_modes),
+            stream_subgraphs=body.stream_subgraphs,
+            interrupt_before=tuple(body.interrupt_before) if isinstance(body.interrupt_before, list) else body.interrupt_before,
+            interrupt_after=tuple(body.interrupt_after) if isinstance(body.interrupt_after, list) else body.interrupt_after,
+            public_kwargs={"input": body.input, "config": redact_config_secrets(body.config)},
+            model_name=model_name,
+        )
+        execution_plan = (execution_backend or LocalExecutionBackend()).plan(parameters)
+
         async def run_after_metadata(record: RunRecord) -> None:
             metadata_task = asyncio.create_task(
                 _ensure_thread_metadata(
@@ -1438,14 +1458,15 @@ async def start_run(
                     # written to runs.kwargs_json and echoed by the run API, so a
                     # request-scoped secret (#3861) must not ride along. The live
                     # config built above keeps the secrets for the actual run.
-                    kwargs={"input": body.input, "config": redact_config_secrets(body.config)},
+                    kwargs=execution_plan.public_kwargs,
                     multitask_strategy=body.multitask_strategy,
                     model_name=model_name,
-                    user_id=owner_user_id,
+                    user_id=parameters.user_id if execution_plan.store_only else owner_user_id,
                     idempotency_key=idempotency_key,
+                    **({"execution_plan": execution_plan} if execution_plan.store_only else {}),
                 )
 
-                if record.idempotency_reused:
+                if record.idempotency_reused or execution_plan.store_only:
                     return record
 
                 worker = run_after_metadata(record)

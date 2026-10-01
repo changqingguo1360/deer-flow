@@ -1607,7 +1607,9 @@ profiles, issue/revoke node credentials and drain/disable retained execution saf
 The explicit local B matrix passes 259 tests without skips, with full backend
 regression and blocking-I/O checks passing; see the [B acceptance report](docs/ecs-fleet-b-acceptance.md). Production ECS deployment is not performed. C01 adds private immutable launch descriptions,
 Agent task/placement persistence, worker snapshot compatibility checks and actual host
-persistence prerequisites. Gateway still rejects agents_enabled until the complete
+persistence prerequisites. C02 adds a trusted execution-backend contract and atomic
+core run/Fleet admission in one SQL transaction; remote admission creates no local
+execution task. Gateway still rejects agents_enabled until the complete
 runner and fenced persistence are implemented. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

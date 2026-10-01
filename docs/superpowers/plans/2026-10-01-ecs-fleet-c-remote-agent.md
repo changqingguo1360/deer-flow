@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** C01 已完成基础实现、审查与本地验证；C02 及后续待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 及后续待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -167,7 +167,7 @@ git commit -m "feat(fleet): c01 扩展远程放置模型与启动描述"
 
 **OpenSpec:** `remote-agent-admission` / `Atomic remote admission with local parity`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 真实准入路径注入 placement insert 错误；独立进程用同 key 重试；spy 仅观察 local task 创建次数，不替代真实 admission 存储。
+- [x] **Step 1 — 场景搭建与失败测试。** 真实准入路径注入 placement insert 错误；独立进程用同 key 重试；spy 仅观察 local task 创建次数，不替代真实 admission 存储。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -183,7 +183,7 @@ async def test_c02_contract(fleet_probe):
     assert observed['runs_for_key'] == 1
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c02_remote_agent_admission.py::test_c02_contract -vv
@@ -191,7 +191,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c02_remote_agent_admission.py::test_
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # RunAdmissionUnitOfWork holds one AsyncSession/transaction.
@@ -202,7 +202,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c02_remote_agent_admission.py::test_
 
 backend registration 契约定义在 harness、app 负责注入，harness 不导入 Fleet 包。移植前先固化 local 准入/取消回归测试。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c02_remote_agent_admission.py -vv
@@ -211,13 +211,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): c02 建立 Local/Fleet 后端契约与原子准入"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `2.1` 至 `2.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `2.1` 至 `2.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task C03: 统一 claim 与 run ownership 续约
 
@@ -876,7 +876,7 @@ git commit -m "feat(fleet): c12 C 故障验收门槛"
 本计划按 inline executing-plans 交接，不自动发起子代理或开始实施。用户要求开始后，先执行 B01。
 
 
-C execution prerequisite: B local acceptance passed 2026-10-02. C01 foundation is locally verified; later C tasks remain unexecuted. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
+C execution prerequisite: B local acceptance passed 2026-10-02. C01 foundation is locally verified at d0ebd0f8; C02 is locally verified and C03/later tasks remain unexecuted. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
 
 ### C01 foundation clarification
 
@@ -891,3 +891,9 @@ C01 verification: root23/0, retained B worker gate259/0, default backend13208 pa
 with197 optional skips, blocking-I/O75/0, guidance92/0 and Ruff1390 clean.
 See OpenSpec tasks and implementation-progress for logs and honest RED limitations.
 Public HTTP task integration, claims, runner and write fences are later tasks.
+
+
+C02 verification: root C01+C02 PG41/0; B retained-image gate259/0; default
+backend13211 pass/212 optional skips; blocking-I/O75/0; guidance92/0; Ruff1395clean.
+Initial entry RED and separate atomic rollback negative control are distinguished
+in OpenSpec tasks. C02 does not activate remote execution or claims.

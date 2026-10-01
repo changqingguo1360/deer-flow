@@ -384,6 +384,8 @@ Docker opt-in. Required integration skips cannot pass the release gate. Consult
 [deployment](../docs/deployment/ecs-fleet.md) and the
 [delivery roadmap](../docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) for actual
 verified scope. C01 owns immutable private launch/task/placement foundations and
-caller-session repositories; C02 must join core run admission in that same transaction.
+caller-session repositories. C02 joins core run admission and Fleet participation in
+one SQL transaction through trusted harness execution contracts; default Local stays
+compatible and remote admission creates no local task.
 Gateway agents_enabled remains closed until actual runner/fencing is available.
 C remote execution and continuations remain pending.

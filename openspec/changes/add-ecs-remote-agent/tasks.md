@@ -12,10 +12,10 @@
 
 ## 2. C02 建立 Local/Fleet 后端契约与原子准入
 
-- [ ] 2.1 写并运行 backend/tests/fleet/test_c02_remote_agent_admission.py，确认 C02 行为测试 RED。
-- [ ] 2.2 完成计划列出的接口、事务和部署接线；满足 `Atomic remote admission with local parity`。
-- [ ] 2.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 2.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 2.1 写并运行 backend/tests/fleet/test_c02_remote_agent_admission.py，确认 C02 行为测试 RED。
+- [x] 2.2 完成计划列出的接口、事务和部署接线；满足 `Atomic remote admission with local parity`。
+- [x] 2.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 2.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 3. C03 统一 claim 与 run ownership 续约
 
@@ -108,3 +108,29 @@ Default make test13208 passed,197 optional skipped,1 deselected,19 known warning
 were independently executed without skips. Blocking-I/O75/0 (5.68s); guidance/thread
 contracts92/0 (1.82s); all backend Ruff1390 clean. Spec and quality/security review
 approved. This slice commit includes these records; exact hash follows in progress.
+
+
+## C02 actual evidence — 2026-10-02
+
+Trusted internal backend admission only; Gateway still refuses agents_enabled.
+Single SQL UoW joins core run and Fleet task/spec/placement. Actual run insertion
+was observed before placement fault; errors and CancelledError leave all four tables
+empty. Remote pending admissions have no Gateway owner/lease or local task.
+Local baseline211/0; C02 eighteen scenarios plus neighbors438/0.
+
+Initial trusted-entry RED1: /private/tmp/c02-entry-red.log (production keyword absent).
+Separate sensitivity negative control intentionally used independent transactions,
+and the rollback test failed on retained run count1; /private/tmp/c02-atomic-negative-control.log.
+Correct SQL was restored byte-for-byte before GREEN. Fixture/advisory binding mistakes
+were not counted as original behavior RED. Three independently started processes
+use a release barrier and return one associated run/task/spec/placement group.
+
+Root C01+C02 PG41/0 (4.97s), /private/tmp/fleet-c02-root.xml and .log; retained
+worker B gate259/0 (122.79s), /private/tmp/fleet-c02-root-b-gate.xml and .log.
+Default make test13211 pass,212 optional skip,1 deselected,19 known warnings
+(270.34s), /private/tmp/fleet-c02-root-full-test.log. Required C01/C02 PG cases
+were separately executed without skips. Blocking-I/O75/0 (4.39s), guidance/thread
+92/0 (1.94s), all backend Ruff1395 clean, strict OpenSpec3/3 and diffcheck clean.
+Spec and quality/security reviews approved. This slice commit contains the evidence;
+its exact hash is recorded in implementation-progress afterwards. C03 and later
+claims/runner/routing/fences remain unchecked.

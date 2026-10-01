@@ -228,3 +228,38 @@ B v1 profile grants must retain their existing wire shape for the retained publi
 worker image: adding optional agent-only fields must not send new null fields to
 job workers whose old strict model rejects unknown fields. Preserve B execution
 and verify it using the retained image rather than hiding incompatibility by rebuild.
+
+
+## C02 atomic admission contract — 2026-10-02
+
+Harness owns RunExecutionParameters, ExecutionBackend.plan(parameters) -> ExecutionPlan
+and RunAdmissionParticipant.prepare(session)/insert(session, admitted_run)/
+validate_reuse(session, stored_run). App injects the Fleet implementation; harness
+never imports the optional package or app. Normalized input/config, complete streaming
+and interrupt parameters, and server-owned user/thread/assistant identity are supplied
+through the trusted internal contract. Local remains default.
+
+RunRepository supplies a genuine RunAdmissionUnitOfWork with one AsyncSession and
+transaction. Participant prepare locks Agent task before core thread/run work; insertion
+persists task/spec/placement with the run. No internal repository commits or independently
+opened sessions may bypass this transaction. Failures roll back all rows. Existing
+idempotency retries validate stable original identity and execution inputs, rather than
+freshly generated run/task IDs or current-time deadlines.
+
+services.start_run may receive an internal execution_backend keyword. ExecutionPlan's
+store_only selection is trusted injection, never client metadata/kwargs. Queued remote
+runs have owner_worker_id=None and lease=None, avoiding Gateway local heartbeat renewal
+and local asyncio task creation. C03 later joins claim/run ownership. Memory backends
+explicitly reject SQL participation; ordinary Local paths retain compatibility.
+
+Gateway agents_enabled remains closed through C02; routing authorization, worker claim,
+runner and write fences remain later tasks. This section fixes implementation contracts
+and does not claim C02 complete or remote execution available.
+
+
+C02 normalized input envelope: {format: 'deerflow-normalized-input-v1',
+kind: 'state' | 'command', value: ...}. State messages preserve LangChain
+message_to_dict fields and valid Gateway plain-string forms; Command preserves
+graph/update/resume/goto. The paired decoder reconstructs the same execution
+semantics. Unsupported non-JSON objects fail closed; str()/default serializers
+must not silently discard input types or fields. C04 consumes this versioned shape.
