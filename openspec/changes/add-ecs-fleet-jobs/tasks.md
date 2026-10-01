@@ -92,3 +92,11 @@
 B is in progress; see [implementation evidence](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).
 B04 RED: 8 failing tests before FleetScheduler existed; GREEN: all 8 pass on real Postgres.
 Unchecked items retain incomplete wiring, release gates or commit-level acceptance requirements.
+
+
+Current B05/B06 partial status: canonical retry tracking, graph invocation identity,
+commit-failure compensation and worker attempt HTTP/lease components are verified.
+Real Docker verifies launch once, watchdog stop and refusal to stop unmanaged containers.
+307 component/adjacent tests pass with zero skips; full B06 daemon and B release gates
+remain pending. See the implementation evidence linked above. Do not equate partial
+component evidence with a completed requirement or mark remaining checkboxes early.

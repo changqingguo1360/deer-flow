@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class JobReconciler:
-    def __init__(self, jobs):
+    def __init__(self, jobs, attempts):
         self.jobs = jobs
+        self.attempts = attempts
         self._task = None
         self._stop = asyncio.Event()
 
@@ -24,6 +25,7 @@ class JobReconciler:
     async def run(self):
         while not self._stop.is_set():
             try:
+                await self.attempts.expire_pending()
                 async with self.jobs.sf() as session:
                     ids = (await session.execute(select(JobRow.id).where(JobRow.state == "staged").order_by(JobRow.staged_deadline).limit(100))).scalars().all()
                 for job_id in ids:

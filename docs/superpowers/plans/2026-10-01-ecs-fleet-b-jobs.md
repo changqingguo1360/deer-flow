@@ -13,7 +13,7 @@
 **前置：** 无；在现有个人 ECS worktree 开始。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-fleet-jobs/proposal.md)、[tasks](../../../openspec/changes/add-ecs-fleet-jobs/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** 尚未执行；所有测试输出均为期望，不是已经运行的结果。
+**计划状态：** B 实施中；下面代码与测试输出是实施指南，实际证据见 [实施进度](2026-10-01-ecs-fleet-implementation-progress.md)。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -318,7 +318,7 @@ git commit -m "feat(fleet): b03 打通节点凭据与宿主 worker 路由"
 ### Task B04: 实现原子容量预留与节点生命周期
 
 **Files:**
-- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/nodes.py`
+- Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/nodes.py`（复用 B03 的节点生命周期边界）
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/reservations.py`
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/scheduler.py`
 - Test: `backend/tests/fleet/test_b04_fleet_foundation.py`
@@ -917,3 +917,17 @@ git commit -m "feat(fleet): b12 B 集成故障验收与进入 C 的门槛"
 - [ ] 在测试报告中明确环境限制；未通过门槛不得执行后继阶段的上线操作。
 
 本计划按 inline executing-plans 交接，不自动发起子代理或开始实施。用户要求开始后，先执行 B01。
+
+
+## B05/B06 execution adjustments
+
+Implementation uses real ASGI/SQL repositories and LangGraph instead of a generic
+FleetProbe. B05 tests are split into test_b05_driver.py, test_b05_retries.py,
+test_b05_invocation.py and test_b05_fleet_durable_jobs.py. The invocation helper lives
+in harness/deerflow/mcp/tasks/invocation.py; stable tracking identity is an opt-in field
+on TaskSubmission, with host create_idempotent validating the same owner/run/handle.
+
+B06 component evidence lives in test_b06_attempts.py, test_b06_worker_routes.py and
+test_b06_containers.py. Full daemon fault acceptance in test_b06_fleet_durable_jobs.py
+remains pending. Launch profile snapshots add migration f0002_launch_spec; they prevent
+an operator profile edit between claim and start from changing reserved execution.

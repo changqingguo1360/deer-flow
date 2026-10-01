@@ -380,7 +380,16 @@ runs until service shutdown. Execution → node → reservation is the lock orde
 node session rotation changes only node identity and retains old resource charges.
 
 Use `tests/fleet` with TEST_POSTGRES_URI pointing to an isolated test database.
-Tests create/drop random schemas, never real business schemas. Container execution,
+Tests create/drop random schemas, never real business schemas. Container control components exist, but the runnable worker daemon, NAS sealing,
 remote Agent and continuations are pending; consult the root delivery roadmap before
 enabling or advertising Fleet execution. Dependency installation remains operator
 controlled through the extension manager; do not add an unconditional host dependency.
+
+Fleet task retries use TaskSubmission.tracking_task_id to opt into the host
+McpTaskRepository.create_idempotent boundary. Ordinary MCP drivers retain duplicate
+remote-handle rejection. Never infer invocation identity from provider call IDs alone:
+use the graph-injected ExecutionInfo helper in deerflow.mcp.tasks.invocation.
+Worker start/renew/stopped requests require node + session + attempt token; closing
+new-work flags must not cut off these accepted-work endpoints. The persisted start
+grant freezes the claim's profile. Stop acknowledgement can release capacity but
+cannot establish successful completion without an accepted manifest.

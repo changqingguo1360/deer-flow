@@ -102,6 +102,8 @@ class McpTaskService:
         local_task_id = request.local_task_id or f"mcp-task-{uuid.uuid4().hex}"
         driver_request = replace(request, local_task_id=local_task_id)
         submission = await driver.submit(driver_request)
+        if submission.tracking_task_id is not None:
+            local_task_id = submission.tracking_task_id
         driver_data = {**request.driver_data, **submission.driver_data}
         task_reference = TaskReference(
             local_task_id=local_task_id,
@@ -116,7 +118,8 @@ class McpTaskService:
                 raise McpTaskProtocolError(f"MCP task remote_task_id must not exceed {MCP_TASK_REMOTE_ID_MAX_LENGTH} characters")
             snapshot = self._normalize_snapshot(submission.snapshot)
             next_poll_at = self._next_poll_at(snapshot, now=submitted_at)
-            return await self._repository.create(
+            create = self._repository.create_idempotent if submission.tracking_task_id is not None else self._repository.create
+            return await create(
                 task_id=local_task_id,
                 user_id=request.user_id,
                 thread_id=request.thread_id,

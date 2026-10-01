@@ -29,7 +29,7 @@ class FleetTaskDriver:
             spec=JobSpec.model_validate(request.arguments),
             dedupe_group=request.driver_data.get("dedupe_group"),
         )
-        return TaskSubmission(remote_task_id=job["id"], snapshot=self.snapshot(job), driver_data={"fleet_tracking_id": job["tracking_task_id"]})
+        return TaskSubmission(remote_task_id=job["id"], snapshot=self.snapshot(job), driver_data={"fleet_tracking_id": job["tracking_task_id"]}, tracking_task_id=job["tracking_task_id"])
 
     @staticmethod
     def snapshot(job):

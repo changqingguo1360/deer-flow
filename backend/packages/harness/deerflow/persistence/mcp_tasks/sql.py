@@ -163,6 +163,23 @@ class McpTaskRepository:
             await session.refresh(row)
             return self._row_to_dict(row)
 
+    async def create_idempotent(self, **values) -> dict[str, Any]:
+        """Opt-in boundary for drivers that own a stable tracking identity.
+
+        Never overwrite a persisted row, including its cancellation intent.
+        A unique conflict can only return the same owner/run/handle binding.
+        """
+        try:
+            return await self.create(**values)
+        except (IntegrityError, DuplicateMcpRemoteTaskError):
+            existing = await self.get(values["task_id"], user_id=values["user_id"])
+            if existing is None:
+                raise
+            for key in ("thread_id", "run_id", "server_name", "driver_name", "remote_task_id"):
+                if existing.get(key) != values[key]:
+                    raise DuplicateMcpRemoteTaskError("Tracking identity belongs to another execution") from None
+            return existing
+
     async def get(self, task_id: str, *, user_id: str) -> dict[str, Any] | None:
         async with self._sf() as session:
             row = await session.get(McpTaskRow, task_id)

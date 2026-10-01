@@ -24,12 +24,35 @@ OpenSpec changes has met its release gate; do not archive them or mark IMPLEMENT
   driver registration and stoppable background reconciliation. Real McpTaskService
   is used; there is no second user task tracking store.
 
-B05 still needs stable invocation identity through the model-visible tool/runtime,
-retries that return the existing tracking row, scheduled dedupe handling, and an
-explicit persistence-failure compensation test. The current driver requires a
-server-provided invocation_id; no public Fleet submission tool exists yet.
-B06–B12, all C and all continuation tasks remain pending. No container has been
-started by Fleet, no remote Agent run has executed, and no ECS has been deployed.
+B05 now derives invocation identity from LangGraph's injected ExecutionInfo
+(owner/run/checkpoint/task/tool identity). Real graph crash/replay preserves the
+identity; the next tool turn changes it even with a reused provider call ID.
+Fleet's driver returns a canonical tracking_task_id. The task service opts into
+create_idempotent only for drivers that provide this identity, returns the original
+matching row after a unique race, and never overwrites its cancellation intent.
+Real Postgres tests cover sequential/concurrent retries and tracking commit failure
+with both successful and failed compensation. The model-visible Fleet submission
+tool and scheduled dedupe integration remain pending (B09/B10).
+
+B06 is in progress: claim/start/renew/stopped host routes enforce node, session,
+attempt and token identity. The exact operator profile is frozen in launch_spec
+when reserving capacity (migration f0002_launch_spec). Start authorization is durable
+and idempotent. Expiry requeues only attempts never granted permission to start;
+granted attempts become unknown and their reservation is quarantined. Cancellation
+stops renewal but is not a physical stop proof.
+
+Host-only Docker control requires a start grant, uses a deterministic container name
+and a private fsynced one-shot start journal. It uses non-root execution, immutable
+image IDs, read-only root filesystem, no-new-privileges, dropped capabilities, resource
+and log bounds, and no Docker socket mount. Monotonic watchdog expiry actually kills
+the test container. Repeating launch, including after reconstructing the control
+object, never restarts a finished attempt. Stop refuses unrelated containers with
+similar names. The daemon/client, restart reconciliation barrier and full HTTP →
+worker → Docker fault scenario are still pending; B06 is not accepted as a whole.
+
+B07–B12, all C and all continuation tasks remain pending. There is no sealed manifest
+completion endpoint, NAS isolation layer or public runnable worker deployment yet.
+No remote Agent run has executed and no business ECS has been deployed.
 
 ## Verification evidence
 
@@ -42,12 +65,19 @@ fleet/conftest.py:
 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py -q -p no:cacheprovider
 ```
 
-Observed: 79 passed, zero skipped. Includes 43 Fleet tests and 36 task-service tests.
-Combined pre-commit verification: 242 passed, zero skipped, two existing
-Starlette/httpx deprecation warnings. Command adds tests/test_auth_middleware.py,
-tests/test_csrf_middleware.py, tests/test_pat_auth.py, tests/test_extension_config.py
-and tests/test_extension_api_contracts.py to the command above. This is adjacent
-regression coverage, not the B release gate or the entire backend suite.
+Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
+Current combined verification: 307 passed, zero skipped, two existing
+Starlette/httpx deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
+alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
+
+```bash
+FLEET_TEST_CONTAINERS=1 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py -q -p no:cacheprovider
+```
+
+This is component and adjacent regression coverage, not the B release gate or the
+entire backend suite. Docker tests use existing local Alpine content IDs, unique
+fleet-UUID test container names, private temp state/output paths, and finally remove
+only their own test containers.
 
 RED → GREEN was observed for the node-session lock inversion, B04 atomic capacity,
 B05 staged submission, generic task driver and host startup binding. Tests call real
@@ -58,7 +88,9 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 
 ## Next steps
 
-1. Finish B05 invocation/retry/compensation behavior while keeping staged unclaimable.
-2. Implement B06 host attempt endpoints, worker container lifecycle, start authorization,
-   local monotonic lease watchdog and restart reconciliation with real Docker tests.
-3. Deliver B07–B12 before enabling C. Keep agents/continuations flags off.
+1. Finish B06 daemon/client, private credential/attempt journal, startup reconciliation
+   before heartbeat/claim, and end-to-end control-channel loss with real Docker.
+2. Deliver B07 NAS sentinel, authorized mounts, sealing and manifest completion;
+   then B08 cancellation/recovery fault cases. Keep success gated on accepted artifacts.
+3. B09 wires the tested invocation helper into model-visible submission; B10 handles
+   scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.

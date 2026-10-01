@@ -27,6 +27,8 @@ class FleetService:
         self.session_factory = None
         self.credentials = None
         self.nodes = None
+        self.scheduler = None
+        self.attempts = None
         self.jobs = None
         self.reconciler = None
 
@@ -43,10 +45,14 @@ class FleetService:
             await connection.run_sync(upgrade_connection)
         from .node_credentials import NodeCredentials
         from .nodes import NodeRegistry
+        from .persistence.attempts import JobAttempts
+        from .scheduler import FleetScheduler
 
         self.session_factory = deps.session_factory
         self.credentials = NodeCredentials(deps.session_factory)
         self.nodes = NodeRegistry(deps.session_factory)
+        self.scheduler = FleetScheduler(deps.session_factory, self.config)
+        self.attempts = JobAttempts(deps.session_factory, self.config)
         self.ready = True
 
     def bind_tracking(self, reader):
@@ -57,7 +63,7 @@ class FleetService:
         from .reconcile import JobReconciler
 
         self.jobs = FleetJobService(self.session_factory, self.config, tracking_reader=reader)
-        self.reconciler = JobReconciler(self.jobs)
+        self.reconciler = JobReconciler(self.jobs, self.attempts)
         self.reconciler.start()
         return FleetTaskDriver(self.jobs)
 
@@ -70,3 +76,5 @@ class FleetService:
         self.session_factory = None
         self.credentials = None
         self.nodes = None
+        self.scheduler = None
+        self.attempts = None

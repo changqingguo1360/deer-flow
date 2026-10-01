@@ -140,7 +140,10 @@ class TaskSubmission:
     remote_task_id: str
     snapshot: TaskSnapshot
     driver_data: dict[str, Any] = field(default_factory=dict)
+    tracking_task_id: str | None = None
 
     def __post_init__(self) -> None:
+        if self.tracking_task_id is not None:
+            _validate_storage_text(self.tracking_task_id, field_name="tracking_task_id", max_length=64)
         if not self.remote_task_id.strip():
             raise ValueError("remote_task_id must not be empty")

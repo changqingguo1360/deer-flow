@@ -86,6 +86,7 @@ class AttemptRow(FleetBase):
         Column("process_ref", String(128)),
         Column("output_prefix", String(512), nullable=False),
         Column("outcome", json_type),
+        Column("launch_spec", json_type),
         timestamp("lease_expires_at"),
         timestamp("execution_deadline", nullable=True),
         timestamp("start_authorized_at", nullable=True),
