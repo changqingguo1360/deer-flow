@@ -339,4 +339,4 @@ python3 scripts/pnpm.py check
 B10 acceptance covers supported reuse_thread scheduled Fleet slots. No production
 worker/ECS/NAS deployment or remote Agent execution is claimed. All feature flags
 remain disabled by default; B11 deployment and B12 release gate remain pending before C.
-Implementation commit: `feat(fleet): deduplicate scheduled slots with durable invocation receipts`.
+Implementation commit: `6236636c` — `feat(fleet): deduplicate scheduled slots with durable invocation receipts`.
