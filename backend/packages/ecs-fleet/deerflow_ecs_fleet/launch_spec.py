@@ -83,6 +83,7 @@ SECRET_KEYS = frozenset(
         "secret",
         "secrets",
         "api_key",
+        "github_token",
         "password",
         "password_hash",
         "token",

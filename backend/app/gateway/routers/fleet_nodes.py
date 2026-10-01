@@ -4,7 +4,7 @@ from dataclasses import asdict
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.gateway.fleet_auth import get_fleet_runtime, require_node
 
@@ -60,10 +60,52 @@ class StopRequest(AttemptRequest):
     exit_code: int = Field(ge=0, le=255, strict=True)
 
 
+class SnapshotEntryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
+    version: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.+!-]{0,127}$")
+    digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class SnapshotRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entries: list[SnapshotEntryRequest]
+
+
+class WorkerCompatibilityRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    runtime_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    skill_snapshot: SnapshotRequest
+    plugin_snapshot: SnapshotRequest
+
+
+class ClaimRequest(NodeSessionRequest):
+    kind: Literal["job", "agent"] = "job"
+    compatibility: WorkerCompatibilityRequest | None = None
+
+    @model_validator(mode="after")
+    def compatibility_kind(self):
+        if (self.kind == "agent") != (self.compatibility is not None):
+            raise ValueError("Agent claims require compatibility; job claims do not")
+        return self
+
+
 @router.post("/claims")
-async def claim(request: Request, body: NodeSessionRequest):
+async def claim(request: Request, body: ClaimRequest):
     principal = require_node(request)
     runtime = get_fleet_runtime(request.app)
+    if body.kind == "agent":
+        ownership = getattr(request.app.state, "fleet_ownership", None)
+        if ownership is None:
+            raise HTTPException(status_code=503, detail="Fleet Agent ownership unavailable")
+        from deerflow_ecs_fleet.launch_spec import WorkerCompatibility
+
+        try:
+            advertised = WorkerCompatibility.model_validate(body.compatibility.model_dump())
+            claim = await ownership.claim_agent(principal.node_id, node_session_id=body.node_session_id, worker=advertised)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from None
+        return Response(status_code=204) if claim is None else {"kind": "agent", **asdict(claim)}
     try:
         claim = await runtime.scheduler.claim_job(principal.node_id, node_session_id=body.node_session_id)
     except ValueError as exc:
@@ -74,6 +116,22 @@ async def claim(request: Request, body: NodeSessionRequest):
 async def attempt_operation(request, attempt_id, body, method):
     principal = require_node(request)
     runtime = get_fleet_runtime(request.app)
+    async with runtime.session_factory() as session:
+        from deerflow_ecs_fleet.persistence.models import AttemptRow
+
+        locator = await session.get(AttemptRow, attempt_id)
+    if locator is not None and locator.node_id != principal.node_id:
+        raise HTTPException(status_code=403, detail="Attempt unavailable")
+    if locator is not None and locator.kind == "agent":
+        ownership = getattr(request.app.state, "fleet_ownership", None)
+        if ownership is None or method != "renew":
+            raise HTTPException(status_code=503, detail="Agent operation awaits runner/stop integration")
+        try:
+            return await ownership.renew(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump())
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="Attempt unavailable") from None
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from None
     try:
         return await getattr(runtime.attempts, method)(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump())
     except PermissionError:

@@ -8,11 +8,13 @@ from .persistence.models import AttemptRow, NodeRow
 
 
 class NodeRegistry:
-    def __init__(self, session_factory, *, configured_profiles=()):
+    def __init__(self, session_factory, *, configured_profiles=(), default_profiles=None, agent_profiles=()):
         self.sf = session_factory
+        self.agent_profiles = frozenset(agent_profiles)
         self.configured_profiles = frozenset(configured_profiles)
+        self.default_profiles = self.configured_profiles if default_profiles is None else frozenset(default_profiles)
 
-    async def register(self, *, node_id: str, name: str, cpu_millis: int, memory_mib: int, profile_allowlist: list[str] | None = None, registered_by: str | None = None) -> None:
+    async def register(self, *, node_id: str, name: str, cpu_millis: int, memory_mib: int, profile_allowlist: list[str] | None = None, registered_by: str | None = None, agent_limit: int = 0) -> None:
         import re
 
         from .config import NAME_PATTERN
@@ -21,12 +23,16 @@ class NodeRegistry:
             raise ValueError("Invalid operator node identity")
         if type(cpu_millis) is not int or not 1 <= cpu_millis <= 1_000_000 or type(memory_mib) is not int or not 1 <= memory_mib <= 4_194_304:
             raise ValueError("Invalid operator node capacity")
-        profiles = sorted(self.configured_profiles) if profile_allowlist is None else profile_allowlist
+        if type(agent_limit) is not int or not 0 <= agent_limit <= 1_000_000:
+            raise ValueError("Invalid operator agent capacity")
+        profiles = sorted(self.default_profiles) if profile_allowlist is None else profile_allowlist
         if not isinstance(profiles, list) or any(type(name) is not str or name not in self.configured_profiles for name in profiles) or len(profiles) != len(set(profiles)):
             raise ValueError("Invalid configured node profiles")
+        if self.agent_profiles.intersection(profiles) and agent_limit <= 0:
+            raise ValueError("Agent profiles require positive agent capacity")
         async with self.sf.begin() as session:
             # Existing budgets cannot be silently changed on re-registration.
-            session.add(NodeRow(id=node_id, name=name, cpu_millis=cpu_millis, memory_mib=memory_mib, profile_allowlist=profiles, registered_by=registered_by))
+            session.add(NodeRow(id=node_id, name=name, cpu_millis=cpu_millis, memory_mib=memory_mib, profile_allowlist=profiles, registered_by=registered_by, agent_limit=agent_limit))
 
     async def status(self, node_id: str) -> dict:
         from .persistence.models import ReservationRow
@@ -35,9 +41,13 @@ class NodeRegistry:
             node = await session.get(NodeRow, node_id)
             if node is None:
                 raise ValueError("Unknown node")
-            attempts = (await session.execute(select(AttemptRow.id, AttemptRow.job_id, AttemptRow.state, AttemptRow.process_ref, AttemptRow.stopped_at).where(AttemptRow.node_id == node_id))).mappings().all()
+            attempts = (await session.execute(select(AttemptRow.id, AttemptRow.job_id, AttemptRow.run_id, AttemptRow.state, AttemptRow.process_ref, AttemptRow.stopped_at).where(AttemptRow.node_id == node_id))).mappings().all()
             reservations = (
-                (await session.execute(select(ReservationRow.attempt_id, ReservationRow.state, ReservationRow.cpu_millis, ReservationRow.memory_mib).where(ReservationRow.node_id == node_id, ReservationRow.state != "released")))
+                (
+                    await session.execute(
+                        select(ReservationRow.attempt_id, ReservationRow.state, ReservationRow.cpu_millis, ReservationRow.memory_mib, ReservationRow.agent_units).where(ReservationRow.node_id == node_id, ReservationRow.state != "released")
+                    )
+                )
                 .mappings()
                 .all()
             )
@@ -49,6 +59,7 @@ class NodeRegistry:
                     "health": node.health,
                     "cpu_millis": node.cpu_millis,
                     "memory_mib": node.memory_mib,
+                    "agent_limit": node.agent_limit,
                     "profile_allowlist": node.profile_allowlist,
                     "registered_by": node.registered_by,
                 },

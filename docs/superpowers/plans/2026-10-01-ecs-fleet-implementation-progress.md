@@ -778,3 +778,43 @@ and memory/store interfaces retain compatibility. Versioned input preserves actu
 normalized messages and Command semantics. No migration was added in C02.
 Gateway remote activation remains closed; C03 ownership/recovery/claims, C04runner
 and remaining C/BC tasks are outstanding goal work.
+
+C02 implementation and verification commit: 9a60c310.
+
+## C03 started — 2026-10-02
+
+Proceeding to shared run/attempt claim ownership and lease renewal, including real
+Gateway recovery/hydration boundaries. C03 is not complete; Gateway remote execution
+activation remains closed. No full runner or production deployment is claimed.
+
+
+## C03 ownership foundation locally verified — 2026-10-02
+
+Spec and quality/security review approved thirteen frozen source/test files.
+Four unique genuine RED behaviors (overlapping logs are not additive): queued remote
+run wrongly terminalized by Gateway recovery (c03-recovery-red.log); actual admin
+Agent capacity registration returned422 (c03-red.log); raw github_token accepted
+(c03-secret-red.log); cross-node Agent start leaked kind through503 rather than403
+(c03-node-scope-red.log). All logs reside in /private/tmp. Fixture/configuration
+failures are excluded. Focused GREEN33/0 (4.33s), c03-final-green.log; neighboring
+GREEN486/0 (23.19s), c03-neighbor-green.log (before the final cross-node test).
+
+Root C01-C03 PostgreSQL74/0 (7.65s), fleet-c03-root.xml/.log; unchanged retained-image
+B gate259/0 (121.67s), fleet-c03-root-b-gate.xml/.log. Default backend13217 passed,
+239 optional skipped,1 deselected,19 known warnings (270.58s), fleet-c03-root-full-test.log.
+Required PostgreSQL/container tests were independently executed without skips.
+Blocking-I/O75/0 (4.75s), fleet-c03-root-blocking-io.log; guidance/boundary tests26/0
+(1.37s), fleet-c03-root-guidance.log; thread route contracts61/0 (1.70s),
+fleet-c03-root-thread-contract.log. Full backend Ruff1397 clean; strict OpenSpec3/3.
+Actual guidance checker has0errors/4soft chain-size warnings; the same four paths
+warn at parent HEAD, with no new warning category/path. Strict-warnings therefore
+is not reported as passing. Diff check clean.
+
+Claim/renew atomically bind core run and attempt to identical leases and shared
+capacity. Local SQL recovery/ownership mutations exclude remote placements and
+server-owned nonlocal backend labels; hydration and scheduler recovery preserve them.
+Node bearer kind dispatch verifies scope, explicit Agent profiles require positive
+capacity, legacy defaults remain jobs, and accepted renewal survives closed flags.
+No migration change. Raw runtime github_token now requires out-of-band references.
+Gateway activation stays closed. C04 runner, complete cancellation/physical stop,
+Agent read/reconcile and all remaining C/BC work are outstanding.

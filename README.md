@@ -1609,7 +1609,10 @@ regression and blocking-I/O checks passing; see the [B acceptance report](docs/e
 Agent task/placement persistence, worker snapshot compatibility checks and actual host
 persistence prerequisites. C02 adds a trusted execution-backend contract and atomic
 core run/Fleet admission in one SQL transaction; remote admission creates no local
-execution task. Gateway still rejects agents_enabled until the complete
+execution task. C03 joins Agent attempt/run ownership and lease renewal atomically,
+shares node CPU/memory/Agent capacity, and excludes remote runs from local recovery.
+Explicit Agent node profiles require positive Agent capacity. Gateway still rejects
+agents_enabled until the complete
 runner and fenced persistence are implemented. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

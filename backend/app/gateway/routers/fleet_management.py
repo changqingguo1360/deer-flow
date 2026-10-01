@@ -20,6 +20,7 @@ class RegisterMachine(BaseModel):
     name: str = Field(pattern=IDENTITY)
     cpu_millis: int = Field(strict=True, ge=1, le=1_000_000)
     memory_mib: int = Field(strict=True, ge=1, le=4_194_304)
+    agent_limit: int = Field(default=0, strict=True, ge=0, le=1_000_000)
     profile_allowlist: list[str] = Field(min_length=1, max_length=128)
 
 

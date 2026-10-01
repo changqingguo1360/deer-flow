@@ -177,6 +177,7 @@ class RunRecord:
     error: str | None = None
     model_name: str | None = None
     store_only: bool = False
+    execution_backend: str = "local"
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     total_tokens: int = 0
@@ -458,6 +459,7 @@ class RunManager:
             error=row.get("error"),
             model_name=row.get("model_name"),
             store_only=True,
+            execution_backend=(row.get("kwargs") or {}).get("execution_backend") or "local",
             total_input_tokens=row.get("total_input_tokens") or 0,
             total_output_tokens=row.get("total_output_tokens") or 0,
             total_tokens=row.get("total_tokens") or 0,
@@ -1560,6 +1562,7 @@ class RunManager:
             model_name=model_name,
             owner_worker_id=owner_worker_id,
             store_only=remote,
+            execution_backend=execution_plan.public_kwargs["execution_backend"] if remote else "local",
             lease_expires_at=lease_expires_at,
             idempotency_key=idempotency_key,
         )

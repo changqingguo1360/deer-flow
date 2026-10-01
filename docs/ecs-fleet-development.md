@@ -152,8 +152,10 @@ issued credential once with no-store, and check node scope before revocation.
 
 f0006_nodes is a private migration after f0005. Migrated NULL allowlists preserve
 legacy eligibility for currently configured operator job profiles. New trusted CLI
-registration saves concrete configured job profiles; HTTP requires a non-empty unique
-allowlist with no wildcard. Scheduler checks membership under the original node lock
+registration defaults to concrete configured job profiles; HTTP requires a non-empty
+unique configured allowlist with no wildcard. Explicit Agent profiles require a
+positive agent_limit; its strict range is 0..1000000 and default is zero. Migrated
+NULL allowlists never authorize Agent claims. Scheduler checks membership under the original node lock
 before reservation. Drain survives heartbeat/restart; disabled requires no charged
 capacity; deletion requires disabled/no execution history and atomically removes only
 that node's credentials. Never delete retained execution history to make deletion pass.
@@ -204,5 +206,31 @@ backend/profile/version summary. Memory stores reject participation; existing Lo
 store calls retain their signature. Input uses the deerflow-normalized-input-v1
 state/command envelope, preserving normalized message fields, plain strings and
 Command graph/update/resume/goto without lossy string conversion. C04 consumes
-the paired decoder. C03 claims/hydration/recovery and C10 public routing remain
-pending, and the Gateway activation guard is unchanged.
+the paired decoder. C10 public routing remains pending, and the Gateway activation
+guard is unchanged. C03 ownership implementation is locally verified below.
+
+
+## C03 locally verified ownership foundation
+
+The host FleetRunOwnership bridge claims and renews core run and private attempt
+ownership in one SQL transaction. Both rows use fleet-agent:<attempt UUID> and the
+same lease expiry. Renewal verifies node/session/token, current task generation,
+active reservation, and both unexpired rows. Claim charges CPU, memory and one
+agent unit through the shared B ledger. Explicit Agent allowlist, positive capacity,
+stored launch compatibility and current operator admission rules gate new claims.
+Accepted renewals do not depend on new-work flags or changed operator profiles.
+
+RunRepository intrinsically restricts local recovery/takeover and interrupt/rollback
+to absent/local server-owned execution_backend labels. After private migrations,
+the host adds a SQL NOT EXISTS placement guard. Scans and mutations enforce these
+predicates; hydrated remote records preserve their backend label. Harness imports
+neither Fleet nor app. Trusted store_only plans require a valid nonlocal label.
+
+The node-bearer claim endpoint accepts kind=agent plus WorkerCompatibility;
+default job requests and grants preserve B wire compatibility. Attempt renewal
+dispatches by persisted kind and checks node ownership before revealing availability.
+Agent start/stopped remain unavailable pending runner/stop integration; no independent
+Agent read/reconcile endpoint or physical-stop capacity release is claimed here.
+Raw github_token is now rejected in LaunchSpec, matching the existing runtime-only
+credential field; Local execution is unchanged. Future runner credential resolution
+must use out-of-band references. Gateway agents_enabled remains fail closed.

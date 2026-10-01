@@ -8,9 +8,11 @@ class FleetManagement:
         self.runtime = runtime
 
     async def register(self, *, operator_id, profile_allowlist, **fields):
-        configured = {name for name, profile in self.runtime.config.profiles.items() if profile.kind == "job"}
+        configured = set(self.runtime.config.profiles)
         if not profile_allowlist or len(profile_allowlist) != len(set(profile_allowlist)) or not set(profile_allowlist) <= configured:
-            raise ValueError("Explicit configured job profiles required")
+            raise ValueError("Explicit configured profiles required")
+        if any(self.runtime.config.profiles[name].kind == "agent" for name in profile_allowlist) and fields.get("agent_limit", 0) <= 0:
+            raise ValueError("Agent profiles require positive agent capacity")
         try:
             await self.runtime.nodes.register(**fields, profile_allowlist=profile_allowlist, registered_by=operator_id)
         except IntegrityError:

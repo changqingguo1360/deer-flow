@@ -386,6 +386,8 @@ Docker opt-in. Required integration skips cannot pass the release gate. Consult
 verified scope. C01 owns immutable private launch/task/placement foundations and
 caller-session repositories. C02 joins core run admission and Fleet participation in
 one SQL transaction through trusted harness execution contracts; default Local stays
-compatible and remote admission creates no local task.
+compatible and remote admission creates no local task. C03 ownership
+checks joined run/attempt leases, shared capacity and SQL local-recovery exclusion.
+Explicit Agent node profiles require positive agent_limit; defaults remain job-only.
 Gateway agents_enabled remains closed until actual runner/fencing is available.
 C remote execution and continuations remain pending.

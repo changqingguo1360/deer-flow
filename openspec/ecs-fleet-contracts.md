@@ -263,3 +263,38 @@ message_to_dict fields and valid Gateway plain-string forms; Command preserves
 graph/update/resume/goto. The paired decoder reconstructs the same execution
 semantics. Unsupported non-JSON objects fail closed; str()/default serializers
 must not silently discard input types or fields. C04 consumes this versioned shape.
+
+
+## C03 ownership/recovery contract — 2026-10-02
+
+Host FleetRunOwnership(session_factory, config) exposes claim_agent(node_id,
+node_session_id, worker: WorkerCompatibility) and renew(node/session/attempt/token,
+running=False). Claim/renew hold one transaction in task -> core RunRow -> placement
+-> node -> reservation/attempt order. run.owner_worker_id is fleet-agent:<attemptUUID>;
+run and attempt share the same UTC lease expiry. Worker renewal requires matching
+node/session/token, current task generation and both unexpired active rows. Dispatcher
+maintenance cannot renew an active worker lease.
+
+Core local recovery/takeover and interrupt/rollback SQL use a generic eligibility
+predicate: only absent/local server-owned execution_backend labels are locally
+eligible. Host injects an additional NOT EXISTS private placement(run_id) SQL predicate
+after Fleet migrations. Both scan and mutation/locked admission checks enforce it;
+there is no asynchronous check followed by an independently committed write. The
+server-persisted nonlocal label remains protective when the Fleet extension is absent.
+Harness imports no Fleet models or app code. Trusted store_only plans require a
+nonlocal execution label; client metadata/config cannot supply this control.
+
+Node management may accept strict agent_limit in0..1000000 (default0) and explicit
+configured agent profiles only with a positive agent limit. Omitted CLI allowlists
+remain job-only; migrated NULL allowlists never authorize agents. Claims charge one
+agent unit plus CPU/memory through the existing node-locked shared resource ledger.
+Default job claim wire stays unchanged; agent claims add WorkerCompatibility and
+node bearer authentication. Renewal dispatch follows stored Attempt.kind.
+
+Closing new-work flags preserves accepted Agent renewal and immutable grants,
+including after current operator profiles change. New agent claim checks its admission
+flag. C03 has no independent Agent read/reconciliation endpoint; those remain later
+operations requirements. Agent start/stopped return unavailable until the runner/stop
+protocol is implemented, and do not release capacity. Full Gateway agents_enabled
+activation stays closed until runner/fences and later acceptance are complete. C03
+does not claim a runner or complete cancellation/recovery workflow.

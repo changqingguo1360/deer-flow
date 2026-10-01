@@ -499,6 +499,13 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
             )
         )
 
+        from app.fleet.runtime import fleet_runtime
+
+        if fleet_runtime(app) is not None and sf is not None:
+            from app.fleet.ownership import install_fleet_ownership
+
+            install_fleet_ownership(app, sf)
+
         from deerflow.persistence.thread_meta import make_thread_store
 
         app.state.thread_store = make_thread_store(sf, app.state.store)

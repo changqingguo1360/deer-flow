@@ -162,5 +162,7 @@ records after the run flush. Any exception or CancelledError rolls back both;
 RunManager registers only committed admissions. Retry validation uses immutable
 original identity/inputs and cannot leave freshly prepared goal rows. Remote pending
 records have no Gateway owner or lease and create no local asyncio task.
-C03 ownership/recovery and later runner fences are pending; Gateway remote activation
-remains closed. See the Fleet development guide for the app adapter and input codec.
+C03 ownership adds SQL local eligibility for absent/local server-owned
+backend labels, plus a trusted host predicate applied to scans and mutations. Remote
+hydration preserves its label; store_only requires valid nonlocal admission output.
+Later runner fences remain pending; Gateway remote activation remains closed. See the Fleet development guide for the app adapter and input codec.

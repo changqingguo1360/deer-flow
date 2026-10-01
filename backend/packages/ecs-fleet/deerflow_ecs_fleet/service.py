@@ -61,7 +61,12 @@ class FleetService:
 
         self.session_factory = deps.session_factory
         self.credentials = NodeCredentials(deps.session_factory)
-        self.nodes = NodeRegistry(deps.session_factory, configured_profiles=(name for name, profile in self.config.profiles.items() if profile.kind == "job"))
+        self.nodes = NodeRegistry(
+            deps.session_factory,
+            configured_profiles=self.config.profiles,
+            agent_profiles=(name for name, profile in self.config.profiles.items() if profile.kind == "agent"),
+            default_profiles=(name for name, profile in self.config.profiles.items() if profile.kind == "job"),
+        )
         self.scheduler = FleetScheduler(deps.session_factory, self.config)
         self.attempts = JobAttempts(deps.session_factory, self.config)
         from .recovery import FleetRecovery

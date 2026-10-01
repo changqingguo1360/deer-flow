@@ -26,7 +26,7 @@ class JobAttempts:
 
     async def authenticate(self, session, *, node_id, node_session_id, attempt_id, token, require_lease=True):
         job, node, attempt = await self.locked(session, attempt_id)
-        if not isinstance(token, str) or len(token) > 256 or attempt.node_id != node_id or not hmac.compare_digest(attempt.token_hash, hashlib.sha256(token.encode()).hexdigest()):
+        if attempt is None or not isinstance(token, str) or len(token) > 256 or attempt.node_id != node_id or not hmac.compare_digest(attempt.token_hash, hashlib.sha256(token.encode()).hexdigest()):
             raise PermissionError("Attempt unavailable")
         if node.session_id != node_session_id or (require_lease and attempt.node_session_id != node_session_id):
             raise ValueError("Stale node session")
@@ -140,3 +140,56 @@ class JobAttempts:
                     reservation = (await session.execute(select(ReservationRow).where(ReservationRow.attempt_id == attempt.id).with_for_update())).scalar_one()
                     if reservation.state != "released":
                         reservation.state = "quarantined"
+
+
+def agent_owner(attempt_id):
+    return "fleet-agent:" + attempt_id
+
+
+class AgentAttempts:
+    """Private lock/authentication boundary; the host injects core run locking."""
+
+    async def locked(self, session, attempt_id, *, run_locker):
+        from .models import AgentTaskRow, RunPlacementRow
+
+        locator = await session.get(AttemptRow, attempt_id)
+        if locator is None or locator.kind != "agent":
+            raise PermissionError("Agent attempt unavailable")
+        location = await session.get(RunPlacementRow, locator.run_id)
+        if location is None:
+            raise PermissionError("Agent placement unavailable")
+        task = await session.get(AgentTaskRow, location.agent_task_id, with_for_update=True)
+        run = await run_locker(session, locator.run_id)
+        placement = await session.get(RunPlacementRow, locator.run_id, with_for_update=True, populate_existing=True)
+        node = await session.get(NodeRow, locator.node_id, with_for_update=True)
+        reservation = (await session.execute(select(ReservationRow).where(ReservationRow.attempt_id == attempt_id).with_for_update())).scalar_one_or_none()
+        attempt = await session.get(AttemptRow, attempt_id, with_for_update=True, populate_existing=True)
+        return task, run, placement, node, reservation, attempt
+
+    async def authenticate(self, session, *, attempt_id, node_id, node_session_id, token, run_locker):
+        rows = await self.locked(session, attempt_id, run_locker=run_locker)
+        task, run, placement, node, reservation, attempt = rows
+        if attempt is None or not isinstance(token, str) or len(token) > 256 or attempt.node_id != node_id or not hmac.compare_digest(attempt.token_hash, hashlib.sha256(token.encode()).hexdigest()):
+            raise PermissionError("Agent attempt unavailable")
+        if node is None or node.session_id != node_session_id or attempt.node_session_id != node_session_id:
+            raise ValueError("Stale node session")
+        now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
+        if task is None or run is None or placement is None or reservation is None:
+            raise ValueError("Agent ownership unavailable")
+        if (
+            attempt.kind != "agent"
+            or attempt.run_id != run.run_id
+            or task.id != placement.agent_task_id
+            or (task.user_id, task.thread_id) != (run.user_id, run.thread_id)
+            or (placement.user_id, placement.thread_id) != (run.user_id, run.thread_id)
+        ):
+            raise ValueError("Agent execution identity mismatch")
+        if task.current_run_id != run.run_id or task.generation != placement.generation or task.generation != attempt.launch_spec.get("generation") or task.state not in {"queued", "running"}:
+            raise ValueError("Stale Agent generation")
+        if placement.active_attempt_id != attempt.id or placement.state not in {"claimed", "running"} or run.owner_worker_id != agent_owner(attempt.id):
+            raise ValueError("Agent attempt no longer owns run")
+        if run.status not in {"pending", "running"} or attempt.state not in {"claimed", "starting", "running"} or attempt.stopped_at is not None or reservation.state not in {"reserved", "active"}:
+            raise ValueError("Agent execution no longer active")
+        if run.lease_expires_at is None or attempt.lease_expires_at != run.lease_expires_at or attempt.lease_expires_at <= now or task.deadline <= now or attempt.execution_deadline <= now:
+            raise ValueError("Agent lease no longer valid")
+        return rows, now

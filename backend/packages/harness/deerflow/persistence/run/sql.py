@@ -37,6 +37,20 @@ class RunRepository(RunStore):
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._sf = session_factory
+        self._local_recovery_predicate = None
+
+    def set_local_recovery_predicate(self, predicate):
+        """Trusted host SQL expression, always additional to the backend fence."""
+        self._local_recovery_predicate = predicate
+
+    def local_ownership_predicate(self):
+        # This top-level backend label is server-owned admission output, never
+        # selected from client metadata/config. Unknown labels fail closed.
+        label = RunRow.kwargs_json["execution_backend"].as_string()
+        predicate = or_(label.is_(None), label == "local")
+        if self._local_recovery_predicate is not None:
+            predicate = predicate & self._local_recovery_predicate
+        return predicate
 
     @staticmethod
     def _normalize_model_name(model_name: str | None) -> str | None:
@@ -519,7 +533,7 @@ class RunRepository(RunStore):
             "updated_at": datetime.now(UTC),
         }
         async with self._sf() as session:
-            result = await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.owner_worker_id == owner_worker_id, RunRow.status.in_(("pending", "running"))).values(**values))
+            result = await session.execute(update(RunRow).where(RunRow.run_id == run_id, self.local_ownership_predicate(), RunRow.owner_worker_id == owner_worker_id, RunRow.status.in_(("pending", "running"))).values(**values))
             await session.commit()
             return result.rowcount != 0
 
@@ -537,6 +551,7 @@ class RunRepository(RunStore):
                 update(RunRow)
                 .where(
                     RunRow.run_id == run_id,
+                    self.local_ownership_predicate(),
                     RunRow.owner_worker_id == owner_worker_id,
                     RunRow.status.in_(("pending", "running")),
                 )
@@ -643,6 +658,7 @@ class RunRepository(RunStore):
                 update(RunRow)
                 .where(
                     RunRow.run_id == run_id,
+                    self.local_ownership_predicate(),
                     RunRow.status.in_(("pending", "running")),
                     _lease_expired_or_null(RunRow.lease_expires_at, cutoff),
                 )
@@ -668,6 +684,7 @@ class RunRepository(RunStore):
             select(RunRow)
             .where(
                 RunRow.status.in_(("pending", "running")),
+                self.local_ownership_predicate(),
                 RunRow.created_at <= before_dt,
                 _lease_expired_or_null(RunRow.lease_expires_at, cutoff),
             )
@@ -757,6 +774,9 @@ class RunRepository(RunStore):
                     )
                     result = await session.execute(stmt)
                     for row in result.scalars():
+                        local = (await session.execute(select(RunRow.run_id).where(RunRow.run_id == row.run_id, self.local_ownership_predicate()))).scalar_one_or_none()
+                        if local is None:
+                            raise ConflictError(f"Thread {thread_id} has an externally managed run")
                         lease_expired = False
                         if row.lease_expires_at is not None:
                             # SQLite drops tzinfo on read despite
