@@ -101,7 +101,9 @@ job containers never inherit its credentials/state/socket. Compose publishes no 
 ports and refuses missing host binds; NAS paths stay identical to host paths. Gateway
 and workers need compatible NAS UIDs because workspaces are private 0700.
 B11 tests cover two actual host CLI workers plus image entry/control and Compose render;
-full containerized daemon deployment and B12 remain pending. See ../docs/deployment/ecs-fleet.md.
+B12 now also verifies actual containerized Compose daemon lifecycle and TCP partition behavior.
+See [B local acceptance](ecs-fleet-b-acceptance.md) for exact evidence and remaining
+production ECS/NAS and Linux-host limitations.
 
 InputManifests uses the independent f0003_inputs migration and private
 fleet_input_manifests table. Thread-owned multipart uploads use threads:write,
@@ -155,3 +157,27 @@ allowlist with no wildcard. Scheduler checks membership under the original node 
 before reservation. Drain survives heartbeat/restart; disabled requires no charged
 capacity; deletion requires disabled/no execution history and atomically removes only
 that node's credentials. Never delete retained execution history to make deletion pass.
+
+
+## C01 remote Agent foundation
+
+f0007_agents follows f0006_nodes and owns private fleet_agent_tasks,
+fleet_run_placements and fleet_launch_specs. The canonical launch payload and digest
+are immutable under a PostgreSQL trigger. Ownership/generation keys join only Fleet
+tables; host RunStore/Base remain separate. AgentTasks and RunPlacements receive
+the caller AsyncSession and flush without committing, for C02 core admission.
+
+LaunchSpec preserves run parameters, streaming, interrupts, recursion and deadlines;
+operator profile pins resources and runtime digest. WorkerCompatibility compares the
+stored description to current advertised runtime/skill/plugin snapshots. Public
+repository summaries exclude input/configuration, snapshot entries and secret refs;
+HTTP run/task integration is later work. Model identifiers accept provider/model and
+local colon forms; snapshot/model versions support local build/epoch identifiers.
+Raw execution credentials belong in out-of-band secret references.
+
+Gateway checks the actual resolved application/checkpoint PostgreSQL identity/schema,
+database run events and ownership heartbeat. Legacy checkpointer=None correctly
+selects unified persistence. Even complete prerequisites cannot enable agents_enabled
+until the real runner and write fences are connected. C01 creates no claims or remote
+execution. B v1 job_wire explicitly excludes agent-only runtime_digest so retained
+worker images keep their existing strict profile schema.

@@ -1605,6 +1605,10 @@ two host worker processes, image entry/Docker control and two actual Compose dae
 through verified HTTPS. Session administrators can register nodes, restrict their job
 profiles, issue/revoke node credentials and drain/disable retained execution safely.
 The explicit local B matrix passes 259 tests without skips, with full backend
-regression and blocking-I/O checks passing; see the [B acceptance report](docs/ecs-fleet-b-acceptance.md). Production ECS deployment is not performed. Remote Agent runs are not available yet. All Fleet flags default to disabled. See the
+regression and blocking-I/O checks passing; see the [B acceptance report](docs/ecs-fleet-b-acceptance.md). Production ECS deployment is not performed. C01 adds private immutable launch descriptions,
+Agent task/placement persistence, worker snapshot compatibility checks and actual host
+persistence prerequisites. Gateway still rejects agents_enabled until the complete
+runner and fenced persistence are implemented. Remote Agent runs are not available
+yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

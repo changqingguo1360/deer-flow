@@ -13,6 +13,7 @@ class ExecutionProfile(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     kind: Literal["job", "agent"] = "job"
+    runtime_digest: str | None = Field(default=None, pattern=r"^sha256:[a-f0-9]{64}$")
     image: str = Field(pattern=IMAGE_PATTERN)
     cpu_millis: int = Field(gt=0)
     memory_mib: int = Field(gt=0)
@@ -22,6 +23,19 @@ class ExecutionProfile(BaseModel):
     max_log_bytes: int = Field(default=4 * 1024 * 1024, gt=0)
     pids_limit: int = Field(default=128, gt=0)
     user: str = "65534:65534"
+
+    @model_validator(mode="after")
+    def pinned_agent_runtime(self):
+        if self.kind == "agent" and self.runtime_digest is None:
+            raise ValueError("Agent profiles require a pinned runtime digest")
+        if self.kind == "job" and self.runtime_digest is not None:
+            raise ValueError("Runtime digest is an agent-only profile setting")
+        return self
+
+    def job_wire(self):
+        if self.kind != "job":
+            raise ValueError("Only job profiles use the B v1 worker protocol")
+        return self.model_dump(exclude={"runtime_digest"})
 
     @field_validator("user")
     @classmethod

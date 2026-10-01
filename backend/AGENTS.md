@@ -383,4 +383,7 @@ Use random-schema `tests/fleet` with an isolated TEST_POSTGRES_URI and explicit 
 Docker opt-in. Required integration skips cannot pass the release gate. Consult
 [deployment](../docs/deployment/ecs-fleet.md) and the
 [delivery roadmap](../docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) for actual
-verified scope; C remote Agent and continuations remain pending.
+verified scope. C01 owns immutable private launch/task/placement foundations and
+caller-session repositories; C02 must join core run admission in that same transaction.
+Gateway agents_enabled remains closed until actual runner/fencing is available.
+C remote execution and continuations remain pending.

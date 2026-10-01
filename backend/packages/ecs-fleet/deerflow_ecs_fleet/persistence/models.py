@@ -1,6 +1,6 @@
 """Shared identities and budgets for job and Agent execution attempts."""
 
-from sqlalchemy import JSON, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, UniqueConstraint, text
+from sqlalchemy import JSON, CheckConstraint, Column, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .base import FleetBase
@@ -203,4 +203,81 @@ class JobInvocationRow(FleetBase):
         Column("job_id", String(64), ForeignKey("fleet_jobs.id"), nullable=False),
         timestamp("created_at"),
         Index("ix_fleet_job_invocations_job", "job_id"),
+    )
+
+
+AGENT_TASK_ACTIVE = "state NOT IN ('succeeded','failed','cancelled','timed_out')"
+
+
+class AgentTaskRow(FleetBase):
+    __table__ = Table(
+        "fleet_agent_tasks",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("state", String(24), nullable=False, server_default="queued"),
+        Column("current_run_id", String(64)),
+        Column("generation", Integer, nullable=False, server_default="1"),
+        timestamp("deadline"),
+        Column("continuation_budget", Integer, nullable=False),
+        Column("wait_group_id", String(64)),
+        timestamp("cancel_requested_at", nullable=True),
+        timestamp("created_at"),
+        timestamp("updated_at"),
+        UniqueConstraint("id", "user_id", "thread_id", name="uq_fleet_agent_task_owner"),
+        ForeignKeyConstraint(["current_run_id", "id"], ["fleet_run_placements.run_id", "fleet_run_placements.agent_task_id"], name="fk_fleet_agent_task_current_run", deferrable=True, initially="DEFERRED", use_alter=True),
+        CheckConstraint("generation > 0 AND continuation_budget >= 0", name="ck_fleet_agent_task_budgets"),
+        CheckConstraint("state IN ('queued','running','waiting_jobs','paused','input_required','unknown','succeeded','failed','cancelled','timed_out')", name="ck_fleet_agent_task_state"),
+        Index("uq_fleet_agent_task_active_thread", "user_id", "thread_id", unique=True, postgresql_where=text(AGENT_TASK_ACTIVE)),
+    )
+
+
+class LaunchSpecRow(FleetBase):
+    __table__ = Table(
+        "fleet_launch_specs",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("run_id", String(64), nullable=False, unique=True),
+        Column("agent_task_id", String(64), nullable=False),
+        Column("generation", Integer, nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("payload", json_type, nullable=False),
+        Column("payload_digest", String(71), nullable=False),
+        timestamp("created_at"),
+        ForeignKeyConstraint(["agent_task_id", "user_id", "thread_id"], ["fleet_agent_tasks.id", "fleet_agent_tasks.user_id", "fleet_agent_tasks.thread_id"], name="fk_fleet_launch_spec_owner"),
+        UniqueConstraint("id", "run_id", "agent_task_id", "generation", "user_id", "thread_id", name="uq_fleet_launch_spec_identity"),
+        CheckConstraint("generation > 0", name="ck_fleet_launch_spec_generation"),
+        CheckConstraint("payload_digest ~ '^sha256:[a-f0-9]{64}$'", name="ck_fleet_launch_spec_digest"),
+    )
+
+
+class RunPlacementRow(FleetBase):
+    __table__ = Table(
+        "fleet_run_placements",
+        metadata,
+        Column("run_id", String(64), primary_key=True),
+        Column("agent_task_id", String(64), nullable=False),
+        Column("generation", Integer, nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("requested_backend", String(16), nullable=False),
+        Column("node_id", String(64), ForeignKey("fleet_nodes.id")),
+        Column("profile", String(64), nullable=False),
+        Column("state", String(24), nullable=False, server_default="queued"),
+        Column("active_attempt_id", String(64), ForeignKey("fleet_attempts.id")),
+        Column("launch_spec_ref", String(64), nullable=False, unique=True),
+        timestamp("queue_deadline"),
+        timestamp("created_at"),
+        timestamp("updated_at"),
+        UniqueConstraint("run_id", "agent_task_id", name="uq_fleet_run_placement_task"),
+        ForeignKeyConstraint(
+            ["launch_spec_ref", "run_id", "agent_task_id", "generation", "user_id", "thread_id"],
+            ["fleet_launch_specs.id", "fleet_launch_specs.run_id", "fleet_launch_specs.agent_task_id", "fleet_launch_specs.generation", "fleet_launch_specs.user_id", "fleet_launch_specs.thread_id"],
+            name="fk_fleet_placement_launch_identity",
+        ),
+        CheckConstraint("generation > 0", name="ck_fleet_placement_generation"),
+        CheckConstraint("requested_backend IN ('remote','auto')", name="ck_fleet_placement_backend"),
+        CheckConstraint("state IN ('queued','claimed','running','unknown','succeeded','failed','cancelled','timed_out')", name="ck_fleet_placement_state"),
     )

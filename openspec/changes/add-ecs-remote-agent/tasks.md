@@ -1,14 +1,14 @@
 # C：完整远程 Agent tasks
 
 前置：add-ecs-fleet-jobs 验收通过，表与协议已迁移。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-c-remote-agent.md)。
-所有勾选项是未来实施，不因规划/校验成功而勾选。
+只有实际实施、审查与验证完成的项目才勾选；规划或 CLI 校验成功不代表实现完成。
 
 ## 1. C01 扩展远程放置模型与启动描述
 
-- [ ] 1.1 写并运行 backend/tests/fleet/test_c01_remote_agent_admission.py，确认 C01 行为测试 RED。
-- [ ] 1.2 完成计划列出的接口、事务和部署接线；满足 `Versioned remote launch specification`。
-- [ ] 1.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 1.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 1.1 写并运行 backend/tests/fleet/test_c01_remote_agent_admission.py，确认 C01 行为测试 RED。
+- [x] 1.2 完成计划列出的接口、事务和部署接线；满足 `Versioned remote launch specification`。
+- [x] 1.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 1.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 2. C02 建立 Local/Fleet 后端契约与原子准入
 
@@ -86,3 +86,25 @@
 - [ ] 12.2 完成计划列出的接口、事务和部署接线；满足 `C release gate covers all remote mutation paths`。
 - [ ] 12.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
 - [ ] 12.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+
+
+## C01 actual evidence — 2026-10-02
+
+Foundation only: immutable private launch/task/placement data, caller-owned session
+repositories and actual host prerequisite guards. Gateway still refuses remote Agent
+activation; C02 admission, C03 claims and later runner/fences remain unchecked.
+
+Genuine RED: five behavior failures (missing pinned agent runtime accepted; actual
+Gateway accepted four incomplete persistence/event/heartbeat configurations), recorded
+in implementation thread outputs. No standalone RED5 log was retained. Two additional
+actual model/version rejection failures: /private/tmp/c01-model-red.log. Fixture/import
+and timestamp mismatch failures were not counted as behavior RED.
+
+Implementation GREEN23/0; installed7/f0007 and neighboring B97/0. Independent root:
+C01 23 passed/0 skipped (1.82s), /private/tmp/fleet-c01-root.xml and .log; retained
+old worker B gate259/0 (123.34s), /private/tmp/fleet-c01-root-b-gate.xml and .log.
+Default make test13208 passed,197 optional skipped,1 deselected,19 known warnings
+(271.45s), /private/tmp/fleet-c01-root-full-test.log. C01 required PostgreSQL scenarios
+were independently executed without skips. Blocking-I/O75/0 (5.68s); guidance/thread
+contracts92/0 (1.82s); all backend Ruff1390 clean. Spec and quality/security review
+approved. This slice commit includes these records; exact hash follows in progress.

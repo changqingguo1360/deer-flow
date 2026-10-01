@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** 尚未执行；所有测试输出均为期望，不是已经运行的结果。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 及后续待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -101,7 +101,7 @@ class FleetProbe:
 
 **OpenSpec:** `remote-agent-admission` / `Versioned remote launch specification`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 序列化含 recursion、interrupt、stream_modes 的 LaunchSpec 后重建；模拟技能/插件 digest 漂移；查看公共 run/任务 JSON 无 secret。
+- [x] **Step 1 — 场景搭建与失败测试。** 序列化含 recursion、interrupt、stream_modes 的 LaunchSpec 后重建；模拟技能/插件 digest 漂移；查看公共 run/任务 JSON 无 secret。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -117,7 +117,7 @@ async def test_c01_contract(fleet_probe):
     assert observed['public_secret_count'] == 0
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c01_remote_agent_admission.py::test_c01_contract -vv
@@ -125,7 +125,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c01_remote_agent_admission.py::test_
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # f0007 after f0006_nodes: fleet_run_placements, fleet_agent_tasks, launch specs, recovery reservations.
@@ -135,7 +135,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c01_remote_agent_admission.py::test_
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c01_remote_agent_admission.py -vv
@@ -144,13 +144,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): c01 扩展远程放置模型与启动描述"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `1.1` 至 `1.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `1.1` 至 `1.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task C02: 建立 Local/Fleet 后端契约与原子准入
 
@@ -876,4 +876,18 @@ git commit -m "feat(fleet): c12 C 故障验收门槛"
 本计划按 inline executing-plans 交接，不自动发起子代理或开始实施。用户要求开始后，先执行 B01。
 
 
-C execution prerequisite: B local acceptance passed 2026-10-02. C itself remains unexecuted. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
+C execution prerequisite: B local acceptance passed 2026-10-02. C01 foundation is locally verified; later C tasks remain unexecuted. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
+
+### C01 foundation clarification
+
+Shared LaunchSpec/Snapshot/WorkerCompatibility/resources signatures and prerequisite
+boundaries are fixed in openspec/ecs-fleet-contracts.md. C01 is durable foundation,
+not remote execution availability: Gateway agents_enabled remains fail closed until
+actual runner and fencing capabilities are wired. Repositories use caller-owned
+sessions for C02 atomic admission. Preserve B v1 job profile grants for existing images.
+
+
+C01 verification: root23/0, retained B worker gate259/0, default backend13208 pass
+with197 optional skips, blocking-I/O75/0, guidance92/0 and Ruff1390 clean.
+See OpenSpec tasks and implementation-progress for logs and honest RED limitations.
+Public HTTP task integration, claims, runner and write fences are later tasks.

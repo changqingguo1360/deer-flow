@@ -51,3 +51,5 @@ synchronization failures are not represented as a new production protocol RED.
 
 C01 must add f0007_agents after f0006_nodes, preserving existing f0002_launch_spec.
 C full runner/checkpoint/events/memory fencing and BC continuation gates remain required.
+
+B final implementation and acceptance commit: 518a59cf.

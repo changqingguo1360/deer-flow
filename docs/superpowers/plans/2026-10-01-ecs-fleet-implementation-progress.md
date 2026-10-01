@@ -717,3 +717,31 @@ Final management tree: make test 13187 passed, 195 optional skipped, one deselec
 19 known warnings, 264.59 seconds. Explicit gate 259/0; blocking I/O75/0; Ruff1385clean.
 Final whole-B/spec/security/quality reviews approve. Tasks record actual implementation
 and historical RED limitations; C and BC remain active goal obligations. No production deployment.
+
+## C01 started after B acceptance — 2026-10-02
+
+B final implementation/acceptance commit: 518a59cf. C01 now builds immutable versioned
+launch descriptions, private durable placement/agent-task identity and actual host
+dependency guards. C/BC remain unaccepted; no runnable remote Agent is advertised.
+Next private revision is f0007_agents after f0006_nodes. B admission/image wire
+compatibility remains a required adjacent regression.
+
+
+## C01 foundation locally verified — 2026-10-02
+
+Spec and quality/security reviewers independently approve the frozen thirteen backend
+files. Genuine RED5 is recorded in the implementation thread (no separate retained
+log); additional valid-model RED2 is /private/tmp/c01-model-red.log. Fixture failures
+are excluded. Agent GREEN23/0, installed7/f7 plus B neighbors97/0. Root independently
+ran C01 23/0 (1.82s), retained-image B gate259/0 (123.34s), default make test13208 pass
+197 optional skip/1 deselected/19 knownwarnings (271.45s), blocking-I/O75/0 (5.68s),
+guidance/thread92/0 (1.82s), full backend Ruff1390 clean. Reports/logs use
+/private/tmp/fleet-c01-root*, including b-gate.xml, full-test.log and blocking-io.log.
+
+f0007 preserves f0006 B data; canonical launch records prohibit SQL update/delete;
+caller rollback leaves no task/spec/placement rows. Host validates actual unified
+checkpoint/application identity and accepts legacy checkpointer=None. Gateway still
+rejects agents_enabled until actual runner/fences exist. B old strict profile grants
+exclude runtime_digest and passed the retained unchanged image. No remote execution,
+C03 claim, public Agent HTTP summaries or production deployment is claimed.
+C02 and all remaining C/BC tasks remain active goal work.

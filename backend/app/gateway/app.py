@@ -783,14 +783,16 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # import time, and lifespan still performs strict config loading before
     # serving.
     try:
-        configured_plugins = get_app_config().plugins
+        extension_host_config = get_app_config()
+        configured_plugins = extension_host_config.plugins
     except FileNotFoundError:
         logger.debug("config.yaml not found while constructing Gateway app; loading no extensions for this app instance")
         configured_plugins = []
+        extension_host_config = None
 
     from app.fleet.runtime import validate_fleet_plugin_configuration
 
-    validate_fleet_plugin_configuration(configured_plugins)
+    validate_fleet_plugin_configuration(configured_plugins, host_config=extension_host_config)
 
     try:
         loaded_extensions, extension_diagnostics = load_extensions(configured_plugins)

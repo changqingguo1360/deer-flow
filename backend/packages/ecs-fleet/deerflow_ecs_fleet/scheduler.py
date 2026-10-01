@@ -83,7 +83,7 @@ class FleetScheduler:
                     node_session_id=node.session_id,
                     token_hash=hashlib.sha256(token.encode()).hexdigest(),
                     state="claimed",
-                    launch_spec={"schema_version": 1, "spec": spec.model_dump(), "profile": profile.model_dump(), "user_id": job.user_id, "thread_id": job.thread_id, "inputs": inputs},
+                    launch_spec={"schema_version": 1, "spec": spec.model_dump(), "profile": profile.job_wire(), "user_id": job.user_id, "thread_id": job.thread_id, "inputs": inputs},
                     output_prefix=prefix,
                     lease_expires_at=now + timedelta(seconds=self.config.lease_seconds),
                 )

@@ -194,3 +194,37 @@ retain legacy eligibility for current configured job profiles. New trusted regis
 persists concrete configured job profiles; HTTP never accepts NULL/wildcard/empty.
 The scheduler enforces node profile eligibility under the node lock before reservation.
 These signatures are the B03 follow-up implementation contract, not a completion claim.
+
+## C01 versioned foundation signatures — 2026-10-02
+
+B local acceptance commit is 518a59cf. C01 adds f0007_agents after f0006_nodes;
+no earlier revision is reused. This section fixes foundation signatures before
+implementation and does not claim runnable remote Agent support.
+
+LaunchSpec v1 retains every required field in section 3 and additionally carries
+operator-bound profile, model_name/model_version and resources
+{cpu_millis, memory_mib, agent_units: 1}. Snapshot shape is
+{entries: [{name, version, digest}]}; entries have unique names and canonical
+name order. WorkerCompatibility carries runtime_digest, skill_snapshot and
+plugin_snapshot. Compatibility compares the actual persisted launch specification
+with current advertised worker snapshots, rejecting drift before execution.
+An agent operator profile requires a pinned runtime_digest; model/database secrets
+use secret_refs, never raw credential values in public run kwargs or task summaries.
+
+Private fleet_launch_specs stores immutable canonical payload plus digest;
+fleet_agent_tasks and fleet_run_placements carry durable goal/placement identity.
+Repositories accept the caller's AsyncSession and flush without committing, for
+C02 atomic participation with core run admission. Do not create a shadow RunStore,
+merge Fleet metadata into host Base, or simulate remote claim ownership in C01.
+
+Actual host prerequisite validation uses unified PostgreSQL checkpoint/application
+identity, db run_events and enabled ownership heartbeat. Legacy checkpointer=None
+is a valid unified-database configuration. C01 still refuses Gateway activation of
+agents_enabled because the complete runner and fenced persistence are unavailable.
+The later runtime must inject actual readiness; an operator-supplied ready boolean
+cannot substitute for installed execution/fencing capabilities.
+
+B v1 profile grants must retain their existing wire shape for the retained public
+worker image: adding optional agent-only fields must not send new null fields to
+job workers whose old strict model rejects unknown fields. Preserve B execution
+and verify it using the retained image rather than hiding incompatibility by rebuild.
