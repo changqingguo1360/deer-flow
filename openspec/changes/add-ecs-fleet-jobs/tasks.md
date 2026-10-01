@@ -54,7 +54,7 @@
 
 ## 8. B08 实现取消、unknown 和状态对账
 
-- [ ] 8.1 写并运行 backend/tests/fleet/test_b08_fleet_durable_jobs.py，确认 B08 行为测试 RED。
+- [x] 8.1 写并运行 backend/tests/fleet/test_b08_fleet_durable_jobs.py，确认 B08 行为测试 RED。
 - [ ] 8.2 完成计划列出的接口、事务和部署接线；满足 `Honest cancellation and uncertain execution`。
 - [ ] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
 - [ ] 8.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
@@ -151,3 +151,13 @@ is complete for the isolated real PostgreSQL/HTTP/Docker/NAS fixture scope. Prio
 paragraphs are historical slice checkpoints. Public deployment and B12 release gate
 remain unaccepted, and C/continuations remain pending. This follow-up slice is
 `feat(fleet): pin immutable inputs and mount verified versions read-only`.
+
+
+B08 cancellation/deadline slice: stopped-before-complete cancellation and unavailable-node
+queue expiry had observed RED/GREEN, as did starvation by 101 non-expired queued jobs.
+Real HTTP/Docker tests hold physical stop acknowledgement before DB commit and revoke
+persisted node credentials, proving cancellation remains non-terminal/capacity charged
+until stop is durable, and unknown never re-executes. Combined verification: 392 passed,
+zero skipped; backend Ruff lint/format1356 files and OpenSpec strict3/3 pass. Independent
+review approves this slice. Keep B08 8.2–8.4 unchecked: operator recovery management is
+still pending. Slice: `fix(fleet): reconcile cancellation only after durable physical stop`.

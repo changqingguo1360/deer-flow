@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
+from .cancellation import cancel_stopped_attempt
 from .config import NAME_PATTERN
 from .persistence.inputs import resolve_inputs
 from .persistence.models import JobRow
@@ -78,9 +79,13 @@ class FleetJobService:
             job = await session.get(JobRow, job_id, with_for_update=True)
             if job is None:
                 raise ValueError("Unknown job")
+            now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
+            if job.state == "queued" and now >= job.queue_deadline:
+                job.state = "failed"
+                job.error = "Queue deadline elapsed before execution"
+                job.finished_at = job.updated_at = now
             if job.state != "staged":
                 return job.state
-            now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
             tracking = await self.tracking_reader(session, job.tracking_task_id)
             matched = tracking and all(
                 tracking.get(key) == value
@@ -118,7 +123,9 @@ class FleetJobService:
             if job.state in {"staged", "queued"}:
                 job.state = "cancelled"
                 job.finished_at = now
-            # Started/claimed work keeps its state and capacity until the
-            # worker's stop acknowledgement is persisted by the protocol.
+            else:
+                await cancel_stopped_attempt(session, job, now)
+            # Cancellation cannot invent stop evidence. Started/claimed work
+            # retains state and capacity until a physical stop is durable.
             job.updated_at = now
             return self.summary(job)

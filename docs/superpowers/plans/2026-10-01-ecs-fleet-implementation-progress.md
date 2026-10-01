@@ -102,7 +102,7 @@ manifest before complete, and can replay a lost accepted-completion response aft
 restart without another execution. Existing McpTaskService polling receives completed
 and the accepted manifest ID through the original tracking row.
 
-B07 immutable input registration/read-only mounts are implemented and exercised. B08–B12, all C and
+B07 immutable input registration/read-only mounts are implemented and exercised. B08 is in progress; B09–B12, all C and
 all continuation tasks remain pending. There is no public runnable worker deployment
 or model-visible Fleet submission tool yet.
 No remote Agent run has executed and no business ECS has been deployed.
@@ -119,7 +119,7 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 384 passed, zero skipped, four existing
+Current combined verification: 392 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
@@ -144,7 +144,8 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 1. Integrate B06 private credential loading and operator worker startup with
    B07 workspace preparation and B11 reproducible deployment. Core startup orphan,
    engine stop failure and concurrent shutdown scenarios now have real evidence.
-2. Deliver B08 cancellation/recovery fault cases. B07 NAS sentinel, immutable inputs,
+2. Finish B08 operator recovery management. Cancellation/revocation and queued
+   deadline cases are now verified. B07 NAS sentinel, immutable inputs,
    read-only mounts, accepted manifests and user download/result publication are exercised.
 3. B09 wires the tested invocation helper into model-visible submission; B10 handles
    scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.
@@ -240,3 +241,30 @@ and reject the complete destination inventory unless it matches manifest files a
 their parent directories. Focused PostgreSQL/Docker validation: 15 passed. Independent
 re-review confirmed both findings resolved and found no new blocker. Full combined
 regression after the fix: 384 passed, zero skipped, four existing warnings.
+
+
+## B08 cancellation/deadline slice evidence
+
+B07 baseline: commit 9b376c05. Two state RED assertions preceded implementation:
+confirmed stopped-but-unaccepted job remained running after cancel; expired queued
+job remained queued with no available node. A third RED reproduced 101 not-due queued
+jobs starving expired staged reconciliation. GREEN now respects durable stop evidence
+and filters background candidates by the relevant deadlines. Six PostgreSQL tests
+cover these cases, accepted-complete-before-cancel, running/unknown cancellation and
+reservation retention/release. Both concurrent APIs serialize on the durable job lock.
+
+Two additional real TCP/Postgres/Docker scenarios extend test_b06_fleet_durable_jobs:
+(1) cancel the original McpTaskService row, physically stop the actual counter container,
+hold the stopped HTTP request before its DB commit and observe non-cancelled state,
+no stop proof and unreleased capacity; release it and observe cancelled plus the same
+single original task row and stable counter file; (2) revoke the actual node credential,
+observe local stop, rejected stale worker requests, wait for the real PostgreSQL lease
+expiry, then observe unknown/quarantine; a fresh credential's restart replays physical
+stop, releases capacity but still blocks claim and does not start another attempt.
+
+Independent code review approves this slice: lock order, accepted-result authority,
+unknown non-retry and deadline candidate selection. Combined Fleet/adjacent verification:
+392 passed, zero skipped, four existing warnings. Backend Ruff lint and format check
+pass (1356 files). OpenSpec strict validation passes all three changes. Whole B08 remains
+partial until operator recovery management is delivered; B09–B12/C/continuations are
+pending and no production deployment or B release acceptance is claimed.

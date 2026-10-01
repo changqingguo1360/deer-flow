@@ -3,7 +3,7 @@
 import asyncio
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import and_, case, func, or_, select
 
 from .persistence.models import JobRow
 
@@ -27,7 +27,18 @@ class JobReconciler:
             try:
                 await self.attempts.expire_pending()
                 async with self.jobs.sf() as session:
-                    ids = (await session.execute(select(JobRow.id).where(JobRow.state == "staged").order_by(JobRow.staged_deadline).limit(100))).scalars().all()
+                    ids = (
+                        (
+                            await session.execute(
+                                select(JobRow.id)
+                                .where(or_(JobRow.state == "staged", and_(JobRow.state == "queued", JobRow.queue_deadline <= func.clock_timestamp())))
+                                .order_by(case((JobRow.state == "staged", JobRow.staged_deadline), else_=JobRow.queue_deadline), JobRow.id)
+                                .limit(100)
+                            )
+                        )
+                        .scalars()
+                        .all()
+                    )
                 for job_id in ids:
                     await self.jobs.reconcile(job_id)
             except Exception:

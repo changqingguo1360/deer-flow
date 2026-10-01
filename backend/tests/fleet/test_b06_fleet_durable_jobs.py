@@ -46,7 +46,7 @@ async def serve(app):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-@pytest.mark.parametrize("fault", ["gateway_loss", "start_reply_lost"])
+@pytest.mark.parametrize("fault", ["gateway_loss", "start_reply_lost", "cancel", "credential_revoked"])
 async def test_b06_contract(fleet_database, tmp_path, fault):
     if os.environ.get("FLEET_TEST_CONTAINERS") != "1":
         pytest.skip("requires explicit local Docker gate")
@@ -108,7 +108,17 @@ async def test_b06_contract(fleet_database, tmp_path, fault):
             else:
                 await app(scope, receive, send)
 
-    served_app = DropStartReply() if fault == "start_reply_lost" else app
+    stop_waiting = asyncio.Event()
+    permit_stop_ack = asyncio.Event()
+
+    class HoldStopAcknowledgement:
+        async def __call__(self, scope, receive, send):
+            if scope.get("path", "").endswith("/stopped"):
+                stop_waiting.set()
+                await permit_stop_ack.wait()
+            await app(scope, receive, send)
+
+    served_app = DropStartReply() if fault == "start_reply_lost" else (HoldStopAcknowledgement() if fault == "cancel" else app)
     server, server_task, sock, url = await serve(served_app)
     client = NodeClient(gateway_url=url, credential=credential.token, timeout_seconds=0.3)
     state = tmp_path / "private-state"
@@ -143,9 +153,37 @@ async def test_b06_contract(fleet_database, tmp_path, fault):
         async with engine.connect() as conn:
             ref = (await conn.execute(text("SELECT process_ref FROM fleet_attempts"))).scalar_one()
         assert json.loads(await docker("inspect", ref))[0]["State"]["Running"]
-        server.should_exit = True
-        await asyncio.wait_for(server_task, timeout=4)
-        sock.close()
+        if fault == "cancel":
+            from datetime import UTC, datetime, timedelta
+
+            requested = await tasks.cancel_task(task_id=tracked["id"], user_id="u", thread_id="t")
+            assert requested["status"] != "cancelled"
+            await tasks.run_once(now=datetime.now(UTC))
+            await asyncio.wait_for(stop_waiting.wait(), timeout=4)
+            assert not json.loads(await docker("inspect", ref))[0]["State"]["Running"]
+            async with engine.connect() as conn:
+                row = (await conn.execute(text("SELECT j.state,j.cancel_requested_at,a.stopped_at FROM fleet_jobs j JOIN fleet_attempts a ON a.job_id=j.id"))).one()
+                assert row.state != "cancelled" and row.cancel_requested_at is not None and row.stopped_at is None
+                assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() != "released"
+            permit_stop_ack.set()
+            outcome = await asyncio.wait_for(execution, timeout=5)
+            assert outcome["state"] == "cancelled" and not outcome["report_pending"]
+            await tasks.run_once(now=datetime.now(UTC) + timedelta(seconds=2))
+            records = await tasks.list_tasks(user_id="u", thread_id="t")
+            assert len(records) == 1 and records[0]["status"] == "cancelled"
+            ticks = (output / "ticks").read_text()
+            await asyncio.sleep(0.2)
+            assert (output / "ticks").read_text() == ticks
+            async with engine.connect() as conn:
+                assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
+                assert (await conn.execute(text("SELECT count(*) FROM fleet_attempts"))).scalar_one() == 1
+            return
+        if fault == "credential_revoked":
+            await fleet.credentials.revoke(credential.credential_id)
+        else:
+            server.should_exit = True
+            await asyncio.wait_for(server_task, timeout=4)
+            sock.close()
         outcome = await asyncio.wait_for(execution, timeout=6)
         assert outcome["report_pending"]
         assert not json.loads(await docker("inspect", ref))[0]["State"]["Running"]
@@ -153,12 +191,26 @@ async def test_b06_contract(fleet_database, tmp_path, fault):
         await asyncio.sleep(0.2)
         assert (output / "ticks").read_text() == ticks
         assert all(p.stat().st_mode & 0o077 == 0 for p in state.glob("*.json"))
+        if fault == "credential_revoked":
+            for _ in range(50):
+                async with engine.connect() as conn:
+                    expired = (await conn.execute(text("SELECT lease_expires_at <= clock_timestamp() FROM fleet_attempts"))).scalar_one()
+                if expired:
+                    break
+                await asyncio.sleep(0.1)
+            assert expired
         await fleet.attempts.expire_pending()
         async with engine.connect() as conn:
             assert (await conn.execute(text("SELECT state FROM fleet_jobs"))).scalar_one() == "unknown"
             assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "quarantined"
         await client.close()
-        server, server_task, sock, url = await serve(app)
+        if fault == "credential_revoked":
+            async with httpx.AsyncClient() as stale:
+                denied = await stale.post(url + "/api/fleet/node/attempts/" + ref.removeprefix("fleet-") + "/renew", headers={"Authorization": "Bearer " + credential.token}, json={})
+            assert denied.status_code in {401, 403}
+            credential = await fleet.credentials.issue("n", lifetime_seconds=600)
+        else:
+            server, server_task, sock, url = await serve(app)
         client = NodeClient(gateway_url=url, credential=credential.token, timeout_seconds=0.5)
         restarted = module.NodeDaemon(client=client, containers=DockerContainers(state_dir=state), state_dir=state, prepare_workspace=workspace, renew_seconds=0.15, safety_margin_seconds=0.1, poll_seconds=0.03)
         with pytest.raises(module.RecoveryRequired):
@@ -170,6 +222,7 @@ async def test_b06_contract(fleet_database, tmp_path, fault):
             assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
         assert (output / "count").read_text().splitlines() == ["start"]
     finally:
+        permit_stop_ack.set()
         if execution is not None and not execution.done():
             execution.cancel()
             await asyncio.gather(execution, return_exceptions=True)

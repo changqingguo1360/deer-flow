@@ -425,3 +425,14 @@ manifests. Frozen launch_spec includes the declared versions' metadata, bounded 
 max_input_bytes and the metadata limit. Worker NAS verification precedes copying only
 manifest-listed files into attempt-scoped inputs; Docker mounts exactly those IDs
 read-only. No entire NAS root or undeclared version may be mounted.
+
+
+Fleet cancellation is serialized on the job lock with completion. A terminal accepted
+result wins later cancellation. The cancellation helper locks node then active attempt,
+and uses persisted stopped_at to finish an already stopped job; cancellation intent
+alone cannot release resources or claim stopped. Background reconciliation selects
+staged rows plus only expired queued rows, ordered by their relevant deadline, so a
+large waiting queue cannot hide staged expiry. Node credential revocation rejects
+subsequent worker HTTP operations; local daemon stop is independent, and capacity
+remains charged until authenticated stop acknowledgement. Unknown never requeues
+started execution automatically. B08 operator recovery management remains pending.
