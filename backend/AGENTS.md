@@ -377,6 +377,8 @@ or cancellation request, releases charged capacity; unknown work never auto-retr
 Read [Fleet development contracts](../docs/ecs-fleet-development.md) before changing
 Fleet, its host bridge, worker, input/artifact or recovery paths. This guide owns the
 transaction order, trusted identity, filesystem and result-acceptance details.
+The host fleet_management router requires a real admin session and CSRF; node profile
+allowlists are enforced in the allocation transaction.
 Use random-schema `tests/fleet` with an isolated TEST_POSTGRES_URI and explicit local
 Docker opt-in. Required integration skips cannot pass the release gate. Consult
 [deployment](../docs/deployment/ecs-fleet.md) and the

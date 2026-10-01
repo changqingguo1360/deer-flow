@@ -26,20 +26,22 @@ class NodeCredentials:
         self.sf = session_factory
 
     async def issue(self, node_id: str, *, lifetime_seconds: int) -> IssuedCredential:
-        if lifetime_seconds <= 0:
+        if type(lifetime_seconds) is not int or not 1 <= lifetime_seconds <= 31_536_000:
             raise ValueError("Credential lifetime must be positive")
         token = TOKEN_PREFIX + secrets.token_urlsafe(48)
         credential_id = str(uuid4())
         async with self.sf.begin() as session:
-            if await session.get(NodeRow, node_id) is None:
+            if await session.get(NodeRow, node_id, with_for_update=True) is None:
                 raise ValueError("Node not found")
             now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
             session.add(CredentialRow(id=credential_id, node_id=node_id, token_hash=hashlib.sha256(token.encode()).hexdigest(), expires_at=now + timedelta(seconds=lifetime_seconds)))
         return IssuedCredential(credential_id=credential_id, node_id=node_id, token=token)
 
-    async def revoke(self, credential_id: str) -> None:
+    async def revoke(self, credential_id: str, *, node_id: str | None = None) -> None:
         async with self.sf.begin() as session:
             row = await session.get(CredentialRow, credential_id, with_for_update=True)
+            if node_id is not None and (row is None or row.node_id != node_id):
+                raise LookupError("Credential not found for node")
             if row is not None:
                 row.revoked_at = (await session.execute(select(func.clock_timestamp()))).scalar_one()
 

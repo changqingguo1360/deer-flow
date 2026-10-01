@@ -1,9 +1,8 @@
 # ECS Fleet durable-job deployment
 
 B durable jobs share the Fleet control plane with the later C remote Agent runner.
-C and continuations are not available yet. All feature flags default to false. This
-B11 host entry/deployment helpers are locally verified; local build evidence does not
-pass the B12 release gate.
+C and continuations are not available yet. All feature flags default to false. The local B runtime, worker/Compose matrix and full regression are accepted; see
+[B acceptance](../ecs-fleet-b-acceptance.md) for counts and scope.
 
 ## Components and identities
 
@@ -207,5 +206,31 @@ Physical watchdog stop precedes the database lease deadline. Recovery preserves
 unknown execution, replays durable stopped proof and never starts the job again.
 
 The test matrix includes installed Gateway startup and full local Compose daemon acceptance.
-Session-admin node management and final full regressions remain outstanding for overall B. The delivery roadmap and implementation evidence
+Session-admin node management and final full regression are included in local B acceptance. The delivery roadmap and implementation evidence
 remain authoritative for B completion; C and continuations are still pending.
+
+
+## Session administrator node management
+
+These Gateway APIs use a real administrator session and normal CSRF. Node, PAT,
+internal and auth-disabled fallback identities cannot manage machines.
+
+| Method/path | Operation |
+|---|---|
+| POST /api/fleet/machines | Register node_id, name, cpu_millis, memory_mib, profile_allowlist; 201 |
+| GET /api/fleet/machines/{node_id} | Read status, profile restrictions and registered administrator |
+| PATCH /api/fleet/machines/{node_id} | Set admin_state to enabled/draining/disabled |
+| DELETE /api/fleet/machines/{node_id} | Remove a disabled node without execution history; otherwise 409 |
+| POST /api/fleet/machines/{node_id}/credentials | Issue with lifetime_seconds in 1..31536000; 201 token with no-store |
+| DELETE /api/fleet/machines/{node_id}/credentials/{credential_id} | Revoke only a matching node credential; wrong scope 404 |
+
+Register an explicit non-empty unique list of configured job profile names. A missing,
+empty or wildcard HTTP allowlist is rejected. New trusted CLI registration stores all
+currently configured job profiles explicitly. Older migrated nodes with NULL allowlists
+retain documented legacy eligibility; inspect their status before changing operator
+profiles. f0006 preserves existing jobs, attempts, reservations and credentials.
+
+Save issued credentials immediately in private worker files; later status responses
+never return tokens or token hashes. Draining stops new claims and retains current
+work; disabling with charged capacity is refused. Nodes with execution history remain
+durable records, even after stopping and disabling.

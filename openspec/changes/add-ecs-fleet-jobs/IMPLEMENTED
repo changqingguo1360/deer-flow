@@ -1,0 +1,4 @@
+Implementation completed: 2026-10-02
+Scope: isolated local PostgreSQL/Docker/NAS/Compose; production deployment excluded.
+Evidence: docs/ecs-fleet-b-acceptance.md
+C and BC remain incomplete.

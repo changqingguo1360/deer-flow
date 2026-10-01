@@ -138,3 +138,20 @@ Audit insert failure rolls back state. Never expose an operator flag that invent
 physical stop, accepts uncertain output or automatically retries a started attempt.
 Closing jobs_enabled preserves reconciliation for accepted work. See
 [reconciliation guide](../docs/ecs-fleet-recovery.md).
+
+
+## Node management and profile admission
+
+The host fleet_management router uses actual session-admin identity and normal CSRF;
+PAT, internal, node, fallback and mixed credentials do not authorize it. Fleet package
+management.py owns repository operations and never imports app. Register strict
+node/capacity/profile inputs, derive registered_by from the administrator, return an
+issued credential once with no-store, and check node scope before revocation.
+
+f0006_nodes is a private migration after f0005. Migrated NULL allowlists preserve
+legacy eligibility for currently configured operator job profiles. New trusted CLI
+registration saves concrete configured job profiles; HTTP requires a non-empty unique
+allowlist with no wildcard. Scheduler checks membership under the original node lock
+before reservation. Drain survives heartbeat/restart; disabled requires no charged
+capacity; deletion requires disabled/no execution history and atomically removes only
+that node's credentials. Never delete retained execution history to make deletion pass.

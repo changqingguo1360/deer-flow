@@ -2,16 +2,17 @@
 
 from uuid import uuid4
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 
 from .persistence.models import AttemptRow, NodeRow
 
 
 class NodeRegistry:
-    def __init__(self, session_factory):
+    def __init__(self, session_factory, *, configured_profiles=()):
         self.sf = session_factory
+        self.configured_profiles = frozenset(configured_profiles)
 
-    async def register(self, *, node_id: str, name: str, cpu_millis: int, memory_mib: int) -> None:
+    async def register(self, *, node_id: str, name: str, cpu_millis: int, memory_mib: int, profile_allowlist: list[str] | None = None, registered_by: str | None = None) -> None:
         import re
 
         from .config import NAME_PATTERN
@@ -20,9 +21,12 @@ class NodeRegistry:
             raise ValueError("Invalid operator node identity")
         if type(cpu_millis) is not int or not 1 <= cpu_millis <= 1_000_000 or type(memory_mib) is not int or not 1 <= memory_mib <= 4_194_304:
             raise ValueError("Invalid operator node capacity")
+        profiles = sorted(self.configured_profiles) if profile_allowlist is None else profile_allowlist
+        if not isinstance(profiles, list) or any(type(name) is not str or name not in self.configured_profiles for name in profiles) or len(profiles) != len(set(profiles)):
+            raise ValueError("Invalid configured node profiles")
         async with self.sf.begin() as session:
             # Existing budgets cannot be silently changed on re-registration.
-            session.add(NodeRow(id=node_id, name=name, cpu_millis=cpu_millis, memory_mib=memory_mib))
+            session.add(NodeRow(id=node_id, name=name, cpu_millis=cpu_millis, memory_mib=memory_mib, profile_allowlist=profiles, registered_by=registered_by))
 
     async def status(self, node_id: str) -> dict:
         from .persistence.models import ReservationRow
@@ -38,7 +42,16 @@ class NodeRegistry:
                 .all()
             )
             return {
-                "node": {"id": node.id, "name": node.name, "admin_state": node.admin_state, "health": node.health, "cpu_millis": node.cpu_millis, "memory_mib": node.memory_mib},
+                "node": {
+                    "id": node.id,
+                    "name": node.name,
+                    "admin_state": node.admin_state,
+                    "health": node.health,
+                    "cpu_millis": node.cpu_millis,
+                    "memory_mib": node.memory_mib,
+                    "profile_allowlist": node.profile_allowlist,
+                    "registered_by": node.registered_by,
+                },
                 "attempts": [dict(row) | {"stopped_at": row["stopped_at"].isoformat() if row["stopped_at"] else None} for row in attempts],
                 "unreleased_reservations": [dict(row) for row in reservations],
             }
@@ -104,4 +117,9 @@ class NodeRegistry:
                 raise ValueError("Node has execution history; retain the disabled record")
             if node.admin_state != "disabled":
                 raise ValueError("Disable node before deletion")
+            from .persistence.models import CredentialRow
+
+            # Issuance locks this same node, so deletion invalidates only this
+            # safely disabled, history-free node's credentials atomically.
+            await session.execute(delete(CredentialRow).where(CredentialRow.node_id == node_id))
             await session.delete(node)

@@ -61,7 +61,7 @@ class FleetScheduler:
             for job in jobs:
                 spec = JobSpec.model_validate(job.spec)
                 profile = self.config.profiles.get(spec.profile)
-                if profile is None or profile.kind != "job":
+                if profile is None or profile.kind != "job" or (node.profile_allowlist is not None and spec.profile not in node.profile_allowlist):
                     continue
                 try:
                     inputs = await resolve_inputs(session, user_id=job.user_id, thread_id=job.thread_id, spec=spec, max_bytes=self.config.max_input_bytes)

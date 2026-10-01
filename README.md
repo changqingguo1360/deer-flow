@@ -1601,8 +1601,10 @@ preserves pending cancellation and degraded tracking, and does not imply physica
 The public worker CLI and trusted operator commands now have local real-process
 acceptance. A hashed offline Linux worker image and outbound-only Compose helper are
 available; see the [deployment guide](docs/deployment/ecs-fleet.md). Local tests cover
-two host worker processes, image entry/Docker control and rendered Compose configuration.
-Full Compose daemon acceptance, the B release gate and production ECS deployment remain
-pending. Remote Agent runs are not available yet. All Fleet flags default to disabled. See the
+two host worker processes, image entry/Docker control and two actual Compose daemons
+through verified HTTPS. Session administrators can register nodes, restrict their job
+profiles, issue/revoke node credentials and drain/disable retained execution safely.
+The explicit local B matrix passes 259 tests without skips, with full backend
+regression and blocking-I/O checks passing; see the [B acceptance report](docs/ecs-fleet-b-acceptance.md). Production ECS deployment is not performed. Remote Agent runs are not available yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

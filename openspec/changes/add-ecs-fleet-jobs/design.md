@@ -70,3 +70,13 @@ python3 scripts/pnpm.py check
 ## Open questions
 
 无阻塞规划的问题。实际节点规格、镜像 digest、私网地址和 NAS export 由部署配置提供；算法、契约和验收不依赖在文档中硬编码这些环境值。
+
+
+### B03 management adapter clarification — 2026-10-02
+
+The missing management path is implemented as host fleet_management.py HTTP adapter plus
+Fleet package management.py facade, preserving actual session-admin+CSRF middleware and
+the package/app boundary. API signatures and f0006 profile compatibility are fixed in
+openspec/ecs-fleet-contracts.md. Trusted operator CLI does not replace HTTP registration.
+This corrects router placement, not the required behavior; implementation/review evidence
+remains pending for this follow-up.

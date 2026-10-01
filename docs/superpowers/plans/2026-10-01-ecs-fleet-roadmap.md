@@ -1,6 +1,6 @@
 # ECS Fleet B → C → B/C 实施总览
 
-日期：2026-10-01。用户已指定两种能力都做、先 B 再 C；规划已完成，B 正在实施；三个阶段均尚未通过交付门槛。当前证据见 [实施进度](2026-10-01-ecs-fleet-implementation-progress.md)。
+2026-10-02: B has passed isolated local acceptance; C is next, BC remains pending. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and implementation progress. Earlier planning notes are historical.
 
 | 顺序 | OpenSpec change | Superpowers 计划 | 完成门槛 |
 |---|---|---|---|
@@ -96,3 +96,5 @@ OPENSPEC_TELEMETRY=0 openspec status --change add-ecs-agent-job-continuations
 CLI status 的 artifact complete 仅表示 proposal/specs/design/tasks 文件齐备，tasks 中全部未勾选才是本次规划结束时的正确状态。规划校验本身不证明 B/C 能力已实现；功能测试及尚未交付项以实施进度中的实际证据为准。
 
 执行入口是 B 计划 B01。遇到真实节点/NAS/凭据未配置时先完成本地隔离测试，不擅自配置或部署生产 ECS。
+
+B tasks are now checked from actual acceptance; artifact completeness alone remains insufficient. C/BC stay unchecked.

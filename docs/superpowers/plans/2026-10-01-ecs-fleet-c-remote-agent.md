@@ -93,7 +93,7 @@ class FleetProbe:
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/launch_spec.py`
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/placements.py`
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/agent_tasks.py`
-- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/migrations/versions/f0002_agents.py`
+- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/migrations/versions/f0007_agents.py`
 - Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/config.py`
 - Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/models.py`
 - Test: `backend/tests/fleet/test_c01_remote_agent_admission.py`
@@ -128,7 +128,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c01_remote_agent_admission.py::test_
 - [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
-# f0002: fleet_run_placements, fleet_agent_tasks, launch specs, recovery reservations.
+# f0007 after f0006_nodes: fleet_run_placements, fleet_agent_tasks, launch specs, recovery reservations.
 # Store immutable launch spec + secret references; never raw credentials in run kwargs.
 # C enabled requires shared Postgres, db run_events, ownership heartbeat and compatible profiles.
 ```
@@ -874,3 +874,6 @@ git commit -m "feat(fleet): c12 C 故障验收门槛"
 - [ ] 在测试报告中明确环境限制；未通过门槛不得执行后继阶段的上线操作。
 
 本计划按 inline executing-plans 交接，不自动发起子代理或开始实施。用户要求开始后，先执行 B01。
+
+
+C execution prerequisite: B local acceptance passed 2026-10-02. C itself remains unexecuted. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.

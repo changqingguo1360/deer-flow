@@ -2,10 +2,11 @@
 
 Date: 2026-10-01. Goal: deliver B, then C, then C → B → C continuations.
 
-Implementation has started in the personal-agent-ecs worktree. None of the three
-OpenSpec changes has met its release gate; do not archive them or mark IMPLEMENTED.
+B has met its isolated local release gate; C and BC remain incomplete. Current status:
+[B acceptance](../../../docs/ecs-fleet-b-acceptance.md). Dated historical sections below
+do not override the final matrix.
 
-## Current code
+## Initial foundation snapshot (historical)
 
 - B01: standalone optional package, strict profiles and identity-free JobSpec;
   disabled installation does not import the host runtime. Host dependency manager
@@ -681,3 +682,38 @@ failed, 264.48 seconds. The failure was UV_NO_SYNC=1 inherited by a fixture that
 install a temporary wheel; without it the exact test passes. Final default target must
 run without that environment setting. Blocking-I/O after startup follow-up: 75 passed,
 zero skipped, two known warnings, 4.05 seconds.
+
+
+## B03 administrator management completion follow-up — 2026-10-02
+
+Real RED: 14 missing HTTP management behavior tests and three actual profile/migration
+tests (two forbidden-profile claims still allocated, one old migration head). Final
+management plus B02–B04 scope: 36 passed, zero skipped, 5.76 seconds; installed-artifact
+acceptance: two passed, zero skipped, 28.33 seconds. f0006 follows f0005 and preserves
+existing jobs, attempts, reservations and credentials while adding persisted node
+allowlists and server-derived registered_by. Actual JWT users/PG/PAT repository and
+TCP middleware prove admin-session/CSRF restrictions, private one-time credentials,
+scoped revocation, safe deletion and drain persistence; no auth principal replacement.
+
+Root final B matrix: 259 passed, zero skipped, two known warnings, 118.03 seconds, with
+all final files including full Compose and partition content barriers. Report retained
+/private/tmp/fleet-b03-management-root-gate.xml. Root full backend Ruff check/format: 1385
+files clean; blocking I/O: 75 passed, zero skipped, two known warnings, 4.16 seconds.
+Spec and quality reviewers approve all 12 code/test files. Whole-B read-only audit finds
+all 12 SHALL behaviors covered, with no remaining runtime feature blocker. Shared docs
+now explicitly map B controlled-tool submission and existing thread MCP task read/cancel
+APIs instead of advertising an unimplemented /api/fleet/jobs facade. C attempt submission
+remains pending. Final full default regression and acceptance checkbox recording pending.
+
+Prior committed Compose full default target (f2cd4cef): 13186 passed, 174 optional skips,
+one deselected, 19 known warnings, 265.04 seconds, without UV_NO_SYNC/UV_OFFLINE. Current
+management code has a fresh full default target running; its result supersedes this
+checkpoint when recorded. No production ECS/NAS or Linux Compose runtime claim.
+
+
+## B final default regression — 2026-10-02
+
+Final management tree: make test 13187 passed, 195 optional skipped, one deselected,
+19 known warnings, 264.59 seconds. Explicit gate 259/0; blocking I/O75/0; Ruff1385clean.
+Final whole-B/spec/security/quality reviews approve. Tasks record actual implementation
+and historical RED limitations; C and BC remain active goal obligations. No production deployment.

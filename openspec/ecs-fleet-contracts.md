@@ -24,7 +24,11 @@ NodePrincipal，且用户/管理员路由不接受它。extension router 仍只�
 | 路由 | 身份 | 请求/语义 |
 |---|---|---|
 | `POST /api/fleet/machines` | admin session | 注册容量与 profile allowlist；不允许模型创建机器 |
-| `PATCH /api/fleet/machines/{node_id}` | admin session | enabled/draining/disabled，删除有活动资源返回 409 |
+| `GET /api/fleet/machines/{node_id}` | admin session | 节点状态、持久 profile allowlist 与注册归属，不返回凭据 |
+| `PATCH /api/fleet/machines/{node_id}` | admin session | enabled/draining/disabled；有未释放资源禁止 disabled |
+| `DELETE /api/fleet/machines/{node_id}` | admin session | 仅删除已 disabled 且无执行历史的节点，否则 409 |
+| `POST /api/fleet/machines/{node_id}/credentials` | admin session | 有界 lifetime_seconds；201 仅本次返回 token，Cache-Control:no-store |
+| `DELETE /api/fleet/machines/{node_id}/credentials/{credential_id}` | admin session | 核对所属节点后撤销；错配 404 |
 | `POST /api/fleet/node/session` | NodePrincipal | 新 session，旧 session fence；先上报残留资源 |
 | `POST /api/fleet/node/heartbeat` | node+session | health/version/进程观测，不直接修改 capacity 使用量 |
 | `POST /api/fleet/node/claims` | node+session | 长轮询，返回一份带 kind 的执行授权，或 204 |
@@ -32,9 +36,9 @@ NodePrincipal，且用户/管理员路由不接受它。extension router 仍只�
 | `POST /api/fleet/node/attempts/{id}/renew` | attempt | 原子 lease 更新；返回 cancel intent；失效返回 409 |
 | `POST /api/fleet/node/attempts/{id}/complete` | attempt | 持久 outcome/manifest；晚到旧 owner 返回 409 |
 | `POST /api/fleet/node/attempts/{id}/stopped` | node+session | physical stop 证据；不凭这个接口授予过期 owner 状态写入权 |
-| `POST /api/fleet/jobs` | user / 有效 C attempt | user 来自鉴权，C 的 parent 来自 LaunchSpec；提交 staged job |
-| `GET /api/fleet/jobs/{id}` | owner user | 执行状态、取消意图、接受产物；越权统一 404 |
-| `POST /api/fleet/jobs/{id}/cancel` | owner user | durable intent，返回 202；不宣称进程已停止 |
+| `submit_fleet_job` controlled tool | 可信 run 身份 | B 提交 staged job；身份与 invocation 由宿主导出 |
+| `GET /api/threads/{thread_id}/mcp-tasks/{task_id}` | owner user | B 原有任务状态、取消意图与产物摘要；沿用 thread 读权限及 task 归属检查 |
+| `POST /api/threads/{thread_id}/mcp-tasks/{task_id}/cancel` | owner user | B durable intent，200 返回原任务详情；沿用 thread 写权限，不宣称已停止 |
 | `GET /api/fleet/recovery/jobs` | admin session | 分页查看 unknown/quarantined 的停机确认与资源释放状态 |
 | `POST /api/fleet/recovery/jobs/{id}/resolve` | admin session | expected_attempt_id + side_effects_reviewed=true + note；仅确认停机且资源已释放的 unknown 可审计关闭为 failed |
 | `GET /api/fleet/recovery/jobs/{id}/events` | admin session | 查看不可变的操作者/原因/时间记录；不返回 node token 或 NAS 路径 |
@@ -43,10 +47,12 @@ NodePrincipal，且用户/管理员路由不接受它。extension router 仍只�
 | `POST /api/fleet/agent-tasks/{id}/cancel` | owner user | expected_generation；永久取消目标和未完成 awaited children |
 | `POST /api/fleet/agent-tasks/{id}/resume` | owner user | expected_generation；确认 paused/input_required 的继续意图 |
 
-C 提交 job 走 host 验证 attempt 后再调用同一 service；不是让普通用户 endpoint 接受任意
+B 不提供独立 /api/fleet/jobs HTTP facade；提交走受控工具，查看/取消复用现有线程 MCP task API。
+原规划 /api/fleet/jobs 不能被当成已部署接口。C-attempt 的受控提交入口将在 C/BC 实施时固定并验证；
+C 提交 job 必须走 host 验证 attempt 后再调用同一 service；不是让普通用户 endpoint 接受任意
 worker token。GET/complete 的幂等重试返回已接受结果，不能以租约已自然过期否定历史完成事实。
-非法 profile/参数 422；错误身份 401/403；owner 资源不可见 404；并发/失效 token 409；新工作
-特性禁用返回 503。关闭新工作开关后 renew/complete/stopped 对既有工作仍可用。
+已实现 HTTP 路由的非法 profile/参数返回 422；受控 submit_fleet_job 使用工具错误，不承诺 HTTP status；错误身份 401/403；owner 资源不可见 404；并发/失效 token 409；新工作
+特性禁用按受控工具/现有 API 边界拒绝；后继 C endpoint 的 503 在该阶段验证。关闭新工作开关后 renew/complete/stopped 对既有工作仍可用。
 
 ## 3. 稳定 wire 形状
 
@@ -164,3 +170,27 @@ and unknown fields return 422. Missing job returns 404, changed attempt/stop/res
 preconditions or changed historical resolution returns 409. Same operator/note replay
 returns the original event. Existing work may be reconciled with jobs_enabled=false.
 The original tracking row observes failed through its existing polling/notification path.
+
+
+## B03 node management implementation signatures
+
+Host `app/gateway/routers/fleet_management.py` adapts normal session-admin requests to
+package `management.py`; the package never imports app. This replaces the originally
+planned contributed HTTP router placement, preserving the same session/admin/CSRF
+requirements. CLI remains an additional trusted operator interface. No machine UI,
+cloud provisioning, worker auth exemption or relaxed CSRF path is introduced.
+
+Register body requires node_id, name, cpu_millis, memory_mib and profile_allowlist.
+The allowlist is non-empty, unique, and limited to configured operator job profiles.
+registered_by comes from the authenticated administrator, never a request field.
+Patch accepts only admin_state. Credential creation accepts only strict integer
+lifetime_seconds in 1..31536000; normal reads never expose token or token hash.
+Other body fields are forbidden. Missing nodes/credential scope return 404, duplicate
+identity and unsafe state/deletion conflicts return 409; auth failures precede changes.
+
+Independent f0006_nodes follows f0005_job_invocations, storing nullable JSON profile
+allowlist and nullable registered_by. Existing migrated NULL allowlists explicitly
+retain legacy eligibility for current configured job profiles. New trusted registration
+persists concrete configured job profiles; HTTP never accepts NULL/wildcard/empty.
+The scheduler enforces node profile eligibility under the node lock before reservation.
+These signatures are the B03 follow-up implementation contract, not a completion claim.

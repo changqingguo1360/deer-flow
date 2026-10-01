@@ -36,6 +36,7 @@ class FleetService:
         self.manifests = None
         self.inputs = None
         self.recovery = None
+        self.management = None
 
     async def start(self, deps) -> None:
         self.ready = False
@@ -60,7 +61,7 @@ class FleetService:
 
         self.session_factory = deps.session_factory
         self.credentials = NodeCredentials(deps.session_factory)
-        self.nodes = NodeRegistry(deps.session_factory)
+        self.nodes = NodeRegistry(deps.session_factory, configured_profiles=(name for name, profile in self.config.profiles.items() if profile.kind == "job"))
         self.scheduler = FleetScheduler(deps.session_factory, self.config)
         self.attempts = JobAttempts(deps.session_factory, self.config)
         from .recovery import FleetRecovery
@@ -72,6 +73,9 @@ class FleetService:
 
             self.inputs = InputManifests(deps.session_factory, workspace=self.workspace, config=self.config)
             self.manifests = FleetManifests(deps.session_factory, attempts=self.attempts, workspace=self.workspace)
+        from .management import FleetManagement
+
+        self.management = FleetManagement(self)
         self.ready = True
 
     def bind_tracking(self, reader):
@@ -101,3 +105,4 @@ class FleetService:
         self.manifests = None
         self.inputs = None
         self.recovery = None
+        self.management = None

@@ -26,6 +26,7 @@ from app.gateway.routers import (
     feedback,
     fleet_artifacts,
     fleet_inputs,
+    fleet_management,
     fleet_nodes,
     fleet_recovery,
     github_webhooks,
@@ -806,6 +807,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Include routers
     # Models API is mounted at /api/models
+    app.include_router(fleet_management.router)
     app.include_router(fleet_nodes.router)
     app.include_router(fleet_artifacts.router)
     app.include_router(fleet_inputs.router)

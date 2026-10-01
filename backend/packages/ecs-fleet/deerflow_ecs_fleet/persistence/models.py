@@ -21,6 +21,8 @@ class NodeRow(FleetBase):
         metadata,
         Column("id", String(64), primary_key=True),
         Column("name", String(128), nullable=False, unique=True),
+        Column("profile_allowlist", json_type),
+        Column("registered_by", String(64)),
         Column("admin_state", String(16), nullable=False, server_default="enabled"),
         Column("health", String(16), nullable=False, server_default="unknown"),
         Column("session_id", String(64)),
@@ -33,6 +35,7 @@ class NodeRow(FleetBase):
         timestamp("created_at"),
         timestamp("updated_at"),
         CheckConstraint("cpu_millis > 0 AND memory_mib > 0 AND agent_limit >= 0", name="ck_fleet_nodes_capacity"),
+        CheckConstraint("profile_allowlist IS NULL OR jsonb_typeof(profile_allowlist) = 'array'", name="ck_fleet_nodes_profiles"),
         CheckConstraint("admin_state IN ('enabled','draining','disabled')", name="ck_fleet_nodes_admin"),
         CheckConstraint("health IN ('online','offline','unknown')", name="ck_fleet_nodes_health"),
     )

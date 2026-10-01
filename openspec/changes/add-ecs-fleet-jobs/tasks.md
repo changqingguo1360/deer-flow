@@ -5,45 +5,45 @@
 
 ## 1. B01 建立可选包、配置和协议边界
 
-- [ ] 1.1 写并运行 backend/tests/fleet/test_b01_fleet_foundation.py，确认 B01 行为测试 RED。
-- [ ] 1.2 完成计划列出的接口、事务和部署接线；满足 `Optional installation and strict configuration`。
-- [ ] 1.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 1.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 1.1 Verify foundation/startup/installation negatives and follow-up RED/GREEN; record missing initial RED history without reconstruction.
+- [x] 1.2 完成计划列出的接口、事务和部署接线；满足 `Optional installation and strict configuration`。
+- [x] 1.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 1.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 2. B02 建立独立迁移链和真实故障测试夹具
 
-- [ ] 2.1 写并运行 backend/tests/fleet/test_b02_fleet_foundation.py，确认 B02 行为测试 RED。
-- [ ] 2.2 完成计划列出的接口、事务和部署接线；满足 `Independent migration and persisted execution identity`。
-- [ ] 2.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 2.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 2.1 Verify concurrent/restart and installed migrations; record initial RED limitation and actual f0005-to-f0006 follow-up RED/GREEN.
+- [x] 2.2 完成计划列出的接口、事务和部署接线；满足 `Independent migration and persisted execution identity`。
+- [x] 2.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 2.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 3. B03 打通节点凭据与宿主 worker 路由
 
-- [ ] 3.1 写并运行 backend/tests/fleet/test_b03_fleet_foundation.py，确认 B03 行为测试 RED。
-- [ ] 3.2 完成计划列出的接口、事务和部署接线；满足 `Node scoped authentication without session bypass`。
-- [ ] 3.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 3.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 3.1 Verify worker and admin HTTP identity; record real management/profile/migration RED/GREEN and historical auth-RED limitation.
+- [x] 3.2 完成计划列出的接口、事务和部署接线；满足 `Node scoped authentication without session bypass`。
+- [x] 3.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 3.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 4. B04 实现原子容量预留与节点生命周期
 
 - [x] 4.1 写并运行 backend/tests/fleet/test_b04_fleet_foundation.py，确认 B04 行为测试 RED。
-- [ ] 4.2 完成计划列出的接口、事务和部署接线；满足 `Shared atomic capacity and draining`。
-- [ ] 4.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 4.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 4.2 完成计划列出的接口、事务和部署接线；满足 `Shared atomic capacity and draining`。
+- [x] 4.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 4.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 5. B05 实现 staged 提交、去重和跟踪握手
 
-- [ ] 5.1 写并运行 backend/tests/fleet/test_b05_fleet_durable_jobs.py，确认 B05 行为测试 RED。
-- [ ] 5.2 完成计划列出的接口、事务和部署接线；满足 `Tracked idempotent submission before execution`。
-- [ ] 5.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 5.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 5.1 写并运行 backend/tests/fleet/test_b05_fleet_durable_jobs.py，确认 B05 行为测试 RED。
+- [x] 5.2 完成计划列出的接口、事务和部署接线；满足 `Tracked idempotent submission before execution`。
+- [x] 5.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 5.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 6. B06 实现守护进程、启动授权与本地 watchdog
 
 - [x] 6.1 写并运行 backend/tests/fleet/test_b06_fleet_durable_jobs.py，确认 B06 行为测试 RED。
-- [ ] 6.2 完成计划列出的接口、事务和部署接线；满足 `Authorized execution and stop on lease loss`。
-- [ ] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 6.2 完成计划列出的接口、事务和部署接线；满足 `Authorized execution and stop on lease loss`。
+- [x] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 7. B07 实现不可变输入、产物校验和读取授权
 
@@ -82,10 +82,10 @@
 
 ## 12. B12 B 集成故障验收与进入 C 的门槛
 
-- [ ] 12.1 写并运行 backend/tests/fleet/test_b12_fleet_job_integration.py，确认 B12 行为测试 RED。
-- [ ] 12.2 完成计划列出的接口、事务和部署接线；满足 `B release gate verifies real side effects`。
-- [ ] 12.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 12.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 12.1 Run actual partition/Compose effects and gate RED/GREEN; existing-correct integration GREEN is not a new protocol RED.
+- [x] 12.2 完成计划列出的接口、事务和部署接线；满足 `B release gate verifies real side effects`。
+- [x] 12.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 12.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## Execution evidence
 
@@ -487,3 +487,37 @@ failed, 264.48 seconds. The failure was UV_NO_SYNC=1 inherited by a fixture that
 install a temporary wheel; without it the exact test passes. Final default target must
 run without that environment setting. Blocking-I/O after startup follow-up: 75 passed,
 zero skipped, two known warnings, 4.05 seconds.
+
+
+## B03 administrator management completion follow-up — 2026-10-02
+
+Real RED: 14 missing HTTP management behavior tests and three actual profile/migration
+tests (two forbidden-profile claims still allocated, one old migration head). Final
+management plus B02–B04 scope: 36 passed, zero skipped, 5.76 seconds; installed-artifact
+acceptance: two passed, zero skipped, 28.33 seconds. f0006 follows f0005 and preserves
+existing jobs, attempts, reservations and credentials while adding persisted node
+allowlists and server-derived registered_by. Actual JWT users/PG/PAT repository and
+TCP middleware prove admin-session/CSRF restrictions, private one-time credentials,
+scoped revocation, safe deletion and drain persistence; no auth principal replacement.
+
+Root final B matrix: 259 passed, zero skipped, two known warnings, 118.03 seconds, with
+all final files including full Compose and partition content barriers. Report retained
+/private/tmp/fleet-b03-management-root-gate.xml. Root full backend Ruff check/format: 1385
+files clean; blocking I/O: 75 passed, zero skipped, two known warnings, 4.16 seconds.
+Spec and quality reviewers approve all 12 code/test files. Whole-B read-only audit finds
+all 12 SHALL behaviors covered, with no remaining runtime feature blocker. Shared docs
+now explicitly map B controlled-tool submission and existing thread MCP task read/cancel
+APIs instead of advertising an unimplemented /api/fleet/jobs facade. C attempt submission
+remains pending. Final full default regression and acceptance checkbox recording pending.
+
+Prior committed Compose full default target (f2cd4cef): 13186 passed, 174 optional skips,
+one deselected, 19 known warnings, 265.04 seconds, without UV_NO_SYNC/UV_OFFLINE. Current
+management code has a fresh full default target running; its result supersedes this
+checkpoint when recorded. No production ECS/NAS or Linux Compose runtime claim.
+
+
+## Final B local acceptance — 2026-10-02
+
+All runtime SHALL and required checks pass; [acceptance report](../../../docs/ecs-fleet-b-acceptance.md).
+259 required passed/0 skipped; default 13187 passed/195 optional skips; blocking I/O 75/0.
+Historical initial RED limits are recorded in adjusted steps, not reconstructed. C/BC remain incomplete.

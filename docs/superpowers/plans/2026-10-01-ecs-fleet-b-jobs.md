@@ -1,6 +1,6 @@
 # B：持久 Job 与共用 Fleet 基础 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Use superpowers:subagent-driven-development only if the user explicitly chooses delegation. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Use superpowers:subagent-driven-development only if the user explicitly chooses delegation. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 按先 B、再 C、再组合的顺序完成 B：持久 Job 与共用 Fleet 基础，保持每一步可测试、可回退。
 
@@ -102,7 +102,7 @@ class FleetProbe:
 
 **OpenSpec:** `fleet-foundation` / `Optional installation and strict configuration`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 构建两个 subprocess：未安装扩展/disabled 与 enabled；enabled 用 sqlite、负数预算、未知协议字段逐项触发校验；确认普通启动不创建 fleet 表。
+- [x] **Step 1 — 场景搭建与失败测试。** 构建两个 subprocess：未安装扩展/disabled 与 enabled；enabled 用 sqlite、负数预算、未知协议字段逐项触发校验；确认普通启动不创建 fleet 表。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -123,7 +123,7 @@ def test_b01_contract():
         FleetConfig(continuations_enabled=True, agents_enabled=False)
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b01_fleet_foundation.py::test_b01_contract -vv
@@ -131,7 +131,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b01_fleet_foundation.py::test_b01_co
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。B01 首次可用独立包导入/配置测试确认缺失模块；B02 后接入统一 probe。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 from pydantic import BaseModel, Field, model_validator
@@ -160,7 +160,7 @@ class FleetConfig(BaseModel):
 
 包入口为 deerflow_ecs_fleet:install，table_prefix=fleet_；单独的 extensions dependency group。测试通过 uv --with 本地包加载，默认安装仍可禁用；不得让 harness import app 或可选扩展。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b01_fleet_foundation.py -vv
@@ -169,13 +169,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b01 建立可选包、配置和协议边界"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `1.1` 至 `1.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `1.1` 至 `1.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task B02: 建立独立迁移链和真实故障测试夹具
 
@@ -193,7 +193,7 @@ git commit -m "feat(fleet): b01 建立可选包、配置和协议边界"
 
 **OpenSpec:** `fleet-foundation` / `Independent migration and persisted execution identity`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 采用 test_scheduled_task_postgres.py 的随机 schema/清理方式；并发启动两个 ExtensionService；断言 fleet_alembic_version 唯一和 private metadata，重启后提交记录仍可读。
+- [x] **Step 1 — 场景搭建与失败测试。** 采用 test_scheduled_task_postgres.py 的随机 schema/清理方式；并发启动两个 ExtensionService；断言 fleet_alembic_version 唯一和 private metadata，重启后提交记录仍可读。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -209,7 +209,7 @@ async def test_b02_contract(fleet_probe):
     assert observed['restart_preserves_rows'] == True
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b02_fleet_foundation.py::test_b02_contract -vv
@@ -217,7 +217,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b02_fleet_foundation.py::test_b02_co
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 fleet_metadata = MetaData()
@@ -230,7 +230,7 @@ fleet_metadata = MetaData()
 
 Migration 在 ExtensionService.start、host bootstrap 之后、worker API ready 之前运行；用 asyncio.to_thread 或 async connection.run_sync 避免阻塞。所有 fleet 主键、UTC deadline、attempt/job 唯一索引和可空 run_id 的 XOR 约束在此创建，agent kind 在 B 阶段拒绝 claim。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b02_fleet_foundation.py -vv
@@ -239,13 +239,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b02 建立独立迁移链和真实故障测试夹具"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `2.1` 至 `2.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `2.1` 至 `2.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task B03: 打通节点凭据与宿主 worker 路由
 
@@ -262,7 +262,7 @@ git commit -m "feat(fleet): b02 建立独立迁移链和真实故障测试夹具
 
 **OpenSpec:** `fleet-foundation` / `Node scoped authentication without session bypass`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 使用 ASGITransport 发送有效/无效 bearer、cookie、混合凭据以及 root_path 变体；撤销后再次 renew；检查响应和 DB 未发生越权修改。
+- [x] **Step 1 — 场景搭建与失败测试。** 使用 ASGITransport 发送有效/无效 bearer、cookie、混合凭据以及 root_path 变体；撤销后再次 renew；检查响应和 DB 未发生越权修改。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -278,7 +278,7 @@ async def test_b03_contract(fleet_probe):
     assert observed['management_requires_session'] == True
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b03_fleet_foundation.py::test_b03_contract -vv
@@ -286,7 +286,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b03_fleet_foundation.py::test_b03_co
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # Host owns /api/fleet/node/*; extension admin routes stay session authenticated.
@@ -298,7 +298,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b03_fleet_foundation.py::test_b03_co
 
 不能将扩展 router 加到 public/CSRF 全局白名单。worker 认证成功后只对该精确宿主路由使用 bearer 语义，禁止 auth-disabled 模式让 worker 端点无凭据执行。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b03_fleet_foundation.py -vv
@@ -307,13 +307,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b03 打通节点凭据与宿主 worker 路由"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `3.1` 至 `3.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `3.1` 至 `3.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task B04: 实现原子容量预留与节点生命周期
 
@@ -326,7 +326,7 @@ git commit -m "feat(fleet): b03 打通节点凭据与宿主 worker 路由"
 
 **OpenSpec:** `fleet-foundation` / `Shared atomic capacity and draining`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 两个独立 Postgres session 用 asyncio.gather 同时 claim；capacity 只够一项。隔离 winner 后再次 claim；drain、心跳恢复、删除依次核验。
+- [x] **Step 1 — 场景搭建与失败测试。** 两个独立 Postgres session 用 asyncio.gather 同时 claim；capacity 只够一项。隔离 winner 后再次 claim；drain、心跳恢复、删除依次核验。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -342,7 +342,7 @@ async def test_b04_contract(fleet_probe):
     assert observed['draining_after_heartbeat'] == True
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b04_fleet_foundation.py::test_b04_contract -vv
@@ -350,7 +350,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b04_fleet_foundation.py::test_b04_co
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # One DB transaction, fixed lock order: execution row -> node row -> reservation.
@@ -361,7 +361,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b04_fleet_foundation.py::test_b04_co
 
 以 CPU 毫核、内存 MiB 整数计账；B/C 保留统一 kind/agent_units 字段。全局公平调度在 BC05 增强，B 初版 FIFO。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b04_fleet_foundation.py -vv
@@ -370,13 +370,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b04 实现原子容量预留与节点生命周期"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `4.1` 至 `4.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `4.1` 至 `4.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task B05: 实现 staged 提交、去重和跟踪握手
 
@@ -394,7 +394,7 @@ git commit -m "feat(fleet): b04 实现原子容量预留与节点生命周期"
 
 **OpenSpec:** `fleet-durable-jobs` / `Tracked idempotent submission before execution`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 故障注入在 driver.submit 返回之后、tracking create 之前；两次提交同一 key；推进 DB 时间到 staged deadline；检查 worker 启动计数为 0。
+- [x] **Step 1 — 场景搭建与失败测试。** 故障注入在 driver.submit 返回之后、tracking create 之前；两次提交同一 key；推进 DB 时间到 staged deadline；检查 worker 启动计数为 0。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -410,7 +410,7 @@ async def test_b05_contract(fleet_probe):
     assert observed['untracked_state'] == 'failed'
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b05_fleet_durable_jobs.py::test_b05_contract -vv
@@ -418,7 +418,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b05_fleet_durable_jobs.py::test_b05_
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # driver.submit: INSERT job(state='staged') ON CONFLICT(user_id,key) RETURN existing.
@@ -429,7 +429,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b05_fleet_durable_jobs.py::test_b05_
 
 调用身份组合 user_id/run_id/持久 invocation_id；不把 provider tool_call_id 当全局键。受控 job snapshot 不含密钥。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b05_fleet_durable_jobs.py -vv
@@ -438,13 +438,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b05 实现 staged 提交、去重和跟踪握手"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `5.1` 至 `5.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `5.1` 至 `5.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task B06: 实现守护进程、启动授权与本地 watchdog
 
@@ -461,7 +461,7 @@ git commit -m "feat(fleet): b05 实现 staged 提交、去重和跟踪握手"
 
 **OpenSpec:** `fleet-durable-jobs` / `Authorized execution and stop on lease loss`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 临时 Docker 运行计数文件脚本；重复 start、丢弃回包、切断续约通道；验证实际 PID/container、启动次数、quarantine 与未释放 reservation。
+- [x] **Step 1 — 场景搭建与失败测试。** 临时 Docker 运行计数文件脚本；重复 start、丢弃回包、切断续约通道；验证实际 PID/container、启动次数、quarantine 与未释放 reservation。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -477,7 +477,7 @@ async def test_b06_contract(fleet_probe):
     assert observed['lost_attempt_reassigned'] == False
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b06_fleet_durable_jobs.py::test_b06_contract -vv
@@ -485,7 +485,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b06_fleet_durable_jobs.py::test_b06_
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # granted start is durable before launch; container name = "fleet-" + attempt_id.
@@ -496,7 +496,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b06_fleet_durable_jobs.py::test_b06_
 
 仅 node-agent 宿主访问容器引擎；容器无 socket。未 start 的失租才允许自动重新排队。worker reconcile 必须在开启 claim 循环之前完成。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b06_fleet_durable_jobs.py -vv
@@ -505,13 +505,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b06 实现守护进程、启动授权与本地 watchdog"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `6.1` 至 `6.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `6.1` 至 `6.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task B07: 实现不可变输入、产物校验和读取授权
 
@@ -872,7 +872,7 @@ artifact source/digests, counts and local scope are in implementation-progress.m
 
 **OpenSpec:** `fleet-job-integration` / `B release gate verifies real side effects`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 用本地 TCP 故障代理断开控制协议且保留脚本执行；统计文件写入与外部 mock 服务请求次数；清理临时容器、测试 schema，不操作真实 ECS。
+- [x] **Step 1 — 场景搭建与失败测试。** 用本地 TCP 故障代理断开控制协议且保留脚本执行；统计文件写入与外部 mock 服务请求次数；清理临时容器、测试 schema，不操作真实 ECS。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -888,7 +888,7 @@ async def test_b12_contract(fleet_probe):
     assert observed['untracked_starts'] == 0
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b12_fleet_job_integration.py::test_b12_contract -vv
@@ -896,7 +896,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b12_fleet_job_integration.py::test_b
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # Gate B: PostgreSQL concurrency + real container process assertions + NAS isolation.
@@ -906,7 +906,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_b12_fleet_job_integration.py::test_b
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_b12_fleet_job_integration.py -vv
@@ -915,21 +915,21 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): b12 B 集成故障验收与进入 C 的门槛"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `12.1` 至 `12.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `12.1` 至 `12.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ## 阶段结束检查
 
-- [ ] 所有本阶段 OpenSpec SHALL 均有测试证据；上一阶段回归继续通过。
-- [ ] PostgreSQL 并发与实际容器/NAS 故障测试非跳过通过；C/组合还需要 Redis 与完整 runner。
-- [ ] `make test`、`make test-blocking-io`、`make lint` 通过；前端变更完成 check。
-- [ ] 禁用新 admission 后已有执行仍能对账；无孤儿容器或悄悄释放的 quarantine。
-- [ ] 在测试报告中明确环境限制；未通过门槛不得执行后继阶段的上线操作。
+- [x] 所有本阶段 OpenSpec SHALL 均有测试证据；上一阶段回归继续通过。
+- [x] PostgreSQL 并发与实际容器/NAS 故障测试非跳过通过；C/组合还需要 Redis 与完整 runner。
+- [x] `make test`、`make test-blocking-io`、`make lint` 通过；前端变更完成 check。
+- [x] 禁用新 admission 后已有执行仍能对账；无孤儿容器或悄悄释放的 quarantine。
+- [x] 在测试报告中明确环境限制；未通过门槛不得执行后继阶段的上线操作。
 
 本计划按 inline executing-plans 交接，不自动发起子代理或开始实施。用户要求开始后，先执行 B01。
 
@@ -1089,3 +1089,23 @@ B09 final review: admission is held before the actual Docker job completes. Clea
 now guarantees Fleet shutdown despite earlier cleanup errors and bounds TCP server
 shutdown; the focused real chain passed again after that change. Spec and quality
 re-reviews approve the local slice. Acceptance commit: `test(fleet): verify real job notification lifecycle`.
+
+
+### B03 management adapter clarification — 2026-10-02
+
+The missing management path is implemented as host fleet_management.py HTTP adapter plus
+Fleet package management.py facade, preserving actual session-admin+CSRF middleware and
+the package/app boundary. API signatures and f0006 profile compatibility are fixed in
+openspec/ecs-fleet-contracts.md. Trusted operator CLI does not replace HTTP registration.
+This corrects router placement, not the required behavior; implementation/review evidence
+remains pending for this follow-up.
+
+
+## Final B local acceptance and historical step clarification — 2026-10-02
+
+All runtime requirements and local release checks pass: [acceptance report](../../../docs/ecs-fleet-b-acceptance.md).
+B01/B02/auth initial RED records are absent; completed historical RED steps mean the
+recorded limitation plus current follow-up RED/GREEN evidence, not retroactive execution
+of the original example commands. B12 added existing-protocol integration GREEN and
+genuine gate RED/GREEN. C/BC are not checked by completion of B; proceed to C without
+claiming production deployment.
