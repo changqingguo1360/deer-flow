@@ -118,3 +118,11 @@ untouched. A real TCP/Postgres daemon loop stops both concurrent container execu
 on shutdown and records physical stop before capacity release. 322 component/adjacent
 tests pass, zero skipped. Private credential/operator startup and B07 NAS integration
 remain pending; keep whole-task completion unchecked.
+
+
+B07 filesystem foundations are in progress. test_b07_workspace.py registers 16
+actual filesystem cases: explicit NAS identity sentinel, descriptor traversal,
+attempt/grant scope, independent sealed copies and bounded verified reads. RED was
+observed before implementation and for foreign-job claim tampering. Combined regression
+passes 338 tests, zero skipped. Input registration/readonly mounts, manifest persistence,
+complete HTTP and owner/thread download remain pending; B07 7.1–7.4 remain unchecked.

@@ -73,8 +73,21 @@ reservations, leaves both uncertain jobs unknown and the third job queued. Publi
 worker/credential/NAS deployment integration remains pending; B06 is not accepted
 as a deployable whole.
 
-B07–B12, all C and all continuation tasks remain pending. There is no sealed manifest
-completion endpoint, NAS isolation layer or public runnable worker deployment yet.
+B07 filesystem foundations now exist: NASWorkspace requires an explicit deployment
+identity in a non-symlink `.deerflow-fleet-root` sentinel; it never creates a missing
+NAS root or falls back to a local empty directory. Every path component uses dirfd
+and no-follow traversal. Outputs are scoped to owner/thread/job/attempt and bound to
+server start-grant job_id/output_prefix. Stopped outputs are copied to a separate
+sealed tree, with non-writable files/directories and bounded entries, depth and bytes.
+Symlinks, hardlinks and non-regular files are rejected. Reads verify manifest size
+and digest on the same open descriptor subsequently returned to the reader; replacing
+the pathname cannot redirect that reader. Missing sentinel after prepare also blocks
+seal. These synchronous filesystem operations must be called through asyncio.to_thread.
+
+B07 service integration is still pending: immutable input registration/read-only
+mounts, accepted-manifest transaction, host download authorization and worker result
+publication. B08–B12, all C and all continuation tasks remain pending. There is no
+manifest completion endpoint or public runnable worker deployment yet.
 No remote Agent run has executed and no business ECS has been deployed.
 
 ## Verification evidence
@@ -89,7 +102,7 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 322 passed, zero skipped, four existing
+Current combined verification: 338 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
@@ -137,3 +150,14 @@ other real owned containers are still stopped and claim remains blocked. Live lo
 shutdown evidence uses actual TCP host routes, isolated Postgres schemas and two
 concurrent Docker counter containers. The combined command above passes 322 tests,
 zero skipped, four deprecation warnings. No business containers or data are touched.
+
+## B07 filesystem slice evidence
+
+B06 residual/shutdown slice: commit bc784e08. B07 test_b07_workspace.py had 14 RED
+assertions before the filesystem implementation existed; a further foreign-job RED
+proved claim tampering could redirect prepare without a job-bound start grant.
+Sixteen filesystem tests now pass, covering missing/wrong/symlink sentinel, prefix
+escape, owner/attempt/job mismatch, parent symlink, post-prepare sentinel disappearance,
+separate attempts, stopped-only immutable copies, descriptor-stable reads, unsafe
+file kinds and byte limits. Combined real Fleet/adjacent regression is 338 passed,
+zero skipped. This is filesystem evidence, not B07 complete/DB/HTTP acceptance.

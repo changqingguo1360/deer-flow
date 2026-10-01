@@ -1576,7 +1576,8 @@ jobs followed by remote Agent execution. Current foundations include independent
 Postgres migrations, worker credential/session isolation, atomic capacity accounting
 and staged job tracking. The worker client, private restart journal and local Docker
 watchdog are tested through real HTTP/containers, including Gateway loss and a lost
-start response. Public worker deployment, NAS artifact delivery and remote Agent runs
+start response. NAS sentinel and isolated sealing primitives also have filesystem
+coverage. Public worker deployment, accepted NAS artifact delivery and remote Agent runs
 are not available yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

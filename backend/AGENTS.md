@@ -398,3 +398,12 @@ Worker start/renew/stopped requests require node + session + attempt token; clos
 new-work flags must not cut off these accepted-work endpoints. The persisted start
 grant freezes the claim's profile. Stop acknowledgement can release capacity but
 cannot establish successful completion without an accepted manifest.
+
+
+Fleet `workspace.NASWorkspace` owns the explicit deployment sentinel and descriptor
+traversal; `artifacts` owns bounded manifest metadata and verified copies/reads. These
+blocking filesystem methods must run in asyncio.to_thread from async services.
+Do not create the NAS root or sentinel automatically on a missing mount. A task only
+mounts its outputs; its sealed copy is a separate tree. A successful file seal alone
+is not job completion: B07 still needs the accepted-manifest transaction and host
+owner/thread download authorization before exposing this capability publicly.

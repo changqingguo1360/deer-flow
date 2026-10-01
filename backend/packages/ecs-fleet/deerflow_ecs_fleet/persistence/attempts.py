@@ -44,6 +44,8 @@ class JobAttempts:
             "node_id": attempt.node_id,
             "node_session_id": attempt.node_session_id,
             "attempt_id": attempt.id,
+            "job_id": attempt.job_id,
+            "output_prefix": attempt.output_prefix,
             "process_ref": attempt.process_ref,
             "launch_spec": attempt.launch_spec,
             "lease_seconds_remaining": max(0, (attempt.lease_expires_at - now).total_seconds()),
