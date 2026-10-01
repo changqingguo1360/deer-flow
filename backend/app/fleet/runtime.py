@@ -1,0 +1,29 @@
+"""Separate new-job tool admission from accepted-work driver availability."""
+
+from deerflow.mcp.tasks.fleet_runtime import set_fleet_job_submitter
+
+
+def fleet_runtime(app):
+    services = getattr(getattr(app.state, "extensions", None), "services", ())
+    candidates = [service for _, service in services if getattr(service, "fleet_protocol_version", None) == 1]
+    if len(candidates) > 1:
+        raise RuntimeError("Exactly one Fleet runtime is permitted")
+    return candidates[0] if candidates else None
+
+
+def validate_fleet_task_runtime(app, *, enabled, repository_available):
+    runtime = fleet_runtime(app)
+    if runtime is not None and runtime.config.jobs_enabled:
+        if not runtime.ready or not enabled or not repository_available:
+            raise RuntimeError("Fleet jobs require a ready runtime, mcp_tasks.enabled and durable SQL task tracking")
+
+
+def install_fleet_tools(app, submitter):
+    set_fleet_job_submitter(None)
+    runtime = fleet_runtime(app)
+    if runtime is None or not runtime.config.jobs_enabled:
+        return
+    if not runtime.ready or runtime.jobs is None or submitter is None:
+        raise RuntimeError("Fleet submission requires its ready tracking driver and task service")
+    names = tuple(sorted(name for name, profile in runtime.config.profiles.items() if profile.kind == "job"))
+    set_fleet_job_submitter(submitter, profile_names=names)

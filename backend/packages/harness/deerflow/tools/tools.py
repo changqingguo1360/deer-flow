@@ -4,6 +4,7 @@ from langchain.tools import BaseTool
 
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
+from deerflow.mcp.tasks.fleet_runtime import get_fleet_job_profile_names, is_fleet_job_runtime_available
 from deerflow.mcp.tasks.runtime import is_mcp_task_runtime_available
 from deerflow.reflection import resolve_variable
 from deerflow.sandbox.security import is_host_bash_allowed
@@ -18,6 +19,7 @@ from deerflow.tools.builtins import (
     list_uploaded_files,
     present_file_tool,
     review_skill_package,
+    submit_fleet_job,
     task_tool,
     view_image_tool,
 )
@@ -110,6 +112,9 @@ def get_available_tools(
     builtin_tools = BUILTIN_TOOLS.copy()
     if is_mcp_task_runtime_available():
         builtin_tools.extend((list_background_tasks, cancel_background_task))
+    if is_fleet_job_runtime_available():
+        names = ", ".join(get_fleet_job_profile_names())
+        builtin_tools.append(submit_fleet_job.model_copy(update={"description": submit_fleet_job.description + "\nAvailable job profiles: " + names}))
     if include_upload_tool:
         builtin_tools.append(list_uploaded_files)
     skill_evolution_config = getattr(config, "skill_evolution", None)

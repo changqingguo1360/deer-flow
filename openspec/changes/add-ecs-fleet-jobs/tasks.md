@@ -174,3 +174,27 @@ OpenSpec strict3/3 pass. Independent review approves code/security. B08 acceptan
 complete for these isolated local services; prior partial paragraphs are historical.
 B release gate/B09–B12/C/continuations remain pending. Slice:
 `feat(fleet): audit operator resolution of stopped unknown jobs`.
+
+
+## B09 controlled submission slice — 2026-10-02
+
+The core submitter bridge and `submit_fleet_job` builtin now bind through host
+startup after ready Fleet service and persistent MCP task tracking validation.
+No optional-package or app import enters the harness. Approved job profile names
+are discoverable without exposing deployment settings. Server graph context owns
+user/thread/run/invocation identity; B remains detached. Closing new-job admission
+hides the tool while the Fleet driver continues polling accepted jobs.
+
+Observed RED/GREEN covers missing tool/runtime binding, missing profile discovery
+and unconditional tool visibility with subagent support enabled. Real Postgres plus
+a checkpointed ToolNode graph proves a replay after post-submit response loss creates
+one job/tracking row; a later turn reusing the provider call ID creates a second job.
+Independent review found the unconditional subagent tool registration; it was removed
+and re-reviewed after tests exercised both subagent configurations and single registration.
+
+Focused tool/authorization checks: 17 passed. Final expanded Fleet/adjacent scope:
+448 passed, zero skipped, four existing warnings, 70.76 seconds. Backend Ruff lint
+and format check (1365 files) and git diff whitespace check pass. This slice does
+not yet prove full run_agent submission followed by worker completion, busy-thread
+notification retry, service restart and exactly one accepted notification receipt.
+B09 remains partial; its full acceptance checkboxes and B release gate remain open.

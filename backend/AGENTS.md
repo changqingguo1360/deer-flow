@@ -374,7 +374,8 @@ node credentials cannot acquire session/PAT/internal privileges, even with auth 
 Contributed management routers remain session authenticated.
 
 `app/fleet/job_tracking.py` injects the host tracking reader and registers the Fleet
-long-task driver only when an already-loaded ready Fleet service enables jobs.
+long-task driver for an already-loaded ready Fleet service, including when new jobs
+are disabled, so accepted work remains tracked and reconciled.
 Staged jobs cannot be claimed until matching host tracking commits. Reconciliation
 runs until service shutdown. Execution → node → reservation is the lock order;
 node session rotation changes only node identity and retains old resource charges.
@@ -389,6 +390,15 @@ Public worker startup, remote Agent and
 continuations are pending; consult the root delivery roadmap before
 enabling or advertising Fleet execution. Dependency installation remains operator
 controlled through the extension manager; do not add an unconditional host dependency.
+
+`app/fleet/runtime.py` binds the core `deerflow.mcp.tasks.fleet_runtime` submitter
+bridge only after the ready service, persistent MCP task repository and task service
+are available. Harness code must not import app or the optional Fleet package.
+`submit_fleet_job` derives user/thread/run/invocation identity from trusted graph
+runtime; its model schema contains no owner, node, image, credential or link-mode
+controls. Only approved job profile names are exposed. Tool visibility is gated in
+both subagent configurations; shutdown clears the bridge before stopping task tracking.
+B09 notification acceptance through a full scripted run remains pending.
 
 Fleet task retries use TaskSubmission.tracking_task_id to opt into the host
 McpTaskRepository.create_idempotent boundary. Ordinary MCP drivers retain duplicate

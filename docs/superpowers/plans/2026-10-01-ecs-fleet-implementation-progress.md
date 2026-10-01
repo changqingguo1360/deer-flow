@@ -31,8 +31,8 @@ Fleet's driver returns a canonical tracking_task_id. The task service opts into
 create_idempotent only for drivers that provide this identity, returns the original
 matching row after a unique race, and never overwrites its cancellation intent.
 Real Postgres tests cover sequential/concurrent retries and tracking commit failure
-with both successful and failed compensation. The model-visible Fleet submission
-tool and scheduled dedupe integration remain pending (B09/B10).
+with both successful and failed compensation. The model-visible Fleet submission tool is implemented in a partial B09 slice;
+notification acceptance and scheduled dedupe integration remain pending (B09/B10).
 
 B06 is in progress: claim/start/renew/stopped host routes enforce node, session,
 attempt and token identity. The exact operator profile is frozen in launch_spec
@@ -102,9 +102,10 @@ manifest before complete, and can replay a lost accepted-completion response aft
 restart without another execution. Existing McpTaskService polling receives completed
 and the accepted manifest ID through the original tracking row.
 
-B07 immutable input registration/read-only mounts are implemented and exercised. B08 cancellation/recovery is locally accepted; B09–B12, all C and
-all continuation tasks remain pending. There is no public runnable worker deployment
-or model-visible Fleet submission tool yet.
+B07 immutable input registration/read-only mounts are implemented and exercised.
+B08 cancellation/recovery is locally accepted. B09 controlled submission and host
+binding are verified; full notification acceptance remains pending. B10–B12, all C
+and continuation tasks remain pending. There is no public runnable worker deployment.
 No remote Agent run has executed and no business ECS has been deployed.
 
 ## Verification evidence
@@ -119,12 +120,12 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 406 passed, zero skipped, four existing
+Current combined verification (2026-10-02): 448 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
 ```bash
-FLEET_TEST_CONTAINERS=1 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_mcp_tasks_router.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py -q -p no:cacheprovider
+FLEET_TEST_CONTAINERS=1 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_mcp_tasks_router.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py tests/test_gateway_startup.py tests/test_gateway_lifespan_shutdown.py tests/test_authorization_tool_filter.py tests/test_extension_app_loading.py -q -p no:cacheprovider --tb=short
 ```
 
 This is component and adjacent regression coverage, not the B release gate or the
@@ -144,11 +145,11 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 1. Integrate B06 private credential loading and operator worker startup with
    B07 workspace preparation and B11 reproducible deployment. Core startup orphan,
    engine stop failure and concurrent shutdown scenarios now have real evidence.
-2. Deliver B09 model-visible controlled submission and durable result notification.
+2. Complete B09 full scripted-run and durable result notification acceptance.
    B08 cancellation, deadline reconciliation and audited operator closure are verified. B07 NAS sentinel, immutable inputs,
    read-only mounts, accepted manifests and user download/result publication are exercised.
-3. B09 wires the tested invocation helper into model-visible submission; B10 handles
-   scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.
+3. B09 now wires durable invocation identity into controlled model submission; B10
+   still needs scheduled dedupe. Deliver B11/B12 before enabling C. Keep C/continuation flags off.
 
 ## B06 daemon slice evidence
 
@@ -306,3 +307,27 @@ validation. README, backend AGENTS, shared contract and docs/ecs-fleet-recovery.
 implemented behavior. B08 is locally accepted; B09–B12 and C/continuations remain
 pending. This is not the B release gate, full backend test gate or a production ECS/NAS
 deployment. Previous pending statements are historical checkpoints.
+
+
+## B09 controlled submission slice — 2026-10-02
+
+The core submitter bridge and `submit_fleet_job` builtin now bind through host
+startup after ready Fleet service and persistent MCP task tracking validation.
+No optional-package or app import enters the harness. Approved job profile names
+are discoverable without exposing deployment settings. Server graph context owns
+user/thread/run/invocation identity; B remains detached. Closing new-job admission
+hides the tool while the Fleet driver continues polling accepted jobs.
+
+Observed RED/GREEN covers missing tool/runtime binding, missing profile discovery
+and unconditional tool visibility with subagent support enabled. Real Postgres plus
+a checkpointed ToolNode graph proves a replay after post-submit response loss creates
+one job/tracking row; a later turn reusing the provider call ID creates a second job.
+Independent review found the unconditional subagent tool registration; it was removed
+and re-reviewed after tests exercised both subagent configurations and single registration.
+
+Focused tool/authorization checks: 17 passed. Final expanded Fleet/adjacent scope:
+448 passed, zero skipped, four existing warnings, 70.76 seconds. Backend Ruff lint
+and format check (1365 files) and git diff whitespace check pass. This slice does
+not yet prove full run_agent submission followed by worker completion, busy-thread
+notification retry, service restart and exactly one accepted notification receipt.
+B09 remains partial; its full acceptance checkboxes and B release gate remain open.

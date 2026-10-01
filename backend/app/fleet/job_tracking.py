@@ -17,6 +17,6 @@ def register_fleet_driver(app, drivers) -> None:
     if len(runtimes) != 1:
         raise ValueError("Exactly one Fleet runtime is permitted")
     runtime = runtimes[0]
-    if not runtime.ready or not runtime.config.jobs_enabled:
+    if not runtime.ready:
         return
     drivers.register("fleet", runtime.bind_tracking(read_tracking))
