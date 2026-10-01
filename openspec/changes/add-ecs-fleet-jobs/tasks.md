@@ -409,4 +409,4 @@ Scope: two supported host CLI workers, actual image entry/Docker control, and re
 Compose. Full containerized Compose daemon execution and production ECS/NAS are not
 claimed. B12 must finish the release fault/gate acceptance before C. Feature flags remain
 disabled by default; no production credentials/images are supplied or deployments made.
-Implementation commit: `feat(fleet): add public worker entry and reproducible deployment helpers`.
+Implementation commit: `054d7007` — `feat(fleet): add public worker entry and reproducible deployment helpers`.
