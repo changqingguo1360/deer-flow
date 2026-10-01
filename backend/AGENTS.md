@@ -383,7 +383,9 @@ Use `tests/fleet` with TEST_POSTGRES_URI pointing to an isolated test database.
 Tests create/drop random schemas, never real business schemas. Worker client/daemon
 and private restart journals exist; tests exercise real TCP Gateway loss and a lost
 start-grant response with local Docker. Bootstrap must finish stop reconciliation
-before claiming work. Public worker startup, NAS sealing, remote Agent and
+before claiming work. Stop every owned residual before reporting recovery failure;
+missing journals or a stop RPC failure must not leave other owned containers running.
+Public worker startup, NAS sealing, remote Agent and
 continuations are pending; consult the root delivery roadmap before
 enabling or advertising Fleet execution. Dependency installation remains operator
 controlled through the extension manager; do not add an unconditional host dependency.

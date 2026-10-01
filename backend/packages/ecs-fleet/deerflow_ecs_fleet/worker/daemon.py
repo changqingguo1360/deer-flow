@@ -38,15 +38,17 @@ class NodeDaemon:
         if any(row.get("node_id") != self.client.node_id for row in records):
             raise RecoveryRequired("Private attempt journal belongs to another node")
         known = {row["claim"]["attempt_id"] for row in records}
-        # A lost private journal is not permission to reuse engine capacity.
-        for ref, attempt_id in await self.containers.list_managed(self.client.node_id):
-            if attempt_id not in known:
-                await self.containers.stop(ref)
-                raise RecoveryRequired("Managed container has no private attempt journal")
+        # Stop every residual before reporting any missing journal. Failing on
+        # the first orphan would leave the remaining executions running.
+        managed = await self.containers.list_managed(self.client.node_id)
+        refs = {ref for ref, _ in managed} | {"fleet-" + attempt_id for attempt_id in known}
+        stopped = await asyncio.gather(*(self.containers.stop(ref) for ref in refs), return_exceptions=True)
+        if any(result is not True for result in stopped):
+            raise RecoveryRequired("Residual execution could not be stopped")
+        if any(attempt_id not in known for _, attempt_id in managed):
+            raise RecoveryRequired("Managed container has no private attempt journal")
         for row in records:
             ref = "fleet-" + row["claim"]["attempt_id"]
-            if not await self.containers.stop(ref):
-                raise RecoveryRequired("Residual execution could not be stopped")
             if row.get("reported"):
                 continue
             row["stop_reason"] = row.get("stop_reason", "lease_lost")

@@ -110,3 +110,11 @@ The isolated Postgres/Docker regression command in implementation evidence passe
 319 tests, zero skipped. Keep 6.2–6.4 unchecked until the remaining task-level acceptance
 and deployment boundaries are complete. This slice is committed as
 `feat(fleet): add durable worker daemon and restart stop barrier`.
+
+
+B06 residual/shutdown follow-up: startup attempts all owned stops before surfacing
+missing-journal/engine errors; real Docker proves foreign-node containers remain
+untouched. A real TCP/Postgres daemon loop stops both concurrent container executions
+on shutdown and records physical stop before capacity release. 322 component/adjacent
+tests pass, zero skipped. Private credential/operator startup and B07 NAS integration
+remain pending; keep whole-task completion unchecked.

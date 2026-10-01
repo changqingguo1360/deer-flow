@@ -935,3 +935,11 @@ node ownership, late renewal and ungranted stop replay are covered. 319 adjacent
 regressions pass, zero skipped. Startup orphan/concurrent shutdown and operator
 worker/NAS integration still prevent whole-task acceptance. Launch profile snapshots add migration f0002_launch_spec; they prevent
 an operator profile edit between claim and start from changing reserved execution.
+
+
+B06 residual/shutdown follow-up: startup attempts all owned stops before surfacing
+missing-journal/engine errors; real Docker proves foreign-node containers remain
+untouched. A real TCP/Postgres daemon loop stops both concurrent container executions
+on shutdown and records physical stop before capacity release. 322 component/adjacent
+tests pass, zero skipped. Private credential/operator startup and B07 NAS integration
+remain pending; keep whole-task completion unchecked.

@@ -63,8 +63,15 @@ renewals, quarantine before stop acknowledgement, restart replay and blocked cla
 unknown state, released capacity after stop proof, and blocked subsequent claim.
 Private journal tests reject public permissions, symlinks and mismatched identities;
 foreign-node journals block engine access and claim. Duplicate launch remains covered
-by the real Docker component test. B06 deployment/startup orphan and concurrent daemon
-shutdown fault coverage are still pending; B06 is not accepted as a whole.
+by the real Docker component test. Startup now attempts every owned residual stop
+before reporting a missing journal or engine failure. Real Docker tests prove three
+owned orphan containers are stopped while a foreign node container stays running;
+a failed stop RPC does not prevent stopping other owned residuals and keeps claim
+blocked. The live HTTP/Postgres daemon loop starts two containers concurrently,
+stops both on shutdown, persists both stop acknowledgements, releases both resource
+reservations, leaves both uncertain jobs unknown and the third job queued. Public
+worker/credential/NAS deployment integration remains pending; B06 is not accepted
+as a deployable whole.
 
 B07–B12, all C and all continuation tasks remain pending. There is no sealed manifest
 completion endpoint, NAS isolation layer or public runnable worker deployment yet.
@@ -82,7 +89,7 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification: 319 passed, zero skipped, four existing
+Current combined verification: 322 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
@@ -104,9 +111,9 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 
 ## Next steps
 
-1. Finish B06 startup orphan/container-engine fault and concurrent daemon shutdown
-   coverage; integrate private credential loading and operator worker startup with
-   B07 workspace preparation and B11 reproducible deployment.
+1. Integrate B06 private credential loading and operator worker startup with
+   B07 workspace preparation and B11 reproducible deployment. Core startup orphan,
+   engine stop failure and concurrent shutdown scenarios now have real evidence.
 2. Deliver B07 NAS sentinel, authorized mounts, sealing and manifest completion;
    then B08 cancellation/recovery fault cases. Keep success gated on accepted artifacts.
 3. B09 wires the tested invocation helper into model-visible submission; B10 handles
@@ -120,3 +127,13 @@ for delayed renewal, and for claim admission after the committed start response 
 The final command above passes 319 tests, zero skipped. These are isolated real local
 services and containers; no production ECS or NAS deployment is implied. The public
 worker command, NAS sentinel/authorized inputs and sealed result delivery remain pending.
+
+## B06 residual/shutdown slice evidence
+
+Previous daemon slice: commit 36210a8a. Startup-orphan RED: the first owned residual
+was stopped but the other two remained running. GREEN now stops all three and never
+touches the foreign-node test container. Injected engine stop-RPC failure verifies
+other real owned containers are still stopped and claim remains blocked. Live loop
+shutdown evidence uses actual TCP host routes, isolated Postgres schemas and two
+concurrent Docker counter containers. The combined command above passes 322 tests,
+zero skipped, four deprecation warnings. No business containers or data are touched.
