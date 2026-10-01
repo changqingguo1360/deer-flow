@@ -617,3 +617,24 @@ after admission closes. Actual foundational startup enforcement/installed-artifa
 tests and full containerized Compose daemon acceptance remain outstanding follow-ups.
 B12 whole-task and all B/C/BC release markers stay unchecked; passing this current
 test matrix is not completion of those remaining requirements. No ECS deployment.
+
+
+## B01/B02 installed Gateway startup follow-up — 2026-10-02
+
+Enabled Fleet is now preflighted before generic optional extension loading: required:true,
+table_prefix:fleet_, and NAS root/identity are mandatory for the supported Gateway path.
+Closing jobs admission keeps readiness and durable MCP tracking requirements in force.
+Disabled Fleet remains inert; standalone operator configuration is unchanged.
+
+Actual ExtensionManager installation runs in an isolated checkout/virtual environment.
+Tests inspect installed entrypoint and five migration assets, enter the installed Gateway
+lifespan twice, observe ready service and SQL driver binding, persist node state across
+restart, and prove required missing-package failure. Host autogenerate uses actual host
+metadata with a negative control: Fleet tables are protected by the declared prefix,
+while an unrelated probe table remains visible. Each PG fixture owns its schema.
+
+Spec and quality reviewers approved this slice. Root independently ran startup, actual
+installation and Fleet tools: 18 passed, zero skipped, 28.03 seconds. Four changed Python
+files pass Ruff check/format; OpenSpec strict validates all three changes; diff check
+passes. Earlier implementer broader scope: 26 passed, zero skipped. Full containerized
+Compose and final full B regression remain pending; this does not complete B/C/BC.

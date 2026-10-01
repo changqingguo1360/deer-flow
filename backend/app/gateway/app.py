@@ -787,6 +787,10 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
         logger.debug("config.yaml not found while constructing Gateway app; loading no extensions for this app instance")
         configured_plugins = []
 
+    from app.fleet.runtime import validate_fleet_plugin_configuration
+
+    validate_fleet_plugin_configuration(configured_plugins)
+
     try:
         loaded_extensions, extension_diagnostics = load_extensions(configured_plugins)
     except ExtensionLoadError:

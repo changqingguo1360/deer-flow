@@ -54,10 +54,13 @@ plugins:
       jobs_enabled: false
       agents_enabled: false
       continuations_enabled: false
+      nas_root: /srv/deerflow-data
+      nas_identity: fleet-deployment
 ```
 
-Append the explicit absolute NAS root/identity and approved profiles before opening
-job admission. Keep mcp_tasks.enabled=true and host PostgreSQL tracking available even
+Replace that NAS example with the actual mounted root and matching pre-provisioned
+sentinel before enabling Gateway Fleet. Configure approved profiles before opening
+job admission; retain accepted work's storage and profiles when admission closes. Keep mcp_tasks.enabled=true and host PostgreSQL tracking available even
 when jobs_enabled=false, so accepted work can recover. required:true makes a package
 or install/config failure fatal; table_prefix protects existing Fleet tables during
 host autogenerate even when the extension is disabled. The manager does not add the
