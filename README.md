@@ -1567,3 +1567,14 @@ Your unwavering commitment and expertise have been the driving force behind Deer
 ## Star History
 
 [![Star History Chart](https://star-history.dera.page/svg?repos=bytedance/deer-flow&type=Date)](https://star-history.dera.page/#bytedance/deer-flow&Date)
+
+
+## ECS Fleet development status
+
+The optional `backend/packages/ecs-fleet` package is under development for durable
+jobs followed by remote Agent execution. Current foundations include independent
+Postgres migrations, worker credential/session isolation, atomic capacity accounting
+and staged job tracking. Container execution and remote Agent runs are not available
+yet. All Fleet flags default to disabled. See the
+[delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
+[implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

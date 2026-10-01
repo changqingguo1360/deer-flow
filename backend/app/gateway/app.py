@@ -24,6 +24,7 @@ from app.gateway.routers import (
     console,
     features,
     feedback,
+    fleet_nodes,
     github_webhooks,
     input_polish,
     integrations,
@@ -382,6 +383,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     ORDINARY_MCP_TASK_DRIVER,
                     OrdinaryMcpTaskDriver(McpTaskToolCaller(task_extensions_config)),
                 )
+            from app.fleet.job_tracking import register_fleet_driver
+
+            register_fleet_driver(app, mcp_task_drivers)
             mcp_task_service = McpTaskService(
                 repository=mcp_task_repo,
                 drivers=mcp_task_drivers,
@@ -786,6 +790,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Include routers
     # Models API is mounted at /api/models
+    app.include_router(fleet_nodes.router)
     app.include_router(models.router)
 
     # Features API is mounted at /api/features

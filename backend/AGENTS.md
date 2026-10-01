@@ -363,3 +363,24 @@ See `docs/` directory for detailed documentation:
 - [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - Path types and usage
 - [summarization.md](docs/summarization.md) - Context summarization
 - [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
+
+
+## Optional ECS Fleet (in development)
+
+`packages/ecs-fleet` owns the optional `deerflow_ecs_fleet` package. Fleet tables use
+private metadata and a locked independent Alembic chain; never register them on host
+Base. The host `gateway/fleet_auth.py` authenticates only explicit worker POST routes;
+node credentials cannot acquire session/PAT/internal privileges, even with auth disabled.
+Contributed management routers remain session authenticated.
+
+`app/fleet/job_tracking.py` injects the host tracking reader and registers the Fleet
+long-task driver only when an already-loaded ready Fleet service enables jobs.
+Staged jobs cannot be claimed until matching host tracking commits. Reconciliation
+runs until service shutdown. Execution → node → reservation is the lock order;
+node session rotation changes only node identity and retains old resource charges.
+
+Use `tests/fleet` with TEST_POSTGRES_URI pointing to an isolated test database.
+Tests create/drop random schemas, never real business schemas. Container execution,
+remote Agent and continuations are pending; consult the root delivery roadmap before
+enabling or advertising Fleet execution. Dependency installation remains operator
+controlled through the extension manager; do not add an unconditional host dependency.

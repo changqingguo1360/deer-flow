@@ -1,0 +1,42 @@
+"""Reconcile orphan staged submissions independently of user task polling."""
+
+import asyncio
+import logging
+
+from sqlalchemy import select
+
+from .persistence.models import JobRow
+
+logger = logging.getLogger(__name__)
+
+
+class JobReconciler:
+    def __init__(self, jobs):
+        self.jobs = jobs
+        self._task = None
+        self._stop = asyncio.Event()
+
+    def start(self):
+        if self._task is not None:
+            raise RuntimeError("Fleet reconciler already started")
+        self._task = asyncio.create_task(self.run(), name="fleet-staged-reconciler")
+
+    async def run(self):
+        while not self._stop.is_set():
+            try:
+                async with self.jobs.sf() as session:
+                    ids = (await session.execute(select(JobRow.id).where(JobRow.state == "staged").order_by(JobRow.staged_deadline).limit(100))).scalars().all()
+                for job_id in ids:
+                    await self.jobs.reconcile(job_id)
+            except Exception:
+                logger.exception("Fleet staged reconciliation failed")
+            try:
+                await asyncio.wait_for(self._stop.wait(), timeout=1)
+            except TimeoutError:
+                pass
+
+    async def stop(self):
+        self._stop.set()
+        if self._task is not None:
+            await self._task
+            self._task = None
