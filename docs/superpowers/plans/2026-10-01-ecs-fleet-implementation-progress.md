@@ -32,7 +32,7 @@ create_idempotent only for drivers that provide this identity, returns the origi
 matching row after a unique race, and never overwrites its cancellation intent.
 Real Postgres tests cover sequential/concurrent retries and tracking commit failure
 with both successful and failed compensation. The model-visible Fleet submission tool is implemented in a partial B09 slice;
-notification acceptance and scheduled dedupe integration remain pending (B09/B10).
+notification acceptance is locally verified; scheduled dedupe remains pending (B10).
 
 B06 is in progress: claim/start/renew/stopped host routes enforce node, session,
 attempt and token identity. The exact operator profile is frozen in launch_spec
@@ -103,8 +103,8 @@ restart without another execution. Existing McpTaskService polling receives comp
 and the accepted manifest ID through the original tracking row.
 
 B07 immutable input registration/read-only mounts are implemented and exercised.
-B08 cancellation/recovery is locally accepted. B09 controlled submission and host
-binding are verified; full notification acceptance remains pending. B10–B12, all C
+B08 cancellation/recovery and B09 controlled submission/result notification are
+locally accepted. B10–B12, all C
 and continuation tasks remain pending. There is no public runnable worker deployment.
 No remote Agent run has executed and no business ECS has been deployed.
 
@@ -120,12 +120,12 @@ TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m
 ```
 
 Earlier foundation/driver checkpoint: 79 passed, zero skipped. Current combined verification is recorded below.
-Current combined verification (2026-10-02): 448 passed, zero skipped, four existing
+Current combined verification (2026-10-02): 459 passed, zero skipped, four existing
 Starlette/httpx and uvicorn/websockets deprecation warnings. FLEET_TEST_CONTAINERS=1 enables real Docker
 alongside TEST_POSTGRES_URI for isolated Postgres schemas. Exact regression scope:
 
 ```bash
-FLEET_TEST_CONTAINERS=1 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_mcp_tasks_router.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py tests/test_gateway_startup.py tests/test_gateway_lifespan_shutdown.py tests/test_authorization_tool_filter.py tests/test_extension_app_loading.py -q -p no:cacheprovider --tb=short
+FLEET_TEST_CONTAINERS=1 TEST_POSTGRES_URI=<local-test-uri> PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests/fleet tests/test_mcp_task_service.py tests/test_mcp_task_repository.py tests/test_mcp_task_models.py tests/test_mcp_task_ordinary_driver.py tests/test_mcp_task_tool_wrapping.py tests/test_mcp_tasks_router.py tests/test_auth_middleware.py tests/test_csrf_middleware.py tests/test_pat_auth.py tests/test_extension_config.py tests/test_extension_api_contracts.py tests/test_gateway_startup.py tests/test_gateway_lifespan_shutdown.py tests/test_authorization_tool_filter.py tests/test_extension_app_loading.py tests/test_runtime_lifecycle_e2e.py -q -p no:cacheprovider --tb=short
 ```
 
 This is component and adjacent regression coverage, not the B release gate or the
@@ -145,7 +145,8 @@ output is kept in /private/tmp, outside the repository. Build is not a release g
 1. Integrate B06 private credential loading and operator worker startup with
    B07 workspace preparation and B11 reproducible deployment. Core startup orphan,
    engine stop failure and concurrent shutdown scenarios now have real evidence.
-2. Complete B09 full scripted-run and durable result notification acceptance.
+2. Deliver B10 trusted scheduled-job dedupe and truthful task UI. B09 scripted-run
+   submission and durable result notification are locally accepted.
    B08 cancellation, deadline reconciliation and audited operator closure are verified. B07 NAS sentinel, immutable inputs,
    read-only mounts, accepted manifests and user download/result publication are exercised.
 3. B09 now wires durable invocation identity into controlled model submission; B10
@@ -343,3 +344,43 @@ tracking ID and honest uncertain state remain available. Focused Fleet driver,
 cancellation, public status and MCP task route regression: 19 passed. Scoped Ruff
 lint and format checks pass after import sorting. Full B09 notification acceptance
 remains pending; this fix does not alter internal ownership or operator recovery.
+
+
+## B09 real submission and notification acceptance — 2026-10-02
+
+`test_b09_fleet_job_integration.py` replaces only the external model call. A real
+lead-agent HTTP run executes `submit_fleet_job` through start_run/run_agent and
+finishes before the worker runs. A real TCP worker, local Docker and isolated
+Postgres produce one sealed accepted manifest; its actual count file contains one
+start and its report contains the expected worker output. The original tracking row
+retains the authenticated source user/thread/run identity.
+
+A real checkpoint-write admission reservation keeps completion notification pending
+without counting busy admission as a failure. The task service is reconstructed;
+a notification launch is committed through the real start_run path and its response
+is deliberately lost. A second task-service reconstruction retries the stable key
+and receives the same persisted run. Direct host SQL inspection finds one successful
+notification run and one owner-scoped run.delivery receipt; Fleet SQL records one
+job, attempt, manifest and delivered event version. Replaying the same launcher
+again preserves those identities. Public task detail, thread snapshot and notification
+event contain neither the node credential, NAS prefix nor private job handle.
+
+This is new integration GREEN evidence on the existing protocol. Genuine RED/GREEN
+was observed earlier for the missing controlled tool/bridge/host binding, profile
+visibility and uncertain-status disclosure; integration test fixture corrections
+are not counted as feature RED. Focused chain: 1 passed, two upstream websocket
+warnings, 6.05 seconds after cleanup review. Fleet/adjacent plus real runtime lifecycle regression:
+459 passed, zero skipped, four existing warnings, 47.71 seconds. Full backend Ruff
+lint and format check: 1367 files clean; OpenSpec strict validation: 3/3; whitespace
+check clean. Independent reviews assess the actual implementation and evidence.
+
+Scope: Fleet and tracking use isolated Postgres; host runs/events use isolated
+SQLite with the database event-store backend. These are task-service restarts while
+Gateway stays running, not full-process restart or business ECS/NAS deployment.
+B09 is locally accepted. B10–B12/B release gate and all C/continuation tasks remain
+pending; no change is archived or marked IMPLEMENTED.
+
+B09 final review: admission is held before the actual Docker job completes. Cleanup
+now guarantees Fleet shutdown despite earlier cleanup errors and bounds TCP server
+shutdown; the focused real chain passed again after that change. Spec and quality
+re-reviews approve the local slice. Acceptance commit: `test(fleet): verify real job notification lifecycle`.

@@ -61,10 +61,10 @@
 
 ## 9. B09 暴露受控工具并复用长期任务通知
 
-- [ ] 9.1 写并运行 backend/tests/fleet/test_b09_fleet_job_integration.py，确认 B09 行为测试 RED。
-- [ ] 9.2 完成计划列出的接口、事务和部署接线；满足 `Durable user task tracking and result notification`。
-- [ ] 9.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 9.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 9.1 在 test_b09_fleet_tools.py 与 test_b09_fleet_public_status.py 观察新增控制边界 RED；test_b09_fleet_job_integration.py 验证完整真实链路 GREEN。
+- [x] 9.2 完成计划列出的接口、事务和部署接线；满足 `Durable user task tracking and result notification`。
+- [x] 9.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 9.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 10. B10 接入定时 job 去重和任务可见性
 
@@ -210,3 +210,43 @@ tracking ID and honest uncertain state remain available. Focused Fleet driver,
 cancellation, public status and MCP task route regression: 19 passed. Scoped Ruff
 lint and format checks pass after import sorting. Full B09 notification acceptance
 remains pending; this fix does not alter internal ownership or operator recovery.
+
+
+## B09 real submission and notification acceptance — 2026-10-02
+
+`test_b09_fleet_job_integration.py` replaces only the external model call. A real
+lead-agent HTTP run executes `submit_fleet_job` through start_run/run_agent and
+finishes before the worker runs. A real TCP worker, local Docker and isolated
+Postgres produce one sealed accepted manifest; its actual count file contains one
+start and its report contains the expected worker output. The original tracking row
+retains the authenticated source user/thread/run identity.
+
+A real checkpoint-write admission reservation keeps completion notification pending
+without counting busy admission as a failure. The task service is reconstructed;
+a notification launch is committed through the real start_run path and its response
+is deliberately lost. A second task-service reconstruction retries the stable key
+and receives the same persisted run. Direct host SQL inspection finds one successful
+notification run and one owner-scoped run.delivery receipt; Fleet SQL records one
+job, attempt, manifest and delivered event version. Replaying the same launcher
+again preserves those identities. Public task detail, thread snapshot and notification
+event contain neither the node credential, NAS prefix nor private job handle.
+
+This is new integration GREEN evidence on the existing protocol. Genuine RED/GREEN
+was observed earlier for the missing controlled tool/bridge/host binding, profile
+visibility and uncertain-status disclosure; integration test fixture corrections
+are not counted as feature RED. Focused chain: 1 passed, two upstream websocket
+warnings, 6.05 seconds after cleanup review. Fleet/adjacent plus real runtime lifecycle regression:
+459 passed, zero skipped, four existing warnings, 47.71 seconds. Full backend Ruff
+lint and format check: 1367 files clean; OpenSpec strict validation: 3/3; whitespace
+check clean. Independent reviews assess the actual implementation and evidence.
+
+Scope: Fleet and tracking use isolated Postgres; host runs/events use isolated
+SQLite with the database event-store backend. These are task-service restarts while
+Gateway stays running, not full-process restart or business ECS/NAS deployment.
+B09 is locally accepted. B10–B12/B release gate and all C/continuation tasks remain
+pending; no change is archived or marked IMPLEMENTED.
+
+B09 final review: admission is held before the actual Docker job completes. Cleanup
+now guarantees Fleet shutdown despite earlier cleanup errors and bounds TCP server
+shutdown; the focused real chain passed again after that change. Spec and quality
+re-reviews approve the local slice. Acceptance commit: `test(fleet): verify real job notification lifecycle`.

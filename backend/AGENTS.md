@@ -400,7 +400,11 @@ controls. Only approved job profile names are exposed. Tool visibility is gated 
 both subagent configurations; shutdown clears the bridge before stopping task tracking.
 Unknown/quarantined snapshots expose reconciliation instructions through the original
 tracking ID; do not include the private Fleet job handle in public input_required or
-notification payloads. B09 full scripted-run notification acceptance remains pending.
+notification payloads. B09 tests exercise the actual lead-agent/run_agent lifecycle,
+TCP worker/Docker publication, busy thread admission and two task-service restarts,
+including a lost committed notification launch response. Notification runs and
+run.delivery receipts are persisted in isolated SQL; Gateway process restart and
+production deployment remain later acceptance work.
 
 Fleet task retries use TaskSubmission.tracking_task_id to opt into the host
 McpTaskRepository.create_idempotent boundary. Ordinary MCP drivers retain duplicate

@@ -35,4 +35,4 @@
 - 目标 worktree：`~/.codex/worktrees/deerflow2/personal-agent-ecs`；不改主 checkout。
 - 具体文件与 TDD 步骤见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-b-jobs.md)。
 - Postgres、NAS、worker 容器和现有 DeerFlow runtime 受影响；默认 feature flags 关闭，已有 local 路径保持兼容。
-- B 正在实施：基础、worker、产物、取消与审计恢复已有本地验证；B09 受控提交已接线，完整通知验收仍待完成。实际验收以 tasks 和实施进度为准；B release gate 未通过，不得 archive 或写 IMPLEMENTED 标记。
+- B 正在实施：基础、worker、产物、取消与审计恢复已有本地验证；B09 受控提交和真实 run/worker/通知闭环已通过本地验收。实际验收以 tasks 和实施进度为准；B release gate 未通过，不得 archive 或写 IMPLEMENTED 标记。

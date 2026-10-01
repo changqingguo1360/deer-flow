@@ -1587,7 +1587,9 @@ with a durable audit record; see the [reconciliation guide](docs/ecs-fleet-recov
 The controlled `submit_fleet_job` tool is exposed only after a ready Fleet service
 binds to persistent long-task tracking and new jobs are enabled. The server derives
 user, thread and durable invocation identity; models choose only approved job profiles
-and execution arguments. End-to-end result notification acceptance remains pending.
+and execution arguments. Local end-to-end tests cover a completed Agent submission
+run, actual worker completion, busy-thread notification deferral, task-service restarts
+and lost notification launch responses with one persisted notification run and receipt.
 Public worker deployment and remote Agent runs are not available yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).
