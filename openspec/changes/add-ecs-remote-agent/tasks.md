@@ -33,10 +33,10 @@
 
 ## 5. C05 实现 checkpoint 事务内 fencing
 
-- [ ] 5.1 写并运行 backend/tests/fleet/test_c05_remote_agent_runtime.py，确认 C05 行为测试 RED。
-- [ ] 5.2 完成计划列出的接口、事务和部署接线；满足 `Fenced checkpoint writes including pending writes`。
-- [ ] 5.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 5.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 5.1 写并运行 backend/tests/fleet/test_c05_remote_agent_runtime.py，确认 C05 行为测试 RED。
+- [x] 5.2 完成计划列出的接口、事务和部署接线；满足 `Fenced checkpoint writes including pending writes`。
+- [x] 5.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 5.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 6. C06 覆盖 memory、扩展和最终状态写入
 
@@ -202,3 +202,15 @@ recorded after committing. The full C change is not IMPLEMENTED or archived.
 C04 verified implementation commit: `991a97fd0f3c5b3a6216124c5327d88b5ff48f95`. Post-document boundary/thread checks
 74 passed/0 skipped (2.66s); OpenSpec3/3 and diffcheck clean. All52 frozen source
 hashes match the independently verified snapshot. C05-C12 and BC remain pending.
+
+
+C05 local acceptance: specification and quality/security reviews Approved; original
+behavior RED3 retained separately from setup errors. Independent root checkpoint
+130/0, runner92/0, C01-C03 74/0 and unchanged-image B259/0 all pass with required
+real PG/container cases and no skips. Full backend13288pass/390optional skips,
+blocking-I/O75/0, boundary/thread74/0; Ruff1417/strict OpenSpec3/3/diff clean.
+Final guidance0errors/4existing AG002 warnings, no new path/category; strict-warnings
+not claimed passing. Eight-source-file freeze and immutable images are recorded at
+/private/tmp/c05-source-freeze.json. See implementation progress for detailed timing,
+rollback/race/materialization/title/schema evidence and retained logs.
+C06-C12/BC remain unchecked; Gateway activation is closed. Source commit follows.

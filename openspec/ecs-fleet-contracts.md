@@ -610,3 +610,41 @@ credentials join database/stream/ownership control resources. Encoded credential
 or query parameters must not evade the argument/environment rejection. Public
 usernames alone do not prove credential disclosure. No control secrets become
 public configuration or test output. This is bootstrap isolation, not C05 fencing.
+
+
+## C05 runtime checkpoint fence — locked for implementation, not yet accepted
+
+The remote host binds the original ExecutionIdentity token stamp and immutable
+run/user/thread identity to a neutral harness callback. The callback receives the
+actual psycopg writer cursor. Lock task, run, placement, node, reservation and
+attempt in that order, then validate ownership, active states and deadlines using
+clock_timestamp(). An explicit transaction on that same connection covers both
+validation and the stock saver SQL, holding locks through commit or rollback.
+Independent guard connections and pipeline mode alone do not satisfy this contract.
+
+The installed full AsyncPostgresSaver 3.1.1 mutation surface is aput, aput_writes
+and adelete_thread, plus its synchronous aliases routed to those async methods.
+The separate synchronous PostgresSaver remains Local; unsupported copy/prune/
+delete_for_runs remain unsupported. Fence the inner saver before existing cache
+wrapping, retaining CheckpointStateAccessor and full/delta materialization.
+
+Trusted Gateway/Local schema initialization retains stock setup. Remote fenced
+setup only verifies existing schema/migration readiness without CREATE SCHEMA,
+DDL or migration inserts. Stock migrations include CREATE INDEX CONCURRENTLY,
+so runtime transaction fencing cannot blindly wrap setup. Missing, stale or
+unknown schema versions reject remote construction without database mutation.
+Tests must initialize through the real trusted factory, not invented table state.
+
+Move the existing interrupted-title checkpoint fallback ahead of durable terminal
+persistence while retaining its ownership/replay/prior-finalizing/later-run guards.
+Terminal cleanup renewal never grants checkpoint mutation permission. C06's other
+durable mutation boundaries are separate and remain pending.
+
+
+The current C05 implementation uses the neutral protocol
+`ExecutionWriteFence.validate(cursor, *, thread_id, operation)` and trusted
+factory keyword `make_checkpointer(app_config=None, *, write_fence=None)`.
+The host `app.fleet.runner_context.FleetCheckpointFence(identity, spec)` supplies
+that validation at actual runner construction. The mutation scope is private to
+each saver instance and reset in finally; it does not carry caller-selected
+identity. This records the actual wiring under test, not completed acceptance.

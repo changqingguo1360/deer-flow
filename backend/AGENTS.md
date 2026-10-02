@@ -393,5 +393,9 @@ C04 locally verifies the installed runner bridge, existing run_agent loop, priva
 model/MCP/definition scopes, initial workspace snapshot and physical container lifecycle.
 Owned attachment/start checks the database wall clock after locking the actual run;
 private control credentials use actual PG/Redis parsing before MCP argv/env checks.
-Gateway agents_enabled remains closed until C05-C12 write fences, recovery and routing
+C05 fences AsyncPostgresSaver 3.1.1 mutations and sync aliases in the writer's
+ownership transaction. Remote setup verifies schema read-only; Local retains
+migrations. Cache/delta retain CheckpointStateAccessor. Duration and title writes,
+including late cancellation, precede terminal persistence.
+Gateway agents_enabled remains closed until C06-C12 durable writes, recovery and routing
 pass. User-facing remote activation and continuations remain pending.

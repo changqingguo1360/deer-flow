@@ -1043,3 +1043,103 @@ recorded after committing. The full C change is not IMPLEMENTED or archived.
 C04 verified implementation commit: `991a97fd0f3c5b3a6216124c5327d88b5ff48f95`. Post-document boundary/thread checks
 74 passed/0 skipped (2.66s); OpenSpec3/3 and diffcheck clean. All52 frozen source
 hashes match the independently verified snapshot. C05-C12 and BC remain pending.
+
+
+### C05 in progress: locked protocol and first actual behavior RED (2026-10-02)
+
+Starting from clean HEAD 1fd2d544, audited installed
+langgraph-checkpoint-postgres 3.1.1 rather than assuming upstream APIs. The
+C05 plan and shared OpenSpec contracts now lock the actual three async mutation
+families and their sync aliases, same psycopg connection/explicit transaction
+ownership guard, original token stamp binding, inner-before-cache injection,
+and full/delta CheckpointStateAccessor preservation. Unsupported CRUD methods
+remain unsupported and the separate synchronous PostgresSaver remains Local.
+
+Stock setup contains CREATE INDEX CONCURRENTLY; trusted Gateway/Local
+initialization retains stock setup while remote startup will verify existing
+schema/migrations read-only. Actual Gateway initializes before extension
+services. The sole direct late checkpoint writer found is interrupted-title
+fallback; its legitimate write will move before durable terminal persistence,
+retaining the existing ownership/replay/prior-finalizing/later-run guards.
+Other finalizers and durable resources remain C06 scope.
+
+First actual PG behavior RED: **3 failed / 0 skipped, 2.07s**, retained at
+/private/tmp/c05-checkpoint-actual-red.log. Replacing the original attempt token
+still allowed stock aput, aput_writes and adelete_thread; each failed because the
+expected rejection did not occur. Earlier fixture setup errors in separate
+c05-checkpoint-red/behavior-red logs are not behavior RED or acceptance evidence.
+Implementation and the full race/rollback/identity/runner matrix are still pending;
+no C05 checklist is marked complete and remote activation remains closed.
+Strict OpenSpec validation after the planning update passed 3/3; this validates
+spec structure only, not runtime implementation.
+
+
+C05 first source GREEN: original-token replacement now rejects all three actual
+async mutation families and leaves checkpoint table snapshots unchanged,
+**3 passed / 0 skipped, 2.06s** at /private/tmp/c05-checkpoint-first-green.log.
+This is the first focused implementation check, not full C05 acceptance.
+The full identity/sync/race/rollback/readiness/materialization/runner matrix,
+formal two-stage review and independent regression gates remain outstanding.
+
+Root additionally inspected the actual built wheels: runtime/AGENTS.md is packaged
+and included in installed compatibility hashing. Its C05 write-boundary guidance
+was therefore synchronized before the final runner build/freeze; later acceptance
+records stay in external docs. Current planning validation remains strict 3/3;
+worktree guidance check reports 24 AGENTS, 0 errors/0 warnings. The existing
+isolated PG16 service, installed saver 3.1.1/pool3.3.0 and original immutable B
+image c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8
+were independently rechecked available. These environment/planning checks are not
+runtime acceptance. No C05 task is marked complete and no slice commit is made.
+
+
+### C05 final independent local acceptance (2026-10-02)
+
+Formal specification and quality/security reviews both Approved the frozen eight
+source files; no unresolved must-fix. Real writer-cursor transactions cover all
+three actual AsyncPostgresSaver 3.1.1 mutations and their external-thread sync
+aliases. The host binds the original token stamp and immutable execution, locks
+the joined ownership rows and checks database wall clock after locking. Real
+stock SQL shares the guard's physical PID/transaction; takeover blocks until
+commit/rollback. Independent-guard negative control demonstrates race sensitivity.
+Expired/replaced identities leave all three checkpoint tables unchanged; first-SQL
+Exception/CancelledError rolls back every change and releases locks. Full/delta
+with cache retains actual CheckpointStateAccessor materialization. Special pending
+UPSERT, remote read-only schema/migration readiness, actual PG interrupted title,
+late-cancel title ordering and the complete Linux lead/subagent/tool graph pass.
+
+Effective RED remains 3 actual rejected-operation expectation failures at
+/private/tmp/c05-checkpoint-actual-red.log (2.07s); fixture setup failures are
+retained separately and excluded. Child final C05-only130/0 (18.40s), final
+combined222/0/2warnings (79.78s =130C05+92C04), neighboring317/0/3warnings (26.59s),
+default-no-PG-extra82pass/1expected optional skip (5.97s). Logs respectively:
+c05-final-checkpoint-matrix-130.log, c05-final-complete-matrix-222.log,
+c05-neighbors-corrected.log and c05-local-default-regression.log under /private/tmp.
+Earlier 78/82/83/221 results remain phase evidence, not the final source acceptance.
+
+Root independently verified the same eight-file freeze with no source drift:
+checkpoint130/0 (18.57s), runner92/0/2warnings (62.08s), C01-C03 admission74/0/
+2warnings (7.87s), original unchanged-image B gate259/0/2warnings (125.87s).
+Every required PG/container case ran, with nonempty JUnit reports and zero skips.
+Root logs/XML: /private/tmp/fleet-c05-root-final-*. Full backend make test passed:
+13288 passed,390 optional skips,1 deselected,19 known warnings in270.85s;
+blocking-I/O75/0/2warnings (3.85s), boundary/thread74/0/1warning (2.46s).
+Ruff check/format-check1417 files clean, strict OpenSpec3/3, diffcheck clean.
+Optional default-suite skips do not replace the explicitly executed required cases.
+
+Final document guidance has0errors/4existing AG002 chain-size warnings. The same
+four warning paths/codes exist in parent HEAD (gateway, memory, middlewares,
+sandbox). The temporary new backend length warning was removed by condensing its
+new C05 paragraph; no new category/path remains. Strict-warnings is not claimed
+passing. Package runtime/AGENTS.md was finalized before the actual image build;
+root checked its actual installed bytes from the immutable image against the frozen source hash. External
+README/backend guide/plan/task records were finalized after the acceptance gates.
+
+Immutable runner sha256:9951f1974ef5a9c81cb48bb5bd53c82813c1a562e1a39bc8b105ec69e4f6b1d0;
+provider sha256:b19d18d2a8199ac1ec88baa666e8cd45b17695e6c67b0528cea230d5d291f625.
+Exact source/image binding: /private/tmp/c05-source-freeze.json and
+/private/tmp/c05-source-files.txt. B image remains
+sha256:c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8.
+This is local PG/Linux-container acceptance, not production ECS deployment or
+user-facing activation. C06-C12 and BC remain pending, Gateway agents_enabled
+stays closed, and the full C change is neither IMPLEMENTED nor archived.
+Verified source commit is recorded after committing this slice.

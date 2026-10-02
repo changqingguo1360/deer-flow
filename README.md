@@ -1615,8 +1615,11 @@ Explicit Agent node profiles require positive Agent capacity. C04 now has local
 acceptance for a complete Linux runner using the existing run_agent loop, shared
 PostgreSQL resources and private model/MCP configuration. Real lead/subagent/tool
 execution matches an independent Local run; immutable input snapshots, guarded
-bootstrap, one-shot launch and physical-stop capacity release are covered. Gateway
-still rejects agents_enabled until the remaining fenced persistence, recovery and
+bootstrap, one-shot launch and physical-stop capacity release are covered. C05
+adds transactional checkpoint protection: expired or replaced execution identities
+cannot change checkpoints, blobs or pending writes. Remote startup verifies existing
+checkpoint schema without running migrations; Local initialization stays unchanged.
+Gateway still rejects agents_enabled until the remaining durable write protection, recovery and
 routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

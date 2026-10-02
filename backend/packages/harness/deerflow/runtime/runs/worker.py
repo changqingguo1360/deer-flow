@@ -1258,6 +1258,14 @@ async def run_agent(
             except Exception:
                 logger.debug("Failed to persist run duration for thread %s run %s (non-fatal)", thread_id, run_id)
 
+        if started and not record.ownership_lost and checkpointer is not None and record.status == RunStatus.interrupted and not _is_edit_replay_run(record):
+            try:
+                await run_manager.wait_for_prior_finalizing(thread_id, run_id)
+                if not await run_manager.has_later_started_run(thread_id, run_id):
+                    await _ensure_interrupted_title(checkpointer=checkpointer, thread_id=thread_id, app_config=ctx.app_config, graph_input=graph_input)
+            except Exception:
+                logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
+
         if not record.ownership_lost and event_store is not None:
             try:
                 # Even after bounded receipt retries are exhausted, persist the
@@ -1275,6 +1283,16 @@ async def run_agent(
                     )
                     if cancel_action is not None:
                         await _finish_cancellation(cancel_action)
+                        # Cancellation can win during finalization, after the
+                        # earlier title pass. Keep this final checkpoint write
+                        # ahead of the durable terminal transition as well.
+                        if started and not record.ownership_lost and checkpointer is not None and record.status == RunStatus.interrupted and not _is_edit_replay_run(record):
+                            try:
+                                await run_manager.wait_for_prior_finalizing(thread_id, run_id)
+                                if not await run_manager.has_later_started_run(thread_id, run_id):
+                                    await _ensure_interrupted_title(checkpointer=checkpointer, thread_id=thread_id, app_config=ctx.app_config, graph_input=graph_input)
+                            except Exception:
+                                logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
                         await run_manager.persist_current_status(run_id)
             except Exception:
                 logger.warning("Failed to persist terminal status for run %s after delivery receipt attempts", run_id, exc_info=True)
@@ -1286,14 +1304,6 @@ async def run_agent(
                 await run_manager.update_run_completion(run_id, status=record.status.value, **completion_data)
             except Exception:
                 logger.warning("Failed to persist run completion for %s (non-fatal)", run_id, exc_info=True)
-
-        if started and not record.ownership_lost and checkpointer is not None and record.status == RunStatus.interrupted and not _is_edit_replay_run(record):
-            try:
-                await run_manager.wait_for_prior_finalizing(thread_id, run_id)
-                if not await run_manager.has_later_started_run(thread_id, run_id):
-                    await _ensure_interrupted_title(checkpointer=checkpointer, thread_id=thread_id, app_config=ctx.app_config, graph_input=graph_input)
-            except Exception:
-                logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
 
         # Sync title from checkpoint to threads_meta.display_name
         if started and not record.ownership_lost and checkpointer is not None and thread_store is not None:

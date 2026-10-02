@@ -182,3 +182,36 @@ The host supplies private identity, resources and agent factory through the
 installed runner bridge. Harness remains independent of Fleet/app. This attachment
 is not C05 checkpoint fencing or C06 durable finalizer protection, and remote
 activation stays closed pending the remaining slices.
+
+
+### Trusted PostgreSQL checkpoint write boundary (C05)
+
+`make_checkpointer(..., write_fence=...)` is a trusted infrastructure keyword;
+client checkpoint configs cannot choose an execution identity. The neutral
+`execution/fence.py` protocol receives the actual psycopg writer cursor, target
+thread and operation. Harness must not import app/Fleet to validate ownership.
+Host binds the original accepted token stamp and immutable execution identity.
+
+The audited remote adapter supports AsyncPostgresSaver 3.1.1's `aput`,
+`aput_writes`, `adelete_thread` and its synchronous aliases. Hold one physical
+connection and explicit transaction across the host ownership locks, validation,
+stock SQL and commit/rollback. Pipeline mode alone is not a transaction fence;
+a guard using an independent SQLAlchemy session is insufficient. Reads retain
+stock behavior. Fence the inner PostgreSQL saver before CachedHistorySaver;
+full/delta state access still uses CheckpointStateAccessor. Unsupported inherited
+copy/prune/delete-for-runs operations remain unsupported. The separate sync
+PostgresSaver is a Local path; do not present it as remote-fenced.
+
+Remote fenced setup only verifies already initialized schema and the complete
+known migration set read-only. It must not create schemas, execute migrations or
+insert migration versions, and must reject fallback to another schema. Trusted
+Gateway/Local initialization keeps stock setup, whose migrations include CREATE
+INDEX CONCURRENTLY. Tests use the real trusted initializer before remote startup.
+When no fence is supplied, retain existing Local backend selection and behavior.
+
+Keep legitimate final checkpoint writers before durable terminal persistence,
+including duration and interrupted-title fallback. Preserve ownership, replay,
+prior-finalizing and later-run guards. Daemon terminal cleanup renewal grants no
+checkpoint write permission. This boundary does not protect thread metadata,
+memory, event stores or extension finalizers; their C06 contracts remain separate.
+Remote Gateway activation remains closed until all required C slices are verified.

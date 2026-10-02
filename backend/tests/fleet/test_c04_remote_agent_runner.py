@@ -206,6 +206,12 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                 "mcpServers": {"c04": {"command": "/usr/local/bin/python", "args": ["-m", "fleet.c04_mcp_fixture"], "env": {"ERP_AUTH": "c04-target-access"}}},
             },
         }
+        # Trusted Gateway setup precedes remote readiness; remote saver never migrates.
+        from deerflow.runtime.checkpointer.async_provider import make_checkpointer
+
+        native_private = AppConfig.model_validate({**private, "database": {**private["database"], "postgres_url": db.host_url}})
+        async with make_checkpointer(native_private):
+            pass
         public, _ = execution_configuration(AppConfig.model_validate(private))
         set_app_config(public)
         user = SimpleNamespace(id="user-c04", system_role="admin")

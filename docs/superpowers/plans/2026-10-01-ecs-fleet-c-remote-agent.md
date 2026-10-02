@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；后续待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -374,36 +374,47 @@ insufficient. Required container/full graph tests cannot be replaced by mocks.
 - Create: `backend/packages/harness/deerflow/runtime/execution/fence.py`
 - Create: `backend/packages/harness/deerflow/runtime/checkpointer/fenced_saver.py`
 - Modify: `backend/packages/harness/deerflow/runtime/checkpointer/async_provider.py`
+- Modify: `backend/app/fleet/runner_context.py`（可信 host fence 注入）
+- Modify: `backend/packages/harness/deerflow/runtime/runs/worker.py`（中断 title 写先于 durable terminal）
 - Test: `backend/tests/fleet/test_c05_remote_agent_runtime.py`
 - Docs: `README.md`、`backend/AGENTS.md`；涉及前端时同步 `frontend/AGENTS.md`。
 
 **OpenSpec:** `remote-agent-runtime` / `Fenced checkpoint writes including pending writes`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 真实 Postgres saver 覆盖每个写入口，故障屏障放在 token 校验与 SQL 写之间；并发替换 owner，确认锁/事务排他而非先查后写。
+- [x] **Step 1 — 场景搭建与失败测试。** 真实 Postgres saver 覆盖每个写入口，故障屏障放在 token 校验与 SQL 写之间；并发替换 owner，确认锁/事务排他而非先查后写。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
-```python
-import pytest
+实际测试文件为 `backend/tests/fleet/test_c05_remote_agent_runtime.py`。
+本 slice 不使用尚未注册的 `fleet_probe.exercise("C05")` 示例：先建立真实
+Postgres ownership 与 saver fixture，再用实际三表快照、锁等待、backend PID
+和事务标识断言。至少覆盖：
 
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_c05_contract(fleet_probe):
-    observed = await fleet_probe.exercise("C05")
-    assert observed['stale_checkpoint_changes'] == 0
-    assert observed['stale_pending_write_changes'] == 0
-    assert observed['check_and_write_same_transaction'] == True
-```
+- 已安装 AsyncPostgresSaver 的 `aput`、`aput_writes`、`adelete_thread`，以及
+  同一实例的三个同步 alias（由外部线程调用）。普通/特殊 pending writes、
+  blob、root/subgraph namespace 都进入真实 SQL。
+- 旧 token、generation、owner、node/session、active attempt、已释放 reservation、
+  stopped attempt、过期或终态以及跨 thread 写入被拒绝；三张 checkpoint 表不改变。
+- 真实锁前等待期间过期/接管，以及校验后另一连接接管被阻塞直到写事务结束。
+  记录实际同连接/事务；用独立 guard 连接负控证明测试可捕获先查后写。
+- 第一条 blob/delete SQL 后异常和 CancelledError 回滚全部修改且释放锁。
+- full/delta 与 cache 路径沿用 CheckpointStateAccessor 物化；完整 Linux runner
+  回归验证实际 host factory 注入，不能仅手工构造 fenced saver。
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+当前锁包为 langgraph-checkpoint-postgres 3.1.1；未实现的 copy/prune/
+delete_for_runs 保留 NotImplementedError，不扩展新的 CRUD 能力。独立同步
+PostgresSaver 保留 Local 用途，不宣称已被 remote fence 保护。
+
+
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_c05_remote_agent_runtime.py::test_c05_contract -vv
+PYTHONPATH=. uv run pytest tests/fleet/test_c05_remote_agent_runtime.py -vv
 ```
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # One DB transaction/connection for lock(owner) + validation + saver SQL writes.
@@ -414,7 +425,28 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c05_remote_agent_runtime.py::test_c0
 
 先枚举当前 saver 写方法并加入 parameterized test；cached/delta saver 仍经相同底层写事务，沿用 CheckpointStateAccessor。这个任务未通过前不启用 C。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+
+**C05 实施前锁定边界（2026-10-02，尚未验收）：**
+
+neutral harness callback 接收本次 writer 的实际 psycopg cursor 和写目标；
+身份由可信 host 闭包绑定原 token stamp 与 immutable LaunchSpec，不能来自
+checkpoint config。按既有锁序锁 task → run → placement → node → reservation →
+attempt，锁后以 clock_timestamp() 校验完整身份、active 状态和全部截止时间。
+显式 connection.transaction() 必须同时包住校验和 stock SQL，并持锁至提交。
+读取沿用 stock saver，fence 安装在 CachedHistorySaver 的 inner saver。
+
+stock setup 含 CREATE INDEX CONCURRENTLY，不能直接放进上述事务。可信
+Gateway/Local initializer 保留原有 setup；remote fenced factory 不建 schema 或
+执行迁移，只读验证已初始化的完整 migration/table readiness，缺失、过旧或
+未知版本拒绝。Gateway 在 extension service 启动前已有实际 make_checkpointer
+初始化路径；仅 NodeServer 的测试须先用真实可信 initializer 初始化，不能
+手工伪造 migration 记录。远程 setup 无 DDL 的失败场景须验证数据库未改变。
+
+已有 interrupted title fallback 应先于 durable terminal 落库，保留原先
+prior-finalizing/later-run、ownership 与 edit-replay 条件。terminal cleanup 续租
+不授权 checkpoint 写入。以上只保护 checkpoint，C06 其他持久写仍待实施。
+
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c05_remote_agent_runtime.py -vv
@@ -423,13 +455,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): c05 实现 checkpoint 事务内 fencing"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `5.1` 至 `5.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `5.1` 至 `5.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task C06: 覆盖 memory、扩展和最终状态写入
 
@@ -893,7 +925,7 @@ git commit -m "feat(fleet): c12 C 故障验收门槛"
 本计划按 inline executing-plans 交接，不自动发起子代理或开始实施。用户要求开始后，先执行 B01。
 
 
-C execution prerequisite: B local acceptance passed 2026-10-02. C01 foundation is locally verified at d0ebd0f8; C02 is locally verified at 9a60c310; C03 is locally verified at 65600e04; C04 runner implementation has passed formal spec/quality review and independent local acceptance; C05-C12 remain outstanding. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
+C execution prerequisite: B local acceptance passed 2026-10-02. C01 foundation is locally verified at d0ebd0f8; C02 is locally verified at 9a60c310; C03 is locally verified at 65600e04; C04 runner implementation has passed formal spec/quality review and independent local acceptance; C05 checkpoint fencing has passed formal reviews and independent local acceptance; C06-C12 remain outstanding. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
 
 ### C01 foundation clarification
 

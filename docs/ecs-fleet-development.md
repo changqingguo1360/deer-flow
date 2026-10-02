@@ -268,7 +268,39 @@ reservation release. A private daemon recovery journal may retain its original
 claim bearer in owner-only control state, never on an execution/NAS mount.
 
 These C04 interfaces have local acceptance; the full C release is incomplete. Gateway activation
-remains closed; C05/C06 mutation fences, C07 event replay, C08 publication and C09
+remains closed; C06 remaining durable mutation fences, C07 event replay, C08 publication and C09
 complete cancellation/recovery still follow. The retained B image and job wire must
 continue to pass unchanged. See the OpenSpec tasks and implementation progress for
 verified evidence; container tests do not establish production ECS deployment.
+
+
+## C05 locally verified checkpoint interfaces
+
+The trusted factory `make_checkpointer(..., write_fence=...)` installs the neutral
+ExecutionWriteFence protocol on the inner AsyncPostgresSaver before cache wrapping.
+The actual host FleetCheckpointFence binds the original ExecutionIdentity token
+stamp and immutable LaunchSpec. Checkpoint config supplies only the write target;
+it cannot choose ownership. Validate using the actual writer cursor under task →
+run → placement → node → reservation → attempt locks, then use clock_timestamp()
+to check the joined identity, active states, charged resources and equal live leases.
+Hold one explicit psycopg transaction through stock SQL and commit/rollback.
+
+The audited installed saver version is 3.1.1. aput, aput_writes and adelete_thread,
+plus the same Async saver's external-thread sync aliases, all share that boundary.
+Reads retain stock behavior; full/delta materialization retains CheckpointStateAccessor
+and CachedHistorySaver. Independent synchronous PostgresSaver remains Local;
+unsupported inherited copy/prune/run-delete methods remain unsupported. Unreviewed
+saver versions reject remote construction without making Local depend on the extra.
+
+Gateway/Local perform trusted stock schema initialization before Fleet services.
+Remote setup executes only read-only schema/migration readiness checks and rejects
+missing/stale/unknown versions, wrong columns/keys/indexes or schema fallback. Stock
+CREATE INDEX CONCURRENTLY migrations are never placed in a runtime write transaction.
+The real run_agent interrupted-title fallback, including late cancellation during
+finalization, writes before durable terminal persistence and preserves existing guards.
+C04 terminal cleanup renewal still grants no checkpoint write permission.
+
+This is local PostgreSQL/Linux-container acceptance, not production ECS deployment.
+C06 memory/events/finalizers and later recovery/routing/continuation slices remain
+outstanding; Gateway remote activation stays closed. The implementation progress
+records the real race/rollback/identity matrices and independent acceptance evidence.
