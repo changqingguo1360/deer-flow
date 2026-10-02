@@ -1301,3 +1301,36 @@ worktree immediately after commit. Single implementer dispatched C06b with actua
 Store batching-context/pureSELECT TTL-read findings and synchronousdefinition
 guards; no parallel implementation. C06a remains accepted; wholeC06, C06b/c and
 C07-C12/BC still pending. No remote activation/deployment.
+
+
+C06b current-state audit (no implementation acceptance): installedAsyncStore
+3.1.1 _execute_batch uses _cursor(pipeline=True), whose supported pipeline path
+lacks an explicit transaction; remote adapter must retain an explicit writerTX.
+ActualSqlAgentStore.update retry after IntegrityError rollback needs a fresh
+guard in the second TX. delete commits SQL then removes file-backed memory;
+remote cannot claim that unfenced rmtree is PostgreSQL-atomic. Actualsetup_agent
+default branch directly writes globalSOUL.md evenwithdbdefinitions; remote must
+reject before filesystem effects. setup/update tools' broad error handling may
+swallow typedOwnershipRejected, so actualtool propagation belongs inC06b tests.
+Detailed plan records these discovered reachable boundaries; managedsubagent
+global-name schema stays unchanged. Single implementer preparing actualstaleRED.
+
+C06b actualoutertool audit: ToolErrorHandlingMiddleware sync/async wrappers
+catch ordinary Exception and convert to recoverable tool output; both need
+typedOwnershipRejected propagation. InstalledToolNode default onlyhandles
+ToolInvocationError and rethrows otherexceptions; actualLangChainfactory leaves
+that default unchanged. Recorded inplan and singleimplementer brief; no
+upstream dependency changes or speculative alternative runner are needed.
+
+
+C06b first genuine actualStore/definitions RED:14failed/120deselected4.39s at
+/private/tmp/c06b-secondary-first-behavior-red.log (root inspected actualtest
+source and output). Stockmake_store initializes real migrations; futureoptional
+cap kwargs passed onlywhen signatures support them, preserving original writes.
+Originaltoken invalidated after binding; actualaput/adelete/TTLGet/Search/abatch,
+externalthreadput/delete/batch, Agent/Managedcreate/update/delete all returned
+instead of rejecting (DIDNOTRAISE), nofixture/import/connectionerrors.
+This is initialbehavior RED, not wholeC06b acceptance. Singleimplementer now
+adds actualsamecursorTXStoreadapter and sameSessiondefinitionguards; positives,
+all aliases/vector/TTL, race/rollback/context, tool propagation, profile/setup
+and actualinstalledrunner/reviews/rootacceptance remain pending.
