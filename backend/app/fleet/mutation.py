@@ -114,6 +114,13 @@ class _SessionCursor:
 
 _ACTIVE = frozenset(
     {
+        "store.write",
+        "definition.agent.create",
+        "definition.agent.update",
+        "definition.agent.delete",
+        "definition.managed.create",
+        "definition.managed.update",
+        "definition.managed.delete",
         "run.start",
         "run.attach",
         "run.status",

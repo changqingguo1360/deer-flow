@@ -304,3 +304,49 @@ This is local PostgreSQL/Linux-container acceptance, not production ECS deployme
 C06 memory/events/finalizers and later recovery/routing/continuation slices remain
 outstanding; Gateway remote activation stays closed. The implementation progress
 records the real race/rollback/identity matrices and independent acceptance evidence.
+
+
+### Remote Store and definition writes (C06b locally verified)
+
+The trusted host binds optional `mutation_capability` to the actual PostgreSQL
+Store and synchronous Agent/ManagedSubagent repositories. The harness contract
+remains independent of app/Fleet. Local resources without a bound capability
+retain their existing setup, batching and cleanup behavior.
+
+The audited remote Store adapter supports langgraph-checkpoint-postgres 3.1.1.
+Its async conveniences call `abatch` in the caller context instead of queuing
+context-free operations to the constructor background task; external-thread sync
+aliases retain that same context. Put/delete/batch and TTL-refreshing Get/Search
+validate the original authority on the stock writer cursor inside one explicit
+transaction and hold execution locks through commit/rollback. External embeddings
+finish before those locks; SQL entry revalidates freshly, so revocation completed
+during embedding prevents the late result from mutating Store/vector rows.
+
+TTL-disabled GET uses pure SELECT; TTL-disabled search and namespace listing are
+read-only transactions and remain available after terminal state. Arbitrary Store
+namespace semantics are preserved; a namespace position is not an ownership rule.
+Global TTL sweeping is unavailable to the execution. Remote setup verifies the
+trusted initialized schema, exact migrations, column types, primary keys and
+required Store/vector indexes and constraints without DDL or schema fallback.
+Only trusted Gateway/Local performs stock schema initialization.
+
+Synchronous definitions validate on the actual SQLAlchemy writer session. Agent
+update revalidates in the new transaction after IntegrityError rollback before
+its retry read/write. Remote Agent deletion rejects an existing file-memory
+directory before SQL and never runs postcommit `rmtree`. Managed subagents retain
+the current global-name schema; no user column is inferred. Unsafe file definition
+profiles reject before resource construction.
+
+Actual setup/update tools require private bound definition stores and the original
+context; missing stores cannot create an unbound Local fallback. Default setup
+would write global SOUL.md and therefore rejects before filesystem effects. Typed
+OwnershipRejected propagates through the tools, ToolErrorHandlingMiddleware and
+installed ToolNode instead of becoming recoverable model output. Ordinary Local
+tool-error handling remains compatible.
+
+C06a primary mutations and C06b Store/definition writes have independent local
+PostgreSQL/Linux-container acceptance, including frozen installed images and both
+formal review stages. This accepts these substeps only; C06c memory, extension,
+scheduler and MCP boundaries and later C/BC slices remain outstanding. Full C06
+release gates and remote Gateway activation/production deployment remain closed.
+Exact source/image identities and commands are in the implementation progress.

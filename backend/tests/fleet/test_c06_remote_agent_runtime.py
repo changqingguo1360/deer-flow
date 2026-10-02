@@ -726,9 +726,18 @@ async def test_actual_worker_subagent_rejection_fences_and_completes_cleanup(mut
     from langgraph.graph import StateGraph
 
     from deerflow.agents.thread_state import ThreadState
+    from deerflow.runtime.journal import RunJournal
     from deerflow.runtime.runs.manager import RunManager
     from deerflow.runtime.runs.worker import RunContext, _SubagentEventBuffer, run_agent
 
+    journals = []
+    original_journal_init = RunJournal.__init__
+
+    def remember_owned_journal(journal, *args, **kwargs):
+        original_journal_init(journal, *args, **kwargs)
+        journals.append(journal)
+
+    monkeypatch.setattr(RunJournal, "__init__", remember_owned_journal)
     item = mutations
     await item.writer.adelete_thread(item.spec.thread_id)
     async with item.engine.begin() as conn:
@@ -796,9 +805,799 @@ async def test_actual_worker_subagent_rejection_fences_and_completes_cleanup(mut
         config={"configurable": {"thread_id": item.spec.thread_id}},
         stream_modes=["custom"],
     )
+    # Settle only callbacks owned by this actual run before its schema teardown.
+    # Loss prevents normal finalization/flush; await existing tasks without
+    # re-flushing, re-buffering, retrying writes or masking their rejection.
+    assert len(journals) == 1
     await asyncio.sleep(0)
+    async with asyncio.timeout(5):
+        while True:
+            pending = {task for task in journals[0]._pending_flush_tasks if not task.done()}
+            progress = journals[0]._pending_progress_task
+            if progress is not None and not progress.done():
+                pending.add(progress)
+            if not pending:
+                break
+            await asyncio.gather(*pending, return_exceptions=True)
     assert rejected_calls == 1 and before is not None and not rejected_flush_returned
     assert record.ownership_lost and record.status.value == "error" and not record.finalizing
     assert after_rejection_finalization == 0 and await durable_rows(item.engine) == before
     bridge.publish_end.assert_awaited_once_with(record.run_id)
     bridge.cleanup.assert_awaited_once_with(record.run_id, delay=60)
+
+
+async def secondary_rows(engine):
+    async with engine.connect() as conn:
+        return {table: tuple((await conn.execute(text("SELECT row_to_json(t)::text FROM " + table + " t ORDER BY row_to_json(t)::text"))).scalars()) for table in ("store", "agents", "managed_subagents")}
+
+
+@pytest_asyncio.fixture
+async def secondary_mutations(mutations):
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from deerflow.persistence.agents.model import AgentRow
+    from deerflow.persistence.agents.sql import SqlAgentStore
+    from deerflow.persistence.managed_subagents.base import ManagedSubagentDefinition
+    from deerflow.persistence.managed_subagents.model import ManagedSubagentRow
+    from deerflow.persistence.managed_subagents.sql import SqlManagedSubagentStore
+    from deerflow.runtime.store.async_provider import make_store
+
+    item = mutations
+    async with item.engine.begin() as conn:
+        await conn.run_sync(lambda sync: AgentRow.__table__.create(sync, checkfirst=True))
+        await conn.run_sync(lambda sync: ManagedSubagentRow.__table__.create(sync, checkfirst=True))
+        schema = (await conn.execute(text("SELECT current_schema()"))).scalar_one()
+    sync_engine = create_engine(item.engine.url.set(drivername="postgresql+psycopg"), connect_args={"options": "-csearch_path=" + schema})
+    sync_sf = sessionmaker(sync_engine, expire_on_commit=False)
+    cap = item.runs._mutation_capability
+    kwargs = {"session_factory": sync_sf}
+
+    def make(cls):
+        return cls(str(sync_engine.url), **kwargs, **({"mutation_capability": cap} if "mutation_capability" in inspect.signature(cls).parameters else {}))
+
+    item.agents = make(SqlAgentStore)
+    item.managed = make(SqlManagedSubagentStore)
+    definition = ManagedSubagentDefinition(name="bound-managed", description="baseline", system_prompt="baseline")
+    await asyncio.to_thread(SqlAgentStore(str(sync_engine.url), session_factory=sync_sf).create, "bound-agent", {"description": "baseline"}, "baseline", user_id=item.spec.user_id)
+    await asyncio.to_thread(SqlManagedSubagentStore(str(sync_engine.url), session_factory=sync_sf).create, definition)
+    # Only the trusted unbound factory initializes Store migrations.
+    async with make_store(item.private) as trusted:
+        await trusted.aput(("user", item.spec.user_id), "bound-key", {"baseline": True}, ttl=1)
+    try:
+        async with make_store(item.private, **({"mutation_capability": cap} if "mutation_capability" in inspect.signature(make_store).parameters else {})) as store:
+            item.state_store = store
+            yield item
+    finally:
+        sync_engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["aput", "adelete", "aget", "asearch", "abatch", "put", "delete", "batch", "get", "search", "agent.create", "agent.update", "agent.delete", "managed.create", "managed.update", "managed.delete"])
+async def test_store_and_definitions_reject_stale_original_token_before_real_writes(secondary_mutations, operation):
+    from langgraph.store.base import PutOp
+
+    from deerflow.persistence.managed_subagents.base import ManagedSubagentDefinition
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    item = secondary_mutations
+    async with item.engine.begin() as conn:
+        await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+    before = await secondary_rows(item.engine)
+    namespace = ("user", item.spec.user_id)
+    with pytest.raises(OwnershipRejected):
+        if operation == "aput":
+            await item.state_store.aput(namespace, "new-key", {"changed": True})
+        elif operation == "adelete":
+            await item.state_store.adelete(namespace, "bound-key")
+        elif operation == "aget":
+            await item.state_store.aget(namespace, "bound-key", refresh_ttl=True)
+        elif operation == "asearch":
+            await item.state_store.asearch(namespace, refresh_ttl=True)
+        elif operation == "abatch":
+            await item.state_store.abatch([PutOp(namespace, "new-key", {"changed": True})])
+        elif operation == "put":
+            await asyncio.to_thread(item.state_store.put, namespace, "new-key", {"changed": True})
+        elif operation == "delete":
+            await asyncio.to_thread(item.state_store.delete, namespace, "bound-key")
+        elif operation == "batch":
+            await asyncio.to_thread(item.state_store.batch, [PutOp(namespace, "new-key", {"changed": True})])
+        elif operation == "get":
+            await asyncio.to_thread(item.state_store.get, namespace, "bound-key", refresh_ttl=True)
+        elif operation == "search":
+            await asyncio.to_thread(item.state_store.search, namespace, refresh_ttl=True)
+        elif operation == "agent.create":
+            await asyncio.to_thread(item.agents.create, "new-agent", {"description": "changed"}, "changed", user_id=item.spec.user_id)
+        elif operation == "agent.update":
+            await asyncio.to_thread(item.agents.update, "bound-agent", {"description": "changed"}, "changed", user_id=item.spec.user_id)
+        elif operation == "agent.delete":
+            await asyncio.to_thread(item.agents.delete, "bound-agent", user_id=item.spec.user_id)
+        elif operation == "managed.create":
+            await asyncio.to_thread(item.managed.create, ManagedSubagentDefinition(name="new-managed", description="changed", system_prompt="changed"))
+        elif operation == "managed.update":
+            await asyncio.to_thread(item.managed.update, ManagedSubagentDefinition(name="bound-managed", description="changed", system_prompt="changed"))
+        else:
+            await asyncio.to_thread(item.managed.delete, "bound-managed")
+    assert await secondary_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+async def test_original_store_and_definitions_write_in_caller_and_external_thread_context(secondary_mutations):
+    from langgraph.store.base import GetOp, PutOp
+
+    from deerflow.persistence.managed_subagents.base import ManagedSubagentDefinition
+
+    item = secondary_mutations
+    namespace = ("user", item.spec.user_id)
+    await item.state_store.aput(namespace, "positive", {"v": 1}, ttl=2)
+    await asyncio.to_thread(item.state_store.put, namespace, "sync-positive", {"v": 2})
+    results = await asyncio.to_thread(item.state_store.batch, [PutOp(namespace, "batch-positive", {"v": 3}), GetOp(namespace, "positive", refresh_ttl=False)])
+    assert results[1].value == {"v": 1}
+    await asyncio.to_thread(item.agents.update, "bound-agent", {"description": "positive"}, "positive", user_id=item.spec.user_id)
+    await asyncio.to_thread(item.managed.update, ManagedSubagentDefinition(name="bound-managed", description="positive", system_prompt="positive"))
+    assert (await item.state_store.aget(namespace, "sync-positive", refresh_ttl=False)).value == {"v": 2}
+    assert (await asyncio.to_thread(item.agents.get, "bound-agent", user_id=item.spec.user_id)).description == "positive"
+    assert (await asyncio.to_thread(item.managed.get, "bound-managed")).description == "positive"
+
+
+@pytest.mark.asyncio
+async def test_terminal_store_readonly_get_search_and_sync_alias_do_not_refresh_ttl(secondary_mutations):
+    item = secondary_mutations
+    async with item.engine.begin() as conn:
+        await conn.execute(text("UPDATE runs SET status='success'"))
+    before = await secondary_rows(item.engine)
+    namespace = ("user", item.spec.user_id)
+    assert (await item.state_store.aget(namespace, "bound-key", refresh_ttl=False)).value == {"baseline": True}
+    assert len(await item.state_store.asearch(namespace, refresh_ttl=False)) == 1
+    assert (await asyncio.to_thread(item.state_store.get, namespace, "bound-key", refresh_ttl=False)).value == {"baseline": True}
+    assert await secondary_rows(item.engine) == before
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    for action in (
+        lambda: item.state_store.aget(namespace, "bound-key"),
+        lambda: item.state_store.asearch(namespace),
+        lambda: item.state_store.aput(namespace, "new", {}),
+        lambda: item.state_store.sweep_ttl(),
+        lambda: item.state_store.start_ttl_sweeper(),
+    ):
+        with pytest.raises(OwnershipRejected):
+            await action()
+    assert await secondary_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_context", ["missing", "different"])
+async def test_store_and_definition_instances_cannot_fall_back_when_context_lost(secondary_mutations, bad_context):
+    from contextlib import nullcontext
+    from dataclasses import replace
+
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected, _current_mutation_context, remote_mutation_scope
+
+    item = secondary_mutations
+    token = _current_mutation_context.set(None)
+    before = await secondary_rows(item.engine)
+    try:
+        scope = nullcontext() if bad_context == "missing" else remote_mutation_scope(replace(item.runs._mutation_capability.context, run_id="wrong-run"))
+        with scope:
+            with pytest.raises(OwnershipRejected):
+                await item.state_store.aput(("user", item.spec.user_id), "new", {})
+            with pytest.raises(OwnershipRejected):
+                await asyncio.to_thread(item.agents.update, "bound-agent", {}, "wrong", user_id=item.spec.user_id)
+            with pytest.raises(OwnershipRejected):
+                await asyncio.to_thread(item.managed.delete, "bound-managed")
+    finally:
+        _current_mutation_context.reset(token)
+    assert await secondary_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("drift", ["migration_gap", "future_migration", "type", "index", "wrong_schema"])
+async def test_store_readiness_rejects_without_ddl(secondary_mutations, drift):
+    item = secondary_mutations
+    async with item.engine.begin() as conn:
+        if drift == "migration_gap":
+            await conn.execute(text("DELETE FROM store_migrations WHERE v=1"))
+        elif drift == "future_migration":
+            await conn.execute(text("INSERT INTO store_migrations VALUES (99)"))
+        elif drift == "type":
+            await conn.execute(text("ALTER TABLE store ALTER COLUMN ttl_minutes TYPE bigint"))
+        elif drift == "index":
+            await conn.execute(text("DROP INDEX store_prefix_idx"))
+            await conn.execute(text("CREATE INDEX store_prefix_idx ON store(key)"))
+        else:
+            item.state_store._schema = "missing_schema"
+
+    async def structure():
+        async with item.engine.connect() as conn:
+            return tuple((await conn.execute(text("SELECT c.relname, c.relkind, pg_get_indexdef(c.oid) FROM pg_class c WHERE c.relnamespace=(SELECT oid FROM pg_namespace WHERE nspname=current_schema()) ORDER BY c.relname"))).all())
+
+    before = await structure()
+    with pytest.raises(RuntimeError, match="ready"):
+        await item.state_store.setup()
+    assert await structure() == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["scoped", "lost"])
+async def test_bound_runtime_global_soul_rejected_before_any_file_side_effect(secondary_mutations, tmp_path, monkeypatch, mode):
+    from contextlib import nullcontext
+
+    from deerflow.persistence.agent_definition_context import _stores, agent_definition_store_scope
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected, _current_mutation_context
+    from deerflow.tools.builtins.setup_agent_tool import setup_agent
+
+    item = secondary_mutations
+    paths = SimpleNamespace(base_dir=tmp_path / "must-not-exist")
+    monkeypatch.setattr("deerflow.tools.builtins.setup_agent_tool.get_paths", lambda: paths)
+    runtime = SimpleNamespace(context={}, store=item.state_store, tool_call_id="global-soul")
+    mutation_token = _current_mutation_context.set(None) if mode == "lost" else None
+    definition_token = _stores.set(None)
+    try:
+        scope = agent_definition_store_scope(item.agents, item.managed) if mode == "scoped" else nullcontext()
+        with scope, pytest.raises(OwnershipRejected):
+            await asyncio.to_thread(setup_agent.func, soul="must not persist", description="bound", runtime=runtime)
+    finally:
+        _stores.reset(definition_token)
+        if mutation_token is not None:
+            _current_mutation_context.reset(mutation_token)
+    assert not paths.base_dir.exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("asynchronous", [False, True])
+async def test_real_definition_tool_rejection_propagates_through_actual_middleware(secondary_mutations, asynchronous):
+    from deerflow.agents.middlewares.tool_error_handling_middleware import ToolErrorHandlingMiddleware
+    from deerflow.persistence.agent_definition_context import agent_definition_store_scope
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+    from deerflow.tools.builtins.setup_agent_tool import setup_agent
+
+    item = secondary_mutations
+    async with item.engine.begin() as conn:
+        await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+    before = await secondary_rows(item.engine)
+    runtime = SimpleNamespace(context={"agent_name": "bound-agent", "user_id": item.spec.user_id}, store=item.state_store, tool_call_id="stale-tool")
+    request = SimpleNamespace(tool_call={"name": "setup_agent", "id": "stale-tool"})
+    middleware = ToolErrorHandlingMiddleware(app_config=item.private)
+    with agent_definition_store_scope(item.agents, item.managed):
+        if asynchronous:
+
+            async def handler(request):
+                return await asyncio.to_thread(setup_agent.func, soul="must not persist", description="bound", runtime=runtime)
+
+            with pytest.raises(OwnershipRejected):
+                await middleware.awrap_tool_call(request, handler)
+        else:
+            with pytest.raises(OwnershipRejected):
+                await asyncio.to_thread(middleware.wrap_tool_call, request, lambda request: setup_agent.func(soul="must not persist", description="bound", runtime=runtime))
+    assert await secondary_rows(item.engine) == before
+
+
+@pytest_asyncio.fixture
+async def vector_mutations(secondary_mutations):
+    from langchain_core.embeddings import Embeddings
+    from langgraph.store.postgres.aio import AsyncPostgresStore
+
+    from deerflow.runtime.checkpointer.async_provider import dsn_with_search_path
+    from deerflow.runtime.store.fenced_store import FencedAsyncPostgresStore
+
+    class Embedded(Embeddings):
+        async def aembed_documents(self, texts):
+            if self.callback is not None:
+                await self.callback()
+            return [[float(len(text)), 1.0] for text in texts]
+
+        def embed_documents(self, texts):
+            return [[float(len(text)), 1.0] for text in texts]
+
+        def embed_query(self, text):
+            return [float(len(text)), 1.0]
+
+        callback = None
+
+    item = secondary_mutations
+    embed = Embedded()
+    index = {"dims": 2, "embed": embed, "fields": ["text"], "ann_index_config": {"kind": "hnsw"}}
+    dsn = dsn_with_search_path(item.private.database.postgres_url, item.private.database.postgres_schema)
+    async with AsyncPostgresStore.from_conn_string(dsn, index=index, ttl={"default_ttl": 1, "refresh_on_read": True}) as trusted:
+        await trusted.setup()
+        await trusted.aput(("vector",), "existing", {"text": "baseline"})
+    async with FencedAsyncPostgresStore.from_conn_string(dsn, index=index, ttl={"default_ttl": 1, "refresh_on_read": True}, mutation_capability=item.runs._mutation_capability, schema=item.private.database.postgres_schema) as store:
+        await store.setup()
+        item.vector_store = store
+        item.embeddings = embed
+        yield item
+
+
+async def vector_rows(engine):
+    async with engine.connect() as conn:
+        return {table: tuple((await conn.execute(text("SELECT row_to_json(t)::text FROM " + table + " t ORDER BY row_to_json(t)::text"))).scalars()) for table in ("store", "store_vectors")}
+
+
+@pytest.mark.asyncio
+async def test_vector_upsert_search_ttl_and_delete_use_real_tables(vector_mutations):
+    item = vector_mutations
+    await item.vector_store.aput(("vector",), "new", {"text": "actual vector"})
+    assert len((await vector_rows(item.engine))["store_vectors"]) == 2
+    assert len(await item.vector_store.asearch(("vector",), query="actual", refresh_ttl=False)) == 2
+    await asyncio.to_thread(item.vector_store.delete, ("vector",), "new")
+    assert len((await vector_rows(item.engine))["store_vectors"]) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["put", "search"])
+async def test_late_embedding_result_revoked_before_actual_sql_cannot_mutate(vector_mutations, operation):
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    item = vector_mutations
+    calls = 0
+
+    async def revoke():
+        nonlocal calls
+        calls += 1
+        async with item.engine.begin() as conn:
+            await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+
+    item.embeddings.callback = revoke
+    before = await vector_rows(item.engine)
+    with pytest.raises(OwnershipRejected):
+        if operation == "put":
+            await item.vector_store.aput(("vector",), "new", {"text": "late vector"})
+        else:
+            await item.vector_store.asearch(("vector",), query="late", refresh_ttl=True)
+    assert calls == 1 and await vector_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["store", "agent", "managed"])
+@pytest.mark.parametrize("change", ["owner", "generation", "session", "active_attempt", "released", "stopped", "terminal"])
+async def test_secondary_repositories_reject_all_changed_identity_rows(secondary_mutations, operation, change):
+    from deerflow.persistence.managed_subagents.base import ManagedSubagentDefinition
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    from .test_c05_remote_agent_runtime import CHANGES
+
+    item = secondary_mutations
+    async with item.engine.begin() as conn:
+        await conn.execute(text(CHANGES[change]))
+    before = await secondary_rows(item.engine)
+    with pytest.raises(OwnershipRejected):
+        if operation == "store":
+            await item.state_store.aput(("generic",), "new", {"changed": True})
+        elif operation == "agent":
+            await asyncio.to_thread(item.agents.update, "bound-agent", {}, "changed", user_id=item.spec.user_id)
+        else:
+            await asyncio.to_thread(item.managed.update, ManagedSubagentDefinition(name="bound-managed", description="changed", system_prompt="changed"))
+    assert await secondary_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+async def test_store_expiry_rechecked_after_actual_fleet_lock_wait(secondary_mutations):
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    from .test_c05_remote_agent_runtime import wait_blocked
+
+    item = secondary_mutations
+    cap = item.state_store._mutation_capability
+    original = cap.validate_cursor
+    pid_future = asyncio.get_running_loop().create_future()
+
+    async def observed(cur, **kwargs):
+        await cur.execute("SELECT pg_backend_pid() AS pid")
+        pid_future.set_result((await cur.fetchone())["pid"])
+        await original(cur, **kwargs)
+
+    cap.validate_cursor = observed
+    before = await secondary_rows(item.engine)
+    async with item.engine.connect() as blocker:
+        tx = await blocker.begin()
+        await blocker.execute(text("SELECT id FROM fleet_agent_tasks FOR UPDATE"))
+        writing = asyncio.create_task(item.state_store.aput(("any",), "new", {}))
+        await wait_blocked(item.engine, await asyncio.wait_for(pid_future, 5))
+        await blocker.execute(text("UPDATE runs SET lease_expires_at=clock_timestamp()-interval '1 second'"))
+        await blocker.execute(text("UPDATE fleet_attempts SET lease_expires_at=(SELECT lease_expires_at FROM runs)"))
+        await tx.commit()
+        with pytest.raises(OwnershipRejected):
+            await writing
+    assert await secondary_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["exception", "cancelled"])
+async def test_vector_first_real_sql_failure_rolls_back_store_and_vector_rows(vector_mutations, failure):
+    from contextlib import asynccontextmanager
+
+    item = vector_mutations
+    original = item.vector_store._cursor
+    writes = 0
+
+    class Cursor:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def __getattr__(self, key):
+            return getattr(self.inner, key)
+
+        async def execute(self, query, *args, **kwargs):
+            nonlocal writes
+            result = await self.inner.execute(query, *args, **kwargs)
+            if str(query).lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")):
+                writes += 1
+                if failure == "cancelled":
+                    raise asyncio.CancelledError()
+                raise RuntimeError("first actual Store SQL fault")
+            return result
+
+    @asynccontextmanager
+    async def injected(**kwargs):
+        async with original(**kwargs) as cur:
+            yield Cursor(cur)
+
+    item.vector_store._cursor = injected
+    before = await vector_rows(item.engine)
+    with pytest.raises(asyncio.CancelledError if failure == "cancelled" else RuntimeError):
+        await item.vector_store.aput(("vector",), "new", {"text": "rollback vector"})
+    assert writes == 1 and await vector_rows(item.engine) == before
+    item.vector_store._cursor = original
+    # Rollback also releases the execution locks and leaves the connection usable.
+    await item.vector_store.aput(("vector",), "after", {"text": "after rollback"})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("independent_guard", [False, True])
+async def test_store_guard_and_actual_stock_sql_same_pid_txid_block_takeover(secondary_mutations, independent_guard):
+    from contextlib import asynccontextmanager
+
+    item = secondary_mutations
+    cap = item.state_store._mutation_capability
+    original_guard = cap.validate_cursor
+    identities = []
+    guarded = asyncio.Event()
+    release = asyncio.Event()
+
+    async def observed(cur, **kwargs):
+        if independent_guard:
+            from psycopg import AsyncConnection
+            from psycopg.rows import dict_row
+
+            from deerflow.persistence.postgres_schema import dsn_with_search_path
+
+            dsn = dsn_with_search_path(item.private.database.postgres_url, item.private.database.postgres_schema)
+            async with await AsyncConnection.connect(dsn, autocommit=True, row_factory=dict_row) as conn:
+                async with conn.transaction(), conn.cursor() as independent:
+                    await original_guard(independent, **kwargs)
+                    await independent.execute("SELECT pg_backend_pid() AS pid,txid_current() AS txid")
+                    identities.append(await independent.fetchone())
+        else:
+            await original_guard(cur, **kwargs)
+            await cur.execute("SELECT pg_backend_pid() AS pid,txid_current() AS txid")
+            identities.append(await cur.fetchone())
+
+    cap.validate_cursor = observed
+    original_cursor = item.state_store._cursor
+
+    class Cursor:
+        def __init__(self, inner):
+            self.inner = inner
+
+        def __getattr__(self, key):
+            return getattr(self.inner, key)
+
+        async def execute(self, query, *args, **kwargs):
+            if str(query).lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")):
+                await self.inner.execute("SELECT pg_backend_pid() AS pid,txid_current() AS txid")
+                identities.append(await self.inner.fetchone())
+                guarded.set()
+                await release.wait()
+            return await self.inner.execute(query, *args, **kwargs)
+
+    @asynccontextmanager
+    async def cursor(**kwargs):
+        async with original_cursor(**kwargs) as inner:
+            yield Cursor(inner)
+
+    item.state_store._cursor = cursor
+    writing = asyncio.create_task(item.state_store.aput(("generic",), "actual-sql", {}))
+    await asyncio.wait_for(guarded.wait(), 5)
+    async with item.engine.connect() as takeover:
+        pid = (await takeover.execute(text("SELECT pg_backend_pid()"))).scalar_one()
+        changing = asyncio.create_task(takeover.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'")))
+        try:
+
+            async def actual_same_transaction_criterion():
+                await require_takeover_blocked(item.engine, pid, changing)
+                assert len(identities) == 2 and identities[0] == identities[1]
+
+            if independent_guard:
+                # Same positive gate must fail for a guard committed on another
+                # connection before stock SQL, not merely observe changed rows.
+                with pytest.raises((TimeoutError, AssertionError)):
+                    await actual_same_transaction_criterion()
+                assert identities[0] != identities[1]
+            else:
+                await actual_same_transaction_criterion()
+        finally:
+            release.set()
+        await writing
+        await changing
+        await takeover.rollback()
+    assert (await item.state_store.aget(("generic",), "actual-sql", refresh_ttl=False)).value == {}
+
+
+@pytest.mark.asyncio
+async def test_agent_integrity_retry_revalidates_original_context_in_new_transaction(secondary_mutations, monkeypatch):
+    from sqlalchemy import event
+
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    item = secondary_mutations
+    loop = asyncio.get_running_loop()
+    original_row = item.agents._row
+    reads = 0
+
+    def race_winner(session, *args, **kwargs):
+        nonlocal reads
+        reads += 1
+        # Actual competing winner already exists: force the losing first
+        # upsert to execute a real UNIQUE violation and rollback in PostgreSQL.
+        return None if reads == 1 else original_row(session, *args, **kwargs)
+
+    monkeypatch.setattr(item.agents, "_row", race_winner)
+
+    async def revoke():
+        async with item.engine.begin() as conn:
+            await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+
+    rollbacks = 0
+
+    def after_rollback(session):
+        nonlocal rollbacks
+        rollbacks += 1
+        asyncio.run_coroutine_threadsafe(revoke(), loop).result(5)
+
+    session_type = item.agents._Session.class_
+    event.listen(session_type, "after_rollback", after_rollback)
+    before = await secondary_rows(item.engine)
+    try:
+        with pytest.raises(OwnershipRejected):
+            await asyncio.to_thread(item.agents.update, "bound-agent", {}, "must not replace winner", user_id=item.spec.user_id)
+    finally:
+        event.remove(session_type, "after_rollback", after_rollback)
+    assert rollbacks == 1 and reads == 1 and await secondary_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+async def test_remote_agent_delete_with_file_memory_rejected_before_sql_and_cleanup(secondary_mutations, tmp_path, monkeypatch):
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    item = secondary_mutations
+    directory = tmp_path / "file-memory"
+    directory.mkdir()
+    (directory / "memory.json").write_bytes(b"preserve original memory")
+    monkeypatch.setattr("deerflow.persistence.agents.sql.get_paths", lambda: SimpleNamespace(user_agent_dir=lambda user, name: directory))
+    before = await secondary_rows(item.engine)
+    with pytest.raises(OwnershipRejected):
+        await asyncio.to_thread(item.agents.delete, "bound-agent", user_id=item.spec.user_id)
+    assert await secondary_rows(item.engine) == before
+    assert (directory / "memory.json").read_bytes() == b"preserve original memory"
+
+
+@pytest.mark.asyncio
+async def test_definition_explicit_wrong_user_rejected_and_absent_ambient_stamped_original(secondary_mutations):
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+    from deerflow.runtime.user_context import reset_current_user, set_current_user
+
+    item = secondary_mutations
+    token = set_current_user(None)
+    before = await secondary_rows(item.engine)
+    try:
+        with pytest.raises(OwnershipRejected):
+            await asyncio.to_thread(item.agents.create, "wrong-owner", {}, "wrong", user_id="other-user")
+        assert await secondary_rows(item.engine) == before
+        await asyncio.to_thread(item.agents.create, "original-owner", {}, "positive", user_id=None)
+        async with item.engine.connect() as conn:
+            assert (await conn.execute(text("SELECT user_id FROM agents WHERE name='original-owner'"))).scalar_one() == item.spec.user_id
+    finally:
+        reset_current_user(token)
+
+
+@pytest.mark.asyncio
+async def test_actual_installed_toolnode_propagates_definition_rejection(secondary_mutations):
+    from langchain_core.messages import AIMessage
+    from langgraph.graph import MessagesState, StateGraph
+    from langgraph.prebuilt import ToolNode
+
+    from deerflow.persistence.agent_definition_context import agent_definition_store_scope
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+    from deerflow.tools.builtins.setup_agent_tool import setup_agent
+
+    item = secondary_mutations
+    async with item.engine.begin() as conn:
+        await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+    graph = StateGraph(MessagesState, context_schema=dict)
+    graph.add_node("tools", ToolNode([setup_agent]))
+    graph.set_entry_point("tools")
+    graph.set_finish_point("tools")
+    compiled = graph.compile(store=item.state_store)
+    before = await secondary_rows(item.engine)
+    with agent_definition_store_scope(item.agents, item.managed), pytest.raises(OwnershipRejected):
+        await compiled.ainvoke(
+            {"messages": [AIMessage(content="", tool_calls=[{"name": "setup_agent", "args": {"soul": "must not write", "description": "bound"}, "id": "actual-tool", "type": "tool_call"}])]},
+            context={"agent_name": "bound-agent", "user_id": item.spec.user_id},
+        )
+    assert await secondary_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_name", ["setup_agent", "update_agent"])
+@pytest.mark.parametrize("stale", [False, True])
+async def test_actual_toolnode_definition_positive_and_rejection_paths(secondary_mutations, tool_name, stale):
+    from langchain_core.messages import AIMessage
+    from langgraph.graph import MessagesState, StateGraph
+    from langgraph.prebuilt import ToolNode
+
+    from deerflow.persistence.agent_definition_context import agent_definition_store_scope
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+    from deerflow.tools.builtins.setup_agent_tool import setup_agent
+    from deerflow.tools.builtins.update_agent_tool import update_agent
+
+    item = secondary_mutations
+    if stale:
+        async with item.engine.begin() as conn:
+            await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+    tool = setup_agent if tool_name == "setup_agent" else update_agent
+    graph = StateGraph(MessagesState, context_schema=dict)
+    graph.add_node("tools", ToolNode([tool]))
+    graph.set_entry_point("tools")
+    graph.set_finish_point("tools")
+    compiled = graph.compile(store=item.state_store)
+    args = {"soul": "actual positive soul"}
+    if tool_name == "setup_agent":
+        args["description"] = "actual positive description"
+    before = await secondary_rows(item.engine)
+    with agent_definition_store_scope(item.agents, item.managed):
+        running = compiled.ainvoke({"messages": [AIMessage(content="", tool_calls=[{"name": tool_name, "args": args, "id": "actual-tool", "type": "tool_call"}])]}, context={"agent_name": "bound-agent", "user_id": item.spec.user_id})
+        if stale:
+            with pytest.raises(OwnershipRejected):
+                await running
+            assert await secondary_rows(item.engine) == before
+        else:
+            result = await running
+            assert result["messages"][-1].type == "tool"
+            assert await asyncio.to_thread(item.agents.get_soul, "bound-agent", user_id=item.spec.user_id) == "actual positive soul"
+
+
+@pytest.mark.asyncio
+async def test_missing_definition_scope_never_constructs_unbound_fallback(secondary_mutations):
+    from deerflow.persistence.agent_definition_context import _stores
+    from deerflow.persistence.agents import get_agent_store
+    from deerflow.persistence.managed_subagents import get_managed_subagent_store
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    token = _stores.set(None)
+    try:
+        for factory in (get_agent_store, get_managed_subagent_store):
+            with pytest.raises(OwnershipRejected):
+                factory()
+    finally:
+        _stores.reset(token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("drift", ["opclass", "options", "dimensions", "missing_fk", "unvalidated_fk"])
+async def test_vector_readonly_readiness_rejects_actual_index_and_schema_drift(vector_mutations, drift):
+    item = vector_mutations
+    async with item.engine.begin() as conn:
+        if drift in {"opclass", "options"}:
+            await conn.execute(text("DROP INDEX store_vectors_embedding_idx"))
+            definition = "vector_l2_ops" if drift == "opclass" else "vector_cosine_ops"
+            options = " WITH (m=8)" if drift == "options" else ""
+            await conn.execute(text("CREATE INDEX store_vectors_embedding_idx ON store_vectors USING hnsw(embedding " + definition + ")" + options))
+        elif drift == "dimensions":
+            await conn.execute(text("TRUNCATE store_vectors"))
+            await conn.execute(text("ALTER TABLE store_vectors ALTER COLUMN embedding TYPE vector(3)"))
+        else:
+            await conn.execute(text("ALTER TABLE store_vectors DROP CONSTRAINT store_vectors_prefix_key_fkey"))
+            if drift == "unvalidated_fk":
+                await conn.execute(text("ALTER TABLE store_vectors ADD CONSTRAINT store_vectors_prefix_key_fkey FOREIGN KEY(prefix,key) REFERENCES store(prefix,key) ON DELETE CASCADE NOT VALID"))
+    before = await vector_rows(item.engine)
+    with pytest.raises(RuntimeError, match="ready"):
+        await item.vector_store.setup()
+    assert await vector_rows(item.engine) == before
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_name", ["setup_agent", "update_agent"])
+@pytest.mark.parametrize("stale", [False, True])
+async def test_actual_agent_model_tool_middleware_loop_stops_on_ownership_rejection(secondary_mutations, tool_name, stale):
+    from langchain.agents import create_agent
+    from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    from deerflow.agents.middlewares.tool_error_handling_middleware import ToolErrorHandlingMiddleware
+    from deerflow.persistence.agent_definition_context import agent_definition_store_scope
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+    from deerflow.tools.builtins.setup_agent_tool import setup_agent
+    from deerflow.tools.builtins.update_agent_tool import update_agent
+
+    class Scripted(FakeMessagesListChatModel):
+        calls: int = 0
+
+        def bind_tools(self, tools, **kwargs):
+            return self
+
+        def _generate(self, *args, **kwargs):
+            self.calls += 1
+            return super()._generate(*args, **kwargs)
+
+    item = secondary_mutations
+    if stale:
+        async with item.engine.begin() as conn:
+            await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+    args = {"soul": "actual agent-produced soul"}
+    if tool_name == "setup_agent":
+        args["description"] = "actual agent-produced description"
+    model = Scripted(responses=[AIMessage(content="", tool_calls=[{"name": tool_name, "args": args, "id": "actual-model-tool", "type": "tool_call"}]), AIMessage(content="completed")])
+    agent = create_agent(model, tools=[setup_agent if tool_name == "setup_agent" else update_agent], middleware=[ToolErrorHandlingMiddleware(app_config=item.private)], context_schema=dict, store=item.state_store)
+    before = await secondary_rows(item.engine)
+    with agent_definition_store_scope(item.agents, item.managed):
+        invocation = agent.ainvoke({"messages": [HumanMessage(content="update the definition")]}, context={"agent_name": "bound-agent", "user_id": item.spec.user_id})
+        if stale:
+            with pytest.raises(OwnershipRejected):
+                await invocation
+            assert model.calls == 1 and await secondary_rows(item.engine) == before
+        else:
+            result = await invocation
+            assert model.calls == 2 and result["messages"][-1].content == "completed"
+            assert await asyncio.to_thread(item.agents.get_soul, "bound-agent", user_id=item.spec.user_id) == "actual agent-produced soul"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("schema_exists", [False, True])
+async def test_remote_store_factory_missing_readiness_does_not_create_schema_or_tables(secondary_mutations, schema_exists):
+    from deerflow.runtime.store.async_provider import make_store
+
+    item = secondary_mutations
+    schema = item.private.database.postgres_schema + "_missing"
+    private = item.private.model_copy(deep=True)
+    private.database.postgres_schema = schema
+    async with item.engine.begin() as conn:
+        if schema_exists:
+            await conn.execute(text('CREATE SCHEMA "' + schema + '"'))
+
+    async def catalog():
+        async with item.engine.connect() as conn:
+            return tuple((await conn.execute(text("SELECT n.nspname,c.relname,c.relkind FROM pg_namespace n LEFT JOIN pg_class c ON c.relnamespace=n.oid WHERE n.nspname=:schema ORDER BY c.relname"), {"schema": schema})).all())
+
+    before = await catalog()
+    try:
+        with pytest.raises(RuntimeError, match="ready"):
+            async with make_store(private, mutation_capability=item.runs._mutation_capability):
+                pass
+        assert await catalog() == before
+    finally:
+        if schema_exists:
+            async with item.engine.begin() as conn:
+                await conn.execute(text('DROP SCHEMA "' + schema + '" CASCADE'))
+
+
+@pytest.mark.asyncio
+async def test_remote_pool_constructor_preserves_original_context_and_explicit_transactions(secondary_mutations):
+    from deerflow.persistence.postgres_schema import dsn_with_search_path
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+    from deerflow.runtime.store.fenced_store import FencedAsyncPostgresStore
+
+    item = secondary_mutations
+    dsn = dsn_with_search_path(item.private.database.postgres_url, item.private.database.postgres_schema)
+    async with FencedAsyncPostgresStore.from_conn_string(dsn, mutation_capability=item.runs._mutation_capability, schema=item.private.database.postgres_schema, pool_config={"min_size": 1, "max_size": 2}) as store:
+        await store.setup()
+        await store.aput(("pool",), "positive", {})
+        assert (await asyncio.to_thread(store.get, ("pool",), "positive", refresh_ttl=False)).value == {}
+        async with item.engine.begin() as conn:
+            await conn.execute(text("UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'"))
+        before = await secondary_rows(item.engine)
+        with pytest.raises(OwnershipRejected):
+            await asyncio.to_thread(store.put, ("pool",), "rejected", {})
+        assert await secondary_rows(item.engine) == before
+    with pytest.raises(OwnershipRejected):
+        async with FencedAsyncPostgresStore.from_conn_string(dsn, mutation_capability=item.runs._mutation_capability, pipeline=True):
+            pass

@@ -24,6 +24,7 @@ from deerflow.agents.middlewares.tool_result_meta import (
 from deerflow.config.app_config import AppConfig
 from deerflow.config.summarization_config import DEFAULT_SKILL_FILE_READ_TOOL_NAMES
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
 from deerflow.subagents.status_contract import (
     format_subagent_result_message,
     make_subagent_additional_kwargs,
@@ -127,7 +128,7 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
     ) -> ToolMessage | Command:
         try:
             result = handler(request)
-        except GraphBubbleUp:
+        except (GraphBubbleUp, OwnershipRejected):
             # Preserve LangGraph control-flow signals (interrupt/pause/resume).
             raise
         except Exception as exc:
@@ -146,7 +147,7 @@ class ToolErrorHandlingMiddleware(AgentMiddleware[AgentState]):
     ) -> ToolMessage | Command:
         try:
             result = await handler(request)
-        except GraphBubbleUp:
+        except (GraphBubbleUp, OwnershipRejected):
             # Preserve LangGraph control-flow signals (interrupt/pause/resume).
             raise
         except Exception as exc:

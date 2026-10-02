@@ -40,3 +40,9 @@ E2B output sync records remote file versions and actual host file metadata in a 
 - ACP results collect only `agent_message_chunk` text. Thought chunks remain internal and must not be concatenated into the tool result
 - Missing ACP executables now return an actionable error message instead of a raw `[Errno 2]`
 - Each ACP agent uses a per-thread workspace at `{base_dir}/users/{user_id}/threads/{thread_id}/acp-workspace/`. The workspace is accessible to the lead agent via the virtual path `/mnt/acp-workspace/` (read-only). In docker sandbox mode, the directory is volume-mounted into the container at `/mnt/acp-workspace` (read-only); in local sandbox mode, path translation is handled by `tools.py`
+
+Remote-bound setup/update require the original mutation context and private
+definition stores; missing scopes cannot fall back to Local SQL/files. Default
+global SOUL setup rejects before filesystem writes. OwnershipRejected must
+propagate through tools and middleware to the worker; ordinary tool errors retain
+existing recovery. Database definition guards share the actual writer transaction.

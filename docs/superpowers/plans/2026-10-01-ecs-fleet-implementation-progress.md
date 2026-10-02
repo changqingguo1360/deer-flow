@@ -1334,3 +1334,176 @@ This is initialbehavior RED, not wholeC06b acceptance. Singleimplementer now
 adds actualsamecursorTXStoreadapter and sameSessiondefinitionguards; positives,
 all aliases/vector/TTL, race/rollback/context, tool propagation, profile/setup
 and actualinstalledrunner/reviews/rootacceptance remain pending.
+
+
+C06b first focused GREEN:14passed/120deselected4.31s at
+/private/tmp/c06b-secondary-first-green.log (root inspected actualoutput and
+productiondiff). Covers the initial realStore/definition token-revocation RED,
+not complete C06b. NewStore adapter uses caller-contextdirectasyncconveniences,
+explicitwriterTX, pureSELECTreadonlyGet and prepares externalembeddings before
+executionlocks; SQLentry revalidates originalauthority freshly. SyncAgent
+upsert retry revalidates afterrollback, remoteAgentdelete neverrmtree.
+Native isolatedPG availablevector extension0.8.6 confirmed via readonly catalog
+query; no newglobalinstall needed for actualvector tests. Full readiness types/
+PK/index/vectorconditions, positive/race/rollback/allaliases/context/actualtools,
+hostwiring/installedrunner/reviews/rootgates andC06c remain outstanding.
+
+
+Read-only next-C06c audit while singleimplementer completesC06b: actual
+MemoryManager factory returns globalcachedmanager before readingconfig and
+constructs via from_config(**host_hooks); remote must bind privateconfigured
+resources/preflight before unsafeconstructor orwarm effects. Memory CRUDtools
+catchordinaryexceptions into errorstrings; actualemergencysummarizationflush
+routes memory_flush_hook→add_nowait through SummarizationMiddleware._fire_hooks,
+which also swallows ordinaryexceptions. Typedownership rejection must survive
+these actualcallers. CurrentDeerMem queue coalesces by thread/user/agent and
+bypassflag, notattempt, rawTimer/shutdownThread do notcopycontext. Unsafefile
+profiles remainunsupported; adapted configuredrealPGbackend must demonstrate
+originalcapture, coalescing separation and shutdown/background stale-write fence.
+Added actualcaller map toC06c plan; noC06c implementation started or completion
+claimed, andno parallel sourceimplementation.
+
+
+C06b expanded actual-nativePG evidence (not acceptance):27passed/120deselected
+7.62s at /private/tmp/c06b-secondary-expanded2.log; legal sync/async writes,
+terminal TTL-disabled reads, missing/wrong resource scopes, readonly readiness
+and actual tool middleware rejection propagation. Earlier fixture/type failures
+were corrected and retained separately, never counted as behavior RED.
+Real vector/identity matrix24passed/147deselected6.69s at
+/private/tmp/c06b-vector-identity-matrix.log: native pgvector Store/vector rows,
+legal upsert/search/delete, late embedding revocation before SQL, and21 actual
+Store/Agent/Managed identity-change cases. Embedding fixture supplies vectors
+and a revocation callback only; persistence uses actual PostgreSQL tables.
+Store transaction matrix4passed/171deselected2.60s at
+/private/tmp/c06b-store-transaction-matrix.log: post-lock-wait expiry, actual
+stock SQL and guard share PID/TXID and block takeover until commit, and
+Exception/CancelledError after first real SQL roll back Store/vector rows.
+Root independently read test source and these logs. Remaining definition retry,
+file cleanup, actual ToolNode paths, readiness drift, Local regressions, frozen
+installed images, formal reviews and independent gates are still required.
+C06b/wholeC06/OpenSpec6.* unchecked; no remote activation or deployment.
+
+
+Read-only C06c extension caller audit: actual runner binds private_scope around
+plugin load/start/stop, but start_services passes the unrestricted SQLAlchemy
+session_factory through ExtensionRuntimeDeps. _notify_each and awaited
+_notify_each_on_extension_loop both contain ordinary exceptions; detached
+dispatch futures are removed by discard-only done callbacks. The C06c tests
+must exercise these real callers, preserve original scope/capability across
+cross-loop dispatch and cleanup, and surface/retain typed ownership rejection.
+Local contributor fail-open behavior remains separate. Added to the detailed
+plan; no C06c implementation or acceptance, C06b remains the sole source task.
+
+
+C06b complete native C01-C03/C05/C06a+b matrix400passed/0skips72.62s,
+/private/tmp/c06b-native-complete.log (root independently read output). Actual
+Agent loop4passed/189deselected2.83s at c06b-agent-loop-matrix.log: installed
+create_agent/model→ToolNode→ToolErrorHandlingMiddleware→real definition SQL;
+stale rejection stops before a second model call, legal calls complete both.
+Independent-connection guard negative control2passed/187deselected7.22s at
+c06b-store-negative-control.log; the same PID/TXID/takeover-blocking criterion
+fails for separately committed validation.
+
+Initial20-fileLocal aggregation:736passed/2skipped/2failed19.52s. One actual
+Local call compatibility regression introduced lock=False into the existing
+AgentStore._row patch; corrected by passing the lock keyword only for remote.
+The other middleware fixture aliased5 roles to one FakeMiddleware type and
+therefore violated real ordering. The unchanged oldHEAD reproduces the failure
+(c06b-existing-middleware-head-baseline.log:1failed1.37s); production source was
+restored byte-for-byte. Fixture now uses distinct subclasses per role, preserving
+production ordering/isinstance assertions. Two skips were live schema opt-in;
+Local rerun supplies DEERFLOW_TEST_POSTGRES_URL explicitly. Final Local, actual
+rebuilt installed images, formal reviews and root independent gates still pending.
+No C06b or wholeC06 acceptance/activation is claimed.
+
+
+Read-only C06c scheduler/MCP audit: handle_run_completion derives two IDs from
+RunRecord metadata and writes occurrence status and parent task in separate
+repository transactions. Each must validate actual original-run/owner/parent
+association, not trust metadata; revocation between calls belongs in the matrix.
+McpTaskRepository.create/create_idempotent already persist user/thread/run;
+runner tracking uses these original targets while host poll/cancel/notification
+leases remain separate. Added actual entrypoints to C06c plan; no source change
+or C06c implementation while the sole C06b implementer completes verification.
+
+
+C06b source-only review checkpoint: formal SPEC then QUALITY/SECURITY Approved,
+no must-fix, both independently inspected actual source/installed stock Store
+and start/end19source hashes. v3 source equals reviewedv2 byte-for-byte.
+Freeze /private/tmp/c06b-source-freeze-v3.json SHA256
+154178fa71c31582dc5ebe38c3e1da9248a38b6bc68eca8a197b1c8dc805155b.
+runner11c02fcf2ab8de66fb0effbc548a9375ca0e0708eace8b916fbb6bc723cb0590,
+providera7da031ac7932f0be37ffa7b626063e59003bbf87d76b5e3afa0786e3d639c75.
+Root independently verified all19 current hashes and reviewed installed-byte
+log:runner16production files including3packaged guides; provider2Fleet files
+and absent app/harness (/private/tmp/c06b-installed-bytes-proof.log).
+
+Final20-fileLocal740passed/0skips18.40s, independently read byroot at
+/private/tmp/c06b-local-neighbors-green.log. Initial build did not capture a
+verifiable prebuild hash file and is not claimed to have done so. Subsequent
+actual freeze→cache build checked all19hashes before/after; BuildKit attestation
+changed manifest-list identities despite cached layers. Consequentlyv3 binds
+new images and requires fresh matrix, not old image evidence.
+
+First installed matrix493pass/2fail136.21s remains failure evidence. Two C04
+checkpoint-negative fixtures defaulted to unsupported file definitions, so
+were minimally set to database definitions to isolate their original boundary.
+No production checks changed; v2/v3 include that exact test correction.
+Freshv3 installed matrix is pending (/private/tmp/c06b-installed-final-matrix
+.log/.xml); it showed an E during execution, final trace not yet available.
+Source approval is not runtime acceptance: any necessary source/test fix
+requires new freeze/delta reviews and affected gates. Root independent gates
+still await Docker release. C06b/mainC06/OpenSpec6.* remain unchecked and
+C06c/C07-C12/BC/remoteactivation/deployment remain pending.
+
+
+C06b v3→v5 review checkpoint: finalv3 matrix495passed but1teardownERROR
+154.05s remains failed evidence. Actual [end] test DROP SCHEMA deadlocked
+with this run's still-finishing journal transaction; root read the PG trace and
+existing sleep(0), which did not drain owned callbacks. The sole test delta
+captures its actualRunJournal and bounded-waits existing flush/progress tasks
+under asyncio.timeout(5), including replacement progress tasks. It never calls
+flush/retry, touches global tasks or retriesDDL; original before/row/fencing/
+finalization/end/cleanup assertions remain. Focused3passed/0skip2.54s at
+/private/tmp/c06b-owned-callback-cleanup.log.
+
+V5 /private/tmp/c06b-source-freeze-v5.json SHA256
+5a5ad256c4d219857d335fa0baede168721b887892aa052010be9e23e1c34546.
+Root verified19current hashes; only test_c06_remote_agent_runtime.py differs
+fromv3. Both formalSPEC thenQUALITY/SECURITY delta reviewsApproved with
+19source/JSON start/end hashes matching. The16installed production/guide files
+andbothv3images remain identical; fresh actualbytes matched again at
+/private/tmp/c06b-installed-bytes-v5.log. No acceptance of the failed matrix.
+Fresh complete495/XML is running session82499 at
+/private/tmp/c06b-installed-final-v5.log and.xml; root independent gates wait
+for its terminal result/Docker release. C06b/wholeC06 remain unchecked;
+C06c andlaterC/BC/activation/deployment remain pending.
+
+
+C06b accepted partial substep after formalSPEC thenQUALITY/SECURITY Approved
+(including v3→v5 actual-journal-drain delta), all19 start/end hashes matching.
+Final implementer matrix495passed/0skip/failure/error143.18s at
+/private/tmp/c06b-installed-final-v5.log/.xml, verified independently byroot.
+Local740/0skip18.40s retained at c06b-local-neighbors-green.log.
+Freeze /private/tmp/c06b-source-freeze-v5.json SHA256
+5a5ad256c4d219857d335fa0baede168721b887892aa052010be9e23e1c34546.
+runner11c02fcf2ab8de66fb0effbc548a9375ca0e0708eace8b916fbb6bc723cb0590,
+providera7da031ac7932f0be37ffa7b626063e59003bbf87d76b5e3afa0786e3d639c75.
+
+Root independent final driver exit0 session74637, freshprefix
+/private/tmp/fleet-c06b-root-final-: mutation199/0skip49.01s,
+checkpoint130/0skip20.75s, actualLinuxrunner92/0skip70.26s, C01-C0374/0skip
+8.10s; Local753/0skip17.93s plus realLocalPGschema2/0skip1.27s. Every
+required XML verified nonempty/no skipped/failure/error, all19 hashes verified
+before/after each gate. Blocking75/4.26s; boundaries74/2.53s; Ruffcheck and
+1421formatted; guidance24/0errors/1existingmiddleware softwarning96536bytes
+under98304hard; strictOpenSpec3/3 anddiffclean. Root fresh installedbyte proof
+matched16runner production/guide files and2providerFleetfiles, noapp/harness
+in independent fixture-provider image (fleet-c06b-root-final-installed-bytes.log).
+OriginalBimage untouched; fullB/fullbackend reserved for wholeC06 acceptance
+afterC06c, not claimed for this partial substep.
+
+Detailed C06b5checkboxes only now checked; mainC06/OpenSpec6.1-6.4 remain
+unchecked. C06c actualMemoryManager/extensions/scheduler/MCP is next; C07-C12
+andBC remain pending. No CIMPLEMENTED/archive/remoteactivation/deployment.
+Source commit records verified frozen Store/tool increment, not fullC06.

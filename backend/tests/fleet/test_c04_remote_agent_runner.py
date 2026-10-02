@@ -212,6 +212,10 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
         native_private = AppConfig.model_validate({**private, "database": {**private["database"], "postgres_url": db.host_url}})
         async with make_checkpointer(native_private):
             pass
+        from deerflow.runtime.store.async_provider import make_store
+
+        async with make_store(native_private):
+            pass
         public, _ = execution_configuration(AppConfig.model_validate(private))
         set_app_config(public)
         user = SimpleNamespace(id="user-c04", system_role="admin")
@@ -869,6 +873,7 @@ async def test_bootstrap_refuses_nonshared_checkpoint_before_loading_model_or_pl
     private = {
         "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"},
         "database": {"backend": "postgres", "postgres_url": "postgresql://runner:private@localhost/control"},
+        "agent_storage": {"backend": "db"},
         "checkpointer": {"type": legacy},
         "run_events": {"backend": "db"},
     }

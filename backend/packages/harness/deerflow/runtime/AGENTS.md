@@ -243,6 +243,9 @@ RunManager/worker mark rejected execution ownership lost without durable writes.
 Journal background/explicit flush retains the rejection even after a task's done
 callback; it must not rebuffer it for retry. Delivery receipt persistence stops on
 this rejection. Preserve ordinary transient retries and cleanup notifications.
-This covers primary SQL writes only: Store/definitions (C06b), memory/extensions/
-scheduler/MCP tracking (C06c) and remaining C/BC acceptance are still outstanding.
-Remote activation stays closed.
+C06b adds direct caller-context Store operations, same-cursor explicit TX,
+embeddings before locks, pure SELECT for TTL-disabled GET and read-only setup.
+Bound sync definitions revalidate after rollback/retry and reject file cleanup.
+See [Store/tool boundaries](../../../../../docs/ecs-fleet-development.md).
+C06b acceptance, C06c memory/extensions/scheduler/MCP and later C/BC remain
+pending. Remote activation stays closed.

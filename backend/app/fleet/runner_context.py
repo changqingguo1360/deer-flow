@@ -307,6 +307,8 @@ async def build_agent_environment(*, bootstrap, spec, grant):
     private = AppConfig.model_validate(bootstrap.operator_config)
     from .runtime import validate_remote_agent_shared_storage
 
+    if private.agent_storage.backend != "db":
+        raise ValueError("Remote Agent definitions require a fenced database backend")
     validate_remote_agent_shared_storage(private)
     if private.database.backend != "postgres" or not private.database.postgres_url or private.run_events.backend != "db":
         raise ValueError("Agent infrastructure requires shared Postgres and durable events")
@@ -332,10 +334,10 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         stack.push_async_callback(engine.dispose)
         sf = async_sessionmaker(engine, expire_on_commit=False)
         checkpointer = await stack.enter_async_context(make_checkpointer(private, write_fence=FleetCheckpointFence(bootstrap.identity, spec)))
-        store = await stack.enter_async_context(make_store(private))
         from deerflow.runtime.execution.mutation_context import remote_mutation_scope
 
         mutation_capability = FleetMutationCapability(bootstrap.identity, spec)
+        store = await stack.enter_async_context(make_store(private, mutation_capability=mutation_capability))
         repository = RunRepository(sf, mutation_capability=mutation_capability)
         manager = RunManager(store=repository, worker_id=bootstrap.identity.owner_worker_id)
         bridge = await stack.enter_async_context(make_stream_bridge(private))
@@ -346,7 +348,10 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             sync_engine = create_engine(private.database.app_sync_sqlalchemy_url, connect_args={"options": "-csearch_path=" + private.database.postgres_schema})
             stack.callback(sync_engine.dispose)
             sync_sf = sessionmaker(sync_engine, expire_on_commit=False)
-            definitions = (SqlAgentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf), SqlManagedSubagentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf))
+            definitions = (
+                SqlAgentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf, mutation_capability=mutation_capability),
+                SqlManagedSubagentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf, mutation_capability=mutation_capability),
+            )
         else:
             from deerflow.persistence.agents import make_agent_store
             from deerflow.persistence.managed_subagents import make_managed_subagent_store

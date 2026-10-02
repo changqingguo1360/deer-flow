@@ -72,3 +72,26 @@ async def validate_mutation(capability, session, operation, **target):
 def reject_remote_operation(capability):
     if capability is not None:
         raise OwnershipRejected("Remote mutation operation is unsupported")
+
+
+def validate_mutation_sync(capability, session, operation, **target):
+    if capability is not None:
+        capability.validate_sync(session, context=current_remote_mutation_context(), operation=operation, targets=(MutationTarget(**target),))
+
+
+def require_definition_mutation_scope(runtime):
+    """Reject lost private resources before a remote tool can fall back to files."""
+    from deerflow.persistence.agent_definition_context import get_scoped_definition_stores
+
+    stores = get_scoped_definition_stores()
+    resources = [getattr(runtime, "store", None), *(stores or ())]
+    contexts = [getattr(getattr(resource, "_mutation_capability", None), "context", None) for resource in resources]
+    bound = [context for context in contexts if isinstance(context, RemoteMutationContext)]
+    current = current_remote_mutation_context()
+    if not bound and current is None:
+        return False
+    if not bound or any(context != current for context in bound) or stores is None:
+        raise OwnershipRejected("Remote definition mutation scope is missing or inconsistent")
+    if any(not isinstance(getattr(getattr(store, "_mutation_capability", None), "context", None), RemoteMutationContext) for store in stores):
+        raise OwnershipRejected("Remote definitions require bound database stores")
+    return True

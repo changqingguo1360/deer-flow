@@ -18,4 +18,9 @@ def agent_definition_store_scope(agent_store, managed_subagent_store):
 
 
 def get_scoped_definition_stores():
-    return _stores.get()
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected, current_remote_mutation_context
+
+    stores = _stores.get()
+    if stores is None and current_remote_mutation_context() is not None:
+        raise OwnershipRejected("Remote definition stores are missing from the execution scope")
+    return stores

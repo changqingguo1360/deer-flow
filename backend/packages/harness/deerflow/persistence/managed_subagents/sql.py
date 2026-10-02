@@ -16,6 +16,8 @@ from deerflow.persistence.managed_subagents.base import (
     normalize_managed_subagent_name,
 )
 from deerflow.persistence.managed_subagents.model import ManagedSubagentRow
+from deerflow.runtime.execution.mutation_context import validate_mutation_sync
+from deerflow.runtime.user_context import get_current_user
 
 
 def _normalized_name(name: str) -> str:
@@ -23,9 +25,10 @@ def _normalized_name(name: str) -> str:
 
 
 class SqlManagedSubagentStore(ManagedSubagentStore):
-    def __init__(self, url: str, *, session_factory=None) -> None:
+    def __init__(self, url: str, *, session_factory=None, mutation_capability=None) -> None:
         self._url = url
         self._Session = session_factory if session_factory is not None else get_sync_sessionmaker(url)
+        self._mutation_capability = mutation_capability
 
     def cache_identity(self) -> Hashable:
         return ("db", self._url)
@@ -43,6 +46,11 @@ class SqlManagedSubagentStore(ManagedSubagentStore):
             rows = list(session.execute(select(ManagedSubagentRow).order_by(ManagedSubagentRow.name.asc())).scalars())
         return [ManagedSubagentDefinition.model_validate(row.definition) for row in rows]
 
+    def _validate_write(self, session, operation):
+        current = get_current_user()
+        user_id = str(current.id) if current is not None else self._mutation_capability.context.user_id if self._mutation_capability is not None else None
+        validate_mutation_sync(self._mutation_capability, session, operation, user_id=user_id)
+
     def create(self, definition: ManagedSubagentDefinition) -> None:
         row = ManagedSubagentRow(
             id=uuid.uuid4().hex,
@@ -51,6 +59,7 @@ class SqlManagedSubagentStore(ManagedSubagentStore):
         )
         try:
             with self._Session() as session:
+                self._validate_write(session, "definition.managed.create")
                 session.add(row)
                 session.commit()
         except IntegrityError as exc:
@@ -58,7 +67,11 @@ class SqlManagedSubagentStore(ManagedSubagentStore):
 
     def update(self, definition: ManagedSubagentDefinition) -> None:
         with self._Session() as session:
-            row = session.execute(select(ManagedSubagentRow).where(ManagedSubagentRow.name == definition.name)).scalar_one_or_none()
+            self._validate_write(session, "definition.managed.update")
+            statement = select(ManagedSubagentRow).where(ManagedSubagentRow.name == definition.name)
+            if self._mutation_capability is not None:
+                statement = statement.with_for_update()
+            row = session.execute(statement).scalar_one_or_none()
             if row is None:
                 raise FileNotFoundError(f"Managed subagent not found: {definition.name}")
             row.definition = definition.model_dump(mode="json")
@@ -67,6 +80,7 @@ class SqlManagedSubagentStore(ManagedSubagentStore):
     def delete(self, name: str) -> bool:
         normalized = _normalized_name(name)
         with self._Session() as session:
+            self._validate_write(session, "definition.managed.delete")
             result = session.execute(delete(ManagedSubagentRow).where(ManagedSubagentRow.name == normalized))
             session.commit()
         return result.rowcount > 0
