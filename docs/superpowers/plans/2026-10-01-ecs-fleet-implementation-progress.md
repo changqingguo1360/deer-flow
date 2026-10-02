@@ -1507,3 +1507,14 @@ Detailed C06b5checkboxes only now checked; mainC06/OpenSpec6.1-6.4 remain
 unchecked. C06c actualMemoryManager/extensions/scheduler/MCP is next; C07-C12
 andBC remain pending. No CIMPLEMENTED/archive/remoteactivation/deployment.
 Source commit records verified frozen Store/tool increment, not fullC06.
+
+
+C06b verified source commit:f159703d126aa5ed71e063653b7ba88f1be86ac9
+(feat(fleet): fence remote Store and Agent definitions), explicit20files;
+worktree clean immediately after commit and all19 frozen hashes still matched
+that exact source commit. V5 image/installed-byte proofs are anchored to that
+verified commit. This receipt updates only the packaged guidance's verification
+status caption from pendingC06b to pendingC06; no technical contract/production
+code changes or image revalidation claim. Next C06c build will freeze its updated
+guidance normally. C06a/b partial substeps accepted; full C06/OpenSpec6.* stay
+unchecked, C06c is next, C07-C12/BC andactivation/deployment still pending.

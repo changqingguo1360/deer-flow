@@ -247,5 +247,5 @@ C06b adds direct caller-context Store operations, same-cursor explicit TX,
 embeddings before locks, pure SELECT for TTL-disabled GET and read-only setup.
 Bound sync definitions revalidate after rollback/retry and reject file cleanup.
 See [Store/tool boundaries](../../../../../docs/ecs-fleet-development.md).
-C06b acceptance, C06c memory/extensions/scheduler/MCP and later C/BC remain
+C06 acceptance, C06c memory/extensions/scheduler/MCP and later C/BC remain
 pending. Remote activation stays closed.
