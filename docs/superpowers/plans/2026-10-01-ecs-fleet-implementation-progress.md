@@ -1039,3 +1039,7 @@ Original B image sha256:c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8
 was not rebuilt. This is local Docker/PostgreSQL acceptance, not production ECS
 or user-facing activation. The slice contains this evidence; exact commit is
 recorded after committing. The full C change is not IMPLEMENTED or archived.
+
+C04 verified implementation commit: `991a97fd0f3c5b3a6216124c5327d88b5ff48f95`. Post-document boundary/thread checks
+74 passed/0 skipped (2.66s); OpenSpec3/3 and diffcheck clean. All52 frozen source
+hashes match the independently verified snapshot. C05-C12 and BC remain pending.
