@@ -101,7 +101,7 @@ class FleetRunOwnership:
                     node_session_id=node_session_id,
                     token_hash=hashlib.sha256(token.encode()).hexdigest(),
                     state="claimed",
-                    launch_spec=spec.canonical_payload(),
+                    launch_spec={"kind": "agent", "launch_spec": spec.canonical_payload(), "execution_profile": profile.model_dump(mode="json"), "input_limits": {"max_input_bytes": self.config.max_input_bytes}},
                     output_prefix=f"{spec.user_id}/{spec.thread_id}/agents/{task.id}/attempts/{attempt_id}",
                     lease_expires_at=expiry,
                     execution_deadline=spec.execution_deadline,
@@ -118,9 +118,74 @@ class FleetRunOwnership:
                 return AgentClaim(run_id, task.id, attempt_id, token, (expiry - now).total_seconds(), run.owner_worker_id, spec.canonical_payload())
         return None
 
-    async def renew(self, *, running=False, **identity):
+    @staticmethod
+    def grant(rows, now):
+        task, run, placement, node, reservation, attempt = rows
+        envelope = attempt.launch_spec
+        if envelope.get("kind") != "agent" or "execution_profile" not in envelope:
+            raise ValueError("Frozen Agent execution profile required")
+        return {
+            "authorized": True,
+            "kind": "agent",
+            "node_id": node.id,
+            "node_session_id": attempt.node_session_id,
+            "run_id": run.run_id,
+            "agent_task_id": task.id,
+            "generation": task.generation,
+            "attempt_id": attempt.id,
+            "owner_worker_id": run.owner_worker_id,
+            "process_ref": attempt.process_ref,
+            "launch_spec": envelope["launch_spec"],
+            "execution_profile": envelope["execution_profile"],
+            "input_limits": envelope["input_limits"],
+            "lease_seconds_remaining": max(0, (attempt.lease_expires_at - now).total_seconds()),
+            "execution_seconds_remaining": max(0, (attempt.execution_deadline - now).total_seconds()),
+        }
+
+    async def authorize_start(self, **identity):
         async with self.sf.begin() as session:
             rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, **identity)
+            task, run, placement, node, reservation, attempt = rows
+            if node.admin_state == "disabled" or task.cancel_requested_at is not None or run.cancel_action is not None:
+                raise ValueError("Execution cancellation requested")
+            if attempt.start_authorized_at is None:
+                attempt.start_authorized_at = now
+                attempt.process_ref = "fleet-" + attempt.id
+                attempt.state = "starting"
+            await session.flush()
+            return self.grant(rows, now)
+
+    async def stopped(self, *, reason, exit_code, process_ref, physical_stopped=False, **identity):
+        from deerflow_ecs_fleet.persistence.reservations import release_stopped
+
+        if physical_stopped is not True:
+            raise ValueError("Trusted node physical stop proof required")
+        async with self.sf.begin() as session:
+            rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, require_lease=False, **identity)
+            task, run, placement, node, reservation, attempt = rows
+            if attempt.process_ref != process_ref or process_ref != "fleet-" + attempt.id:
+                raise ValueError("Physical stop execution identity mismatch")
+            if attempt.stopped_at is not None:
+                return {"state": placement.state, "stopped": True}
+            attempt.stopped_at = now
+            attempt.outcome = {"exit_code": exit_code, "stop_reason": reason}
+            uncertain = attempt.state in {"unknown", "quarantined"} or placement.state == "unknown" or reason != "exit" or attempt.lease_expires_at <= now
+            if uncertain:
+                attempt.state = placement.state = task.state = "unknown"
+            elif run.status in {"success", "error", "interrupted", "timeout"}:
+                result = {"success": "succeeded", "error": "failed", "interrupted": "cancelled", "timeout": "timed_out"}[run.status]
+                placement.state = task.state = result
+                attempt.state = "expired" if result == "timed_out" else result
+                attempt.finished_at = now
+            else:
+                attempt.state = placement.state = task.state = "unknown"
+            await release_stopped(session, attempt)
+            await session.flush()
+            return {"state": placement.state, "stopped": True}
+
+    async def renew(self, *, running=False, **identity):
+        async with self.sf.begin() as session:
+            rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, allow_terminal_run=not running, **identity)
             task, run, placement, node, reservation, attempt = rows
             if node.admin_state == "disabled" or task.cancel_requested_at is not None or run.cancel_action is not None:
                 return {"stop": True, "reason": "cancel_requested"}
@@ -133,7 +198,7 @@ class FleetRunOwnership:
                 attempt.started_at = attempt.started_at or now
                 reservation.state = "active"
             await session.flush()
-            return {"stop": False, "run_id": run.run_id, "attempt_id": attempt.id, "owner_worker_id": run.owner_worker_id, "lease_expires_at": expiry.isoformat(), "lease_seconds_remaining": (expiry - now).total_seconds()}
+            return {"stop": False, **self.grant(rows, now), "lease_expires_at": expiry.isoformat()}
 
 
 def install_fleet_ownership(app, session_factory):

@@ -300,9 +300,9 @@ class SkillStorage(ABC):
         # to enabled when no explicit config entry exists (so newly
         # installed skills appear active without requiring a manual toggle).
         try:
-            from deerflow.config.extensions_config import ExtensionsConfig
+            from deerflow.config.extensions_config import ExtensionsConfig, get_scoped_extensions_config
 
-            extensions_config = ExtensionsConfig.from_file()
+            extensions_config = get_scoped_extensions_config() or ExtensionsConfig.from_file()
             skills = [dataclasses.replace(s, enabled=extensions_config.is_skill_enabled(s.name, s.category)) for s in skills]
         except Exception as e:
             logger.warning("Failed to load extensions config: %s", e)

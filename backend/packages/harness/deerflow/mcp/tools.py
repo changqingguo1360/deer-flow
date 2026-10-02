@@ -14,7 +14,7 @@ from urllib.parse import unquote, urlparse
 from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.config import get_config
 
-from deerflow.config.extensions_config import ExtensionsConfig, McpServerConfig, resolve_effective_mcp_routing
+from deerflow.config.extensions_config import ExtensionsConfig, McpServerConfig, get_scoped_extensions_config, resolve_effective_mcp_routing
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, Paths, get_paths
 from deerflow.constants import DEFAULT_MCP_SESSION_INIT_TIMEOUT, MCP_TMP_SUBDIR
 from deerflow.mcp.client import build_servers_config
@@ -762,7 +762,9 @@ async def get_mcp_tools() -> list[BaseTool]:
     # to always read the latest configuration from disk. This ensures that changes
     # made through the Gateway API (which runs in a separate process) are immediately
     # reflected when initializing MCP tools.
-    extensions_config = ExtensionsConfig.from_file()
+    extensions_config = get_scoped_extensions_config()
+    if extensions_config is None:
+        extensions_config = ExtensionsConfig.from_file()
     validate_mcp_task_config_snapshot(extensions_config)
     servers_config = build_servers_config(extensions_config)
 

@@ -23,9 +23,9 @@ def _normalized_name(name: str) -> str:
 
 
 class SqlManagedSubagentStore(ManagedSubagentStore):
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, *, session_factory=None) -> None:
         self._url = url
-        self._Session = get_sync_sessionmaker(url)
+        self._Session = session_factory if session_factory is not None else get_sync_sessionmaker(url)
 
     def cache_identity(self) -> Hashable:
         return ("db", self._url)

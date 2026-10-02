@@ -234,3 +234,41 @@ Agent read/reconcile endpoint or physical-stop capacity release is claimed here.
 Raw github_token is now rejected in LaunchSpec, matching the existing runtime-only
 credential field; Local execution is unchanged. Future runner credential resolution
 must use out-of-band references. Gateway agents_enabled remains fail closed.
+
+
+## C04 locally verified runner interfaces
+
+The host wheel exposes
+`deerflow.fleet.agent_environment:gateway` through installed entry-point metadata.
+Operator worker settings select the provider; LaunchSpec and client inputs cannot.
+The optional Fleet package discovers the bridge without importing app directly.
+Nonsecret preflight calls the same selected factory's worker_compatibility(); missing,
+ambiguous and unfit providers fail closed, including in an image without Gateway app.
+The bridge builds real SQL/checkpointer/event/definition resources and the existing
+RunContext. AgentRunner attaches the admitted run and invokes the existing
+`run_agent(run_manager=...)` with the complete frozen execution parameters.
+
+Private operator bootstrap is delivered through bounded stdin to an isolated
+Linux `python -I -S` stdlib entrypoint. Nondumpable/core-limit protection precedes
+site/package/provider loading; stdio is closed/reset before tools. Model secrets,
+MCP configuration and definition stores use trusted scopes. Public AppConfig
+contains neither control connection credentials nor private MCP authentication.
+Installed provider code, model bindings, bundled skills and activated plugin
+distributions participate in actual runtime compatibility. Ordinary Local defaults
+retain their existing behavior outside those scopes.
+
+Agent start authorization freezes the execution profile while Core remains pending;
+the actual owned SQL start is the transition to running. Attachment/start locks the
+actual row first, then checks clock_timestamp() in the same transaction; a lock wait
+cannot extend an expired lease. PG/Redis driver parsing excludes decoded, query and
+legacy control passwords from private MCP argv/env without requiring Redis when absent. Terminal Core cleanup
+may renew only the same live authorized physical owner within the original bounded
+leases/deadlines, without changing terminal status. Physical stopped proof precedes
+reservation release. A private daemon recovery journal may retain its original
+claim bearer in owner-only control state, never on an execution/NAS mount.
+
+These C04 interfaces have local acceptance; the full C release is incomplete. Gateway activation
+remains closed; C05/C06 mutation fences, C07 event replay, C08 publication and C09
+complete cancellation/recovery still follow. The retained B image and job wire must
+continue to pass unchanged. See the OpenSpec tasks and implementation progress for
+verified evidence; container tests do not establish production ECS deployment.

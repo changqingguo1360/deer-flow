@@ -818,3 +818,224 @@ capacity, legacy defaults remain jobs, and accepted renewal survives closed flag
 No migration change. Raw runtime github_token now requires out-of-band references.
 Gateway activation stays closed. C04 runner, complete cancellation/physical stop,
 Agent read/reconcile and all remaining C/BC work are outstanding.
+
+
+C03 implementation and verification commit: 65600e04.
+
+## C04 preparation — 2026-10-02
+
+C03 is committed. Preparing actual harness run_agent reuse with trusted attachment
+to the already admitted SQL run, complete RunContext bootstrap and an independent
+worker process. C04 is not implemented or checked off. Tool execution must not see
+control database/node/Redis credentials through context, environment, files or process
+inspection. The existing host LocalSandbox is not claimed as a filesystem boundary.
+Linux non-dumpable hardening is under evaluation alongside clean bootstrap/FD and
+configuration isolation; actual container probes are required before claiming it.
+Relevant primary documentation:
+[Linux Yama](https://www.kernel.org/doc/html/latest/admin-guide/LSM/Yama.html),
+[PR_SET_DUMPABLE](https://www.man7.org/linux/man-pages/man2/PR_SET_DUMPABLE.2const.html),
+[proc environ](https://www.man7.org/linux/man-pages/man5/proc_pid_environ.5.html).
+Gateway activation remains closed through this preparation.
+
+
+C04 preparation probe (not runner acceptance): /private/tmp/fleet-c04-linux-isolation-probe.py
+and .log ran in the unchanged retained B image with --user65534:65534,
+--cap-dropALL, --security-optno-new-privileges, --networknone and read-only root.
+A same-UID child could open runner /proc environ/fd/mem in the negative control;
+after PR_SET_DUMPABLE=0 and RLIMIT_CORE=(0,0), all three reads returned PermissionError.
+The test used a fake memfd control value, no real credentials; --rm removed its
+container. This establishes only the proposed Linux process barrier. Actual clean
+bootstrap, configuration/file/environment boundaries, trusted attachment and full
+lead graph/tool execution still require C04 tests.
+
+
+## C04 started — 2026-10-02
+
+Locked the actual runner/bootstrap/attachment/start-stop interfaces in
+openspec/ecs-fleet-contracts.md. Proceeding with TDD using the real harness execution
+path and Linux container credential probes. The C04 checkbox remains unchecked;
+the earlier probe proves only process protection. Complete C05/C06 durable write
+fences, C09 operations and later acceptance still precede Gateway activation.
+
+
+### C04 real runner integration — in progress
+
+Actual NodeDaemon TCP claim/start reached a separately installed Linux runner and
+reported container PID1 readiness. The first adapter called real run_agent with the
+wrong manager keyword; corrected to run_manager. Its retained adapter-contract
+failure is /private/tmp/c04-runner-adapter-red.log, not full graph acceptance.
+Subsequent real graph execution reached artifact-delivery enforcement: a scripted
+final response omitted the produced artifact links. The fixture is being corrected
+against that existing contract; the delivery policy is not bypassed.
+
+/private/tmp/c04-basic-e2e.log and c04-runner-last-diagnostic.log are mutable live
+diagnostics, not final evidence. SCRAM PostgreSQL integration, Local/Fleet parity,
+subagent/resource/credential probes, full runtime resources, actual bundle snapshots
+and review/regression gates remain outstanding. C04 checkboxes remain unchecked.
+
+
+C04 basic chain subsequently passed: /private/tmp/c04-basic-e2e-green.log,
+1 passed / 0 skipped / 2 dependency warnings (12.47s). Observed actual NodeDaemon
+TCP claim/start, independent Linux container readiness, real lead graph and task
+subagent parent/child artifact bytes, successful SQL run, persisted events and
+checkpoints, stopped container and released reservation. This single basic scenario
+is not complete C04 acceptance: Local parity, resource/credential negative probes,
+full bootstrap resources, snapshot derivation and reviews/regressions remain pending.
+
+
+C04 enhanced resource integration exposed sync definition stores querying the wrong
+PostgreSQL schema. Root preserved /private/tmp/fleet-c04-schema-red.log and private
+fleet-c04-schema-diagnostic.log from the completed failing run (8.07s). These are
+resource diagnostics, not complete requirements RED/GREEN. Actual optional trusted
+session_factory constructors and a host-owned schema-aware sync engine are present;
+container re-verification remains pending. Operator file/db selection must remain
+honest. The active implementation also bridges scoped skill state/projection and
+actual MCP toolset discovery instead of depending on a raw configuration mount.
+
+
+C04 actual MCP cleanup revealed a lifecycle failure: Core success was already
+persisted, but active-only renewal rejected the same still-cleaning physical owner.
+Retained SQL behavior RED: /private/tmp/c04-terminal-cleanup-red.log,
+1 failed (1.75s). After adding the narrowly bounded terminal-cleanup renewal,
+the same test passed /private/tmp/c04-terminal-cleanup-green.log,
+1 passed / 0 skipped (1.61s). Terminal Core status is preserved; original identity,
+start authorization, generation and identical live leases remain required.
+Physical stop still precedes reservation release. C05/C06 durable write fencing
+and complete C09 recovery are not claimed by this renewal.
+
+The implementer reported a subsequent enhanced real-container resource pass
+(14.47s), but /private/tmp/c04-resources-e2e.log is a mutable diagnostic reused
+during Local parity work; it is not final retained acceptance evidence. Local parity
+must avoid backend/tests/conftest.py's deliberate mock executor, and independently
+execute the real graph/subagents. C04 remains unchecked pending source freeze,
+full retained behavioral evidence, two-stage review and independent regression gates.
+
+
+C04 enhanced resources/Local parity diagnostic subsequently passed:
+1 passed / 0 skipped / 2 dependency warnings (23.57s). Root retained a private
+non-overwriting log copy at
+/private/tmp/fleet-c04-parity-resources-observed-green-2357.log.
+The acceptance scenario now includes a fresh Native subprocess running the real
+lead/subagent stack, actual message/tool/usage comparison and PostgreSQL checkpoint
+state/references plus artifact bytes. Container probes check numeric nonroot UID,
+PID namespace, cgroup, denied process inspection and specific SCRAM authentication
+failure; background-child output stops and a repeated launch keeps StartedAt.
+These assertions still require final frozen-source attribution and independent
+re-execution. Plugin lifecycle, failed-bootstrap/one-shot matrix, formal two-stage
+review and regression gates are outstanding; C04 remains unchecked.
+
+Models/config/MCP/skills module guides now describe trusted private execution
+scopes and their Local fallback behavior. They explicitly distinguish C04 plumbing
+from the later durable mutation fences and retain closed remote admission.
+
+
+C04 plugin/failed-bootstrap scenarios passed before final input binding:
+2 passed / 0 skipped / 2 known dependency warnings (29.27s); root retained
+/private/tmp/fleet-c04-plugin-once-observed-green-2927.log. The source is still
+mutable and complete acceptance/reviews/gates remain pending.
+
+An implementation audit identified an unimplemented initial workspace input:
+prepare_workspace created an isolated directory but did not resolve the immutable
+workspace_manifest_ref. This is a C04 full-runtime input requirement, not completed
+by creating an empty directory. A trusted approved Agent snapshot resolver and real
+workspace/uploads consumption tests are now required by the shared contract.
+C08 still owns checkpoint/workspace joint recovery and publication; it is not
+implicitly completed by this initial input bridge. No C04 completion checkbox changed.
+
+
+C04 source-freeze checkpoint (not acceptance): 49 implementation/fixture files
+matched /private/tmp/c04-source-freeze.json during root inspection. Child retained
+full matrix64 passed/0 skipped/2 warnings (51.82s),
+/private/tmp/c04-final-full-matrix.log, and neighbors781 passed/0 skipped/4 warnings
+(23.74s), /private/tmp/c04-final-neighbor-regression.log. Image:
+sha256:f77a6e7c3d2be847ad7ae10dd8a24b21fbb3f8b7a16aef45d44cda919a7cf1b6.
+These are implementer observations, not root independent acceptance.
+
+Formal read-only spec review is in progress and identified a concrete preflight
+issue: AgentContainers.compatibility directly imports app.fleet.runner_context
+instead of honoring the installed operator-selected environment provider. Frozen
+source is awaiting the reviewer's full findings before repairs. Quality review,
+root independent gates and slice commit remain outstanding; C04 tasks stay unchecked.
+
+
+Formal C04 spec review returned one P2 blocker and no approval: compatibility
+preflight hardcodes the Gateway host import. Repair is in progress using the same
+selected installed factory's worker_compatibility() interface, without changing its
+async bootstrap call shape. An installed non-Gateway provider/image without app
+must execute this query; missing/ambiguous/unfit metadata must reject. Source freeze
+will be renewed after behavior tests, image rebuild and full matrix. Quality review
+has not started, root independent acceptance is outstanding, and C04 remains unchecked.
+
+
+C04 provider repair source freeze: root verified all52 source hashes against
+/private/tmp/c04-provider-fix-source-freeze.json; original49file evidence was retained.
+Actual installed non-Gateway provider preflight RED1failed/5passed/64deselected
+(7.45s), /private/tmp/c04-provider-behavior-red.log. The valid alternate wheel in
+an actual image without app/harness was rejected by the old hardcoded host import.
+The repair queries the selected installed factory's worker_compatibility().
+Missing/ambiguous/unfit/invalid/noncallable providers reject; private bootstrap is
+not read by the hardened compatibility-only entry.
+
+Child full revised matrix70 passed/0 skipped/2 warnings (75.45s),
+/private/tmp/c04-provider-fix-full-matrix.log; related C01-C03/boundary75 passed/
+0 skipped/2 warnings (18.86s), /private/tmp/c04-provider-fix-neighbor.log. The previous
+781-neighbor run belongs to the original freeze, not this changed provider source.
+Runner image sha256:2bd67fcdb64314160ac272085e2614de2596a140cedf2d813e9ab3f25699123d;
+standalone provider image sha256:12599383dcb5516edb51fb0c13f5cd69a0c0c020e9c7a139d730beba67954431.
+Docker window released. Formal spec re-review is running; quality review and root
+independent gates have not run. C04 remains unchecked and uncommitted.
+
+Root preparatory documentation checks: strict OpenSpec3/3 and changed-guide checker
+24 AGENTS.md/0 errors/0 warnings. These do not constitute runtime acceptance.
+
+
+C04 provider spec re-review approved the renewed52file freeze. Quality/security
+review then returned NOT APPROVED with two P1 defects: owned-start/attachment uses
+transaction-start current_timestamp(), permitting a lock wait to outlive the lease;
+private MCP credential exclusion misses URL-decoded and query/legacy connection
+passwords. Repairs require actual PostgreSQL lock-wait RED/GREEN for both entry
+points and encoded/query/control-source credential regressions. No C04 checkbox
+or completion/commit was made.
+
+Independent root observations on the provider-fix52file source: actual runner70
+passed/0 skipped/2 warnings (62.02s), /private/tmp/fleet-c04-root-runner.log/.xml;
+C01-C03 PostgreSQL74 passed/0 skipped/2 warnings (11.43s),
+/private/tmp/fleet-c04-root-c01-c03.log/.xml. These do not prove the two missing
+regressions. Further root acceptance was stopped after quality findings. B gate
+was deliberately SIGINT-interrupted at20passed (139.20s),
+/private/tmp/fleet-c04-root-b-gate.log; this is NOT B acceptance or a regression
+failure. Orchestrator exited and Docker window released. Full backend/lint/root
+remaining gates did not run. Repairs/re-freeze/reviews/independent acceptance remain
+necessary; source and dual-image attribution will use fresh evidence paths.
+
+
+## C04 independent local acceptance — 2026-10-02
+
+Formal spec and quality/security re-review approved the final52file freeze.
+The two P1 repairs have actual PG unchanged-row lock-wait and decoded/query/legacy
+credential RED/GREEN evidence. Original genuine REDs and the intermediate optional
+Redis loading regression remain separate, retained logs; no fixture failure or
+API absence was counted as a behavioral RED. Redis parsing stays lazy, with no
+new dependency version. Gateway activation is still closed; C05-C12/BC are pending.
+
+Child final92/0/2warnings76.10s and related313/0/3warnings17.14s:
+/private/tmp/c04-clock-secret-fix-final-full-matrix.log and final-neighbor.log.
+Root final runner92/0 (61.67s), C01-C03
+74/0 (11.30s), unchanged retained-image B gate
+259/0 (120.37s), with actual required PostgreSQL and
+container scenarios independently executed without skips. All root logs/XML use
+/private/tmp/fleet-c04-root-final-*. Full backend: 13287 passed, 261 skipped, 1 deselected, 19 warnings in 274.70s (0:04:34)
+Blocking-I/O75/0 (4.01s), boundary/thread
+74/0 (2.41s). Full backend Ruff clean,
+final guidance0errors/4 existing soft chain-size warnings, strict OpenSpec3/3 and
+diffcheck clean. The same four warning paths/codes exist in parent HEAD; no new
+warning category/path. Strict-warnings is not reported as passing. Final make
+format left all1414 Python files unchanged.
+Optional default-suite skips do not replace the independently run required cases.
+
+Immutable runner sha256:d553a22390438717b7c19a8c417eeb53f393ddc981693cb454afeaba3c792d00; alternate provider sha256:c95135de1a1383c9239c859026fea0d64b2ad37e0e8b1b30d472b58752c77ed8.
+Exact source/image binding: /private/tmp/c04-clock-secret-fix-source-freeze.json.
+Original B image sha256:c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8
+was not rebuilt. This is local Docker/PostgreSQL acceptance, not production ECS
+or user-facing activation. The slice contains this evidence; exact commit is
+recorded after committing. The full C change is not IMPLEMENTED or archived.

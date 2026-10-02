@@ -1611,9 +1611,13 @@ persistence prerequisites. C02 adds a trusted execution-backend contract and ato
 core run/Fleet admission in one SQL transaction; remote admission creates no local
 execution task. C03 joins Agent attempt/run ownership and lease renewal atomically,
 shares node CPU/memory/Agent capacity, and excludes remote runs from local recovery.
-Explicit Agent node profiles require positive Agent capacity. Gateway still rejects
-agents_enabled until the complete
-runner and fenced persistence are implemented. Remote Agent runs are not available
+Explicit Agent node profiles require positive Agent capacity. C04 now has local
+acceptance for a complete Linux runner using the existing run_agent loop, shared
+PostgreSQL resources and private model/MCP configuration. Real lead/subagent/tool
+execution matches an independent Local run; immutable input snapshots, guarded
+bootstrap, one-shot launch and physical-stop capacity release are covered. Gateway
+still rejects agents_enabled until the remaining fenced persistence, recovery and
+routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

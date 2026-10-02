@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 及后续待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；后续待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -291,41 +291,48 @@ git commit -m "feat(fleet): c03 统一 claim 与 run ownership 续约"
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/worker/agent_environment.py`
 - Create: `backend/app/fleet/runner_context.py`
 - Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/worker/daemon.py`
-- Modify: `backend/packages/harness/deerflow/runtime/runs/worker.py`
-- Test: `backend/tests/fleet/test_c04_remote_agent_runtime.py`
+- Reuse unchanged: `backend/packages/harness/deerflow/runtime/runs/worker.py`
+- Test: `backend/tests/fleet/test_c04_remote_agent_runner.py`
 - Docs: `README.md`、`backend/AGENTS.md`；涉及前端时同步 `frontend/AGENTS.md`。
 
 **OpenSpec:** `remote-agent-runtime` / `Full runtime execution on worker`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 同一 scripted 模型与输入分别运行 Local/Fleet；比较最终消息、usage、checkpoint 引用、artifact 内容；记录 runner PID/host，不以单个 mock graph 代替。
+- [x] **Step 1 — 场景搭建与失败测试。** 同一 scripted 模型与输入分别运行 Local/Fleet；比较最终消息、usage、checkpoint 引用、artifact 内容；记录 runner PID/host，不以单个 mock graph 代替。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
 ```python
-import pytest
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_c04_contract(fleet_probe):
-    observed = await fleet_probe.exercise("C04")
-    assert observed['remote_model_location'] == 'worker'
-    assert observed['local_remote_results_equal'] == True
-    assert observed['tool_db_credentials'] == False
+# Actual scenario:
+# test_actual_daemon_runs_real_lead_graph_in_independent_linux_container[parity]
+assert ready["host"] != socket.gethostname()
+assert parity["local"] == parity["remote"]  # actual messages/tool calls/usage
+assert parity["todos_equal"] and parity["has_parent_refs"]
+assert parity["artifacts"] == actual_remote_artifact_bytes
+assert all(probe[key] == "denied" for key in (
+    "environ", "fd", "mem", "ptrace", "db_without_password", "db_wrong_password"
+))
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_c04_remote_agent_runtime.py::test_c04_contract -vv
+PYTHONPATH=. uv run pytest tests/fleet/test_c04_remote_agent_runner.py::test_actual_node_start_freezes_agent_authorization_without_starting_core_run -vv
 ```
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+C04 的实际失败入口还包括 workspace 引用、terminal cleanup 与模型绑定/凭据
+隔离负控；证据以保留的日志为准。完整容器测试必须显式设置
+TEST_POSTGRES_URI、FLEET_TEST_CONTAINERS=1 和 FLEET_AGENT_TEST_IMAGE 为实际核验的
+不可变镜像，并具备 Local 对比所需的锁定 postgres extra。缺少依赖、环境或
+Docker opt-in 的 skip 不构成验收。上述代码是实际观测断言摘要，不是影子图或
+不存在的 fleet_probe fixture。
+
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # runner bootstrap builds RunContext, stores, identity and complete normalized config.
-# await run_agent(bridge, manager, record, ctx=ctx, agent_factory=factory,
+# await run_agent(bridge=bridge, run_manager=manager, record=record, ctx=ctx, agent_factory=factory,
 #                 graph_input=spec.input, config=spec.config,
 #                 stream_modes=spec.stream_modes, stream_subgraphs=spec.stream_subgraphs,
 #                 interrupt_before=spec.interrupt_before, interrupt_after=spec.interrupt_after)
@@ -334,23 +341,33 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c04_remote_agent_runtime.py::test_c0
 
 实施代码必须逐项传递 stream_modes/stream_subgraphs/interrupt_before/interrupt_after，不能复制第二套 graph 执行栈。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_c04_remote_agent_runtime.py -vv
+PYTHONPATH=. uv run pytest tests/fleet/test_c04_remote_agent_runner.py -vv
 PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 ```
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): c04 启动复用 run_agent 的完整 runner"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `4.1` 至 `4.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `4.1` 至 `4.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
+
+
+C04 locked implementation scope also includes trusted RunManager attachment,
+worker/client.py and bootstrap entry, Agent Docker/container adapter, minimal
+host ownership authorize_start/stopped and node route dispatch, plus actual
+Linux runner image/test fixtures. These are necessary to reuse the existing
+daemon/watchdog/journal, not a second runtime. See the C04 shared contract.
+Control credentials use private FD bootstrap, redacted tool configuration and
+verified Linux non-dumpable process protection; pure environment filtering is
+insufficient. Required container/full graph tests cannot be replaced by mocks.
 ### Task C05: 实现 checkpoint 事务内 fencing
 
 **Files:**
@@ -876,7 +893,7 @@ git commit -m "feat(fleet): c12 C 故障验收门槛"
 本计划按 inline executing-plans 交接，不自动发起子代理或开始实施。用户要求开始后，先执行 B01。
 
 
-C execution prerequisite: B local acceptance passed 2026-10-02. C01 foundation is locally verified at d0ebd0f8; C02 is locally verified at 9a60c310; C03 is locally verified and C04/later tasks remain unexecuted. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
+C execution prerequisite: B local acceptance passed 2026-10-02. C01 foundation is locally verified at d0ebd0f8; C02 is locally verified at 9a60c310; C03 is locally verified at 65600e04; C04 runner implementation has passed formal spec/quality review and independent local acceptance; C05-C12 remain outstanding. C01 adds f0007 after actual f0006, preserving f0002_launch_spec.
 
 ### C01 foundation clarification
 

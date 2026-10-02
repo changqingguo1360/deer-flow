@@ -165,4 +165,20 @@ records have no Gateway owner or lease and create no local asyncio task.
 C03 ownership adds SQL local eligibility for absent/local server-owned
 backend labels, plus a trusted host predicate applied to scans and mutations. Remote
 hydration preserves its label; store_only requires valid nonlocal admission output.
-Later runner fences remain pending; Gateway remote activation remains closed. See the Fleet development guide for the app adapter and input codec.
+Later durable write fences remain pending; Gateway remote activation remains closed. See the Fleet development guide for the app adapter and input codec.
+
+
+### Trusted existing-executor attachment (C04 locally verified)
+
+`RunManager.attach_existing_executor` verifies a previously admitted SQL run's
+user/thread/backend/owner and live pending lease, then registers it through the
+normal manager index. It neither admits another run nor starts a Local heartbeat.
+The existing `run_agent` still calls the store's real `try_start`; nonlocal
+SQL start rechecks pending state, owner and lease against database time.
+The actual keyword is `run_manager`. Preserve the complete graph input,
+normalized config, stream modes, subgraph flag, interrupts and recursion budget.
+
+The host supplies private identity, resources and agent factory through the
+installed runner bridge. Harness remains independent of Fleet/app. This attachment
+is not C05 checkpoint fencing or C06 durable finalizer protection, and remote
+activation stays closed pending the remaining slices.

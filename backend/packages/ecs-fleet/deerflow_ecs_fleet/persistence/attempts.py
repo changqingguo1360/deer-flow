@@ -166,7 +166,7 @@ class AgentAttempts:
         attempt = await session.get(AttemptRow, attempt_id, with_for_update=True, populate_existing=True)
         return task, run, placement, node, reservation, attempt
 
-    async def authenticate(self, session, *, attempt_id, node_id, node_session_id, token, run_locker):
+    async def authenticate(self, session, *, attempt_id, node_id, node_session_id, token, run_locker, require_lease=True, allow_terminal_run=False):
         rows = await self.locked(session, attempt_id, run_locker=run_locker)
         task, run, placement, node, reservation, attempt = rows
         if attempt is None or not isinstance(token, str) or len(token) > 256 or attempt.node_id != node_id or not hmac.compare_digest(attempt.token_hash, hashlib.sha256(token.encode()).hexdigest()):
@@ -184,12 +184,20 @@ class AgentAttempts:
             or (placement.user_id, placement.thread_id) != (run.user_id, run.thread_id)
         ):
             raise ValueError("Agent execution identity mismatch")
-        if task.current_run_id != run.run_id or task.generation != placement.generation or task.generation != attempt.launch_spec.get("generation") or task.state not in {"queued", "running"}:
+        if task.current_run_id != run.run_id or task.generation != placement.generation or task.generation != attempt.launch_spec.get("launch_spec", {}).get("generation") or (require_lease and task.state not in {"queued", "running"}):
             raise ValueError("Stale Agent generation")
-        if placement.active_attempt_id != attempt.id or placement.state not in {"claimed", "running"} or run.owner_worker_id != agent_owner(attempt.id):
+        if placement.active_attempt_id != attempt.id or (require_lease and placement.state not in {"claimed", "running"}) or run.owner_worker_id != agent_owner(attempt.id):
             raise ValueError("Agent attempt no longer owns run")
-        if run.status not in {"pending", "running"} or attempt.state not in {"claimed", "starting", "running"} or attempt.stopped_at is not None or reservation.state not in {"reserved", "active"}:
+        if attempt.launch_spec.get("kind") != "agent" or "execution_profile" not in attempt.launch_spec:
+            raise ValueError("Frozen Agent execution profile required")
+        limits = attempt.launch_spec.get("input_limits")
+        if not isinstance(limits, dict) or set(limits) != {"max_input_bytes"} or type(limits["max_input_bytes"]) is not int or not 0 < limits["max_input_bytes"] <= 2**31 - 1:
+            raise ValueError("Frozen Agent input limits required")
+        permitted_cleanup = allow_terminal_run and run.status in {"success", "error", "interrupted", "timeout"} and attempt.start_authorized_at is not None and attempt.process_ref == "fleet-" + attempt.id
+        if require_lease and (
+            (run.status not in {"pending", "running"} and not permitted_cleanup) or attempt.state not in {"claimed", "starting", "running"} or attempt.stopped_at is not None or reservation.state not in {"reserved", "active"}
+        ):
             raise ValueError("Agent execution no longer active")
-        if run.lease_expires_at is None or attempt.lease_expires_at != run.lease_expires_at or attempt.lease_expires_at <= now or task.deadline <= now or attempt.execution_deadline <= now:
+        if require_lease and (run.lease_expires_at is None or attempt.lease_expires_at != run.lease_expires_at or attempt.lease_expires_at <= now or task.deadline <= now or attempt.execution_deadline <= now):
             raise ValueError("Agent lease no longer valid")
         return rows, now

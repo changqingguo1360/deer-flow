@@ -36,6 +36,10 @@ def read_file(path: Path, *, private=False, limit=65536):
 
 class WorkerSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+    kind: str = Field(default="job", pattern=r"^(job|agent)$")
+    agent_image: str | None = None
+    agent_config_file: Path | None = None
+    agent_environment_provider: str = Field(default="gateway", pattern=NAME_PATTERN)
     gateway_url: str
     credential_file: Path
     state_dir: Path
@@ -52,6 +56,13 @@ class WorkerSettings(BaseModel):
         for path in (self.credential_file, self.state_dir, self.nas_root):
             if not path.is_absolute() or ".." in path.parts:
                 raise ValueError("Absolute local paths required")
+        if self.kind == "agent":
+            if self.agent_config_file is None or not self.agent_config_file.is_absolute() or self.agent_image is None:
+                raise ValueError("Agent workers require a private operator config and approved image")
+            if self.agent_config_file.resolve().is_relative_to(self.nas_root.resolve()):
+                raise ValueError("Agent control config must be outside NAS")
+        elif self.agent_config_file is not None or self.agent_image is not None:
+            raise ValueError("Agent settings require Agent worker kind")
         nas = self.nas_root.resolve()
         state = self.state_dir.resolve()
         credential = self.credential_file.resolve()
@@ -64,7 +75,22 @@ async def run_worker(settings: WorkerSettings):
     credential = read_file(settings.credential_file, private=True, limit=256).decode().strip()
     workspace = NASWorkspace(settings.nas_root, identity=settings.nas_identity)
     await asyncio.to_thread(workspace.validate_root)
-    client = NodeClient(gateway_url=settings.gateway_url, credential=credential, timeout_seconds=settings.timeout_seconds)
+    containers = DockerContainers(state_dir=settings.state_dir)
+    compatibility = None
+    prepare = None
+    if settings.kind == "agent":
+        from .agent_containers import AgentContainers
+
+        operator_config = json.loads(read_file(settings.agent_config_file, private=True, limit=1048576))
+        containers = AgentContainers(state_dir=settings.state_dir, operator_config=operator_config, provider=settings.agent_environment_provider)
+        compatibility = await containers.compatibility(settings.agent_image)
+
+        async def prepare(claim, grant):
+            if grant["execution_profile"]["image"] != settings.agent_image:
+                raise ValueError("Frozen Agent image is not operator-approved")
+            return await containers.prepare_workspace(settings.nas_root, claim, grant)
+
+    client = NodeClient(gateway_url=settings.gateway_url, credential=credential, timeout_seconds=settings.timeout_seconds, claim_kind=settings.kind, compatibility=compatibility)
     lock = None
     installed = []
     try:
@@ -79,9 +105,10 @@ async def run_worker(settings: WorkerSettings):
             installed.append(sig)
         daemon = NodeDaemon(
             client=client,
-            containers=DockerContainers(state_dir=settings.state_dir),
+            containers=containers,
             state_dir=settings.state_dir,
-            workspace=workspace,
+            workspace=workspace if settings.kind == "job" else None,
+            prepare_workspace=prepare,
             renew_seconds=settings.renew_seconds,
             safety_margin_seconds=settings.safety_margin_seconds,
             poll_seconds=settings.poll_seconds,

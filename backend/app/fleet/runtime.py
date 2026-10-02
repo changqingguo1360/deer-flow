@@ -47,15 +47,19 @@ def validate_fleet_plugin_configuration(plugins, *, host_config=None):
             raise RuntimeError("Remote Agent runner and fenced persistence are not available")
 
 
-def validate_remote_agent_host_configuration(config):
-    """Use the actual host resolver; legacy None selects unified persistence."""
+def validate_remote_agent_shared_storage(config):
+    """Require the actual checkpoint and Store resolvers to share application PG."""
     from psycopg.conninfo import conninfo_to_dict
 
     from deerflow.persistence.postgres_schema import normalize_libpq_dsn
     from deerflow.runtime.checkpointer.provider import _resolve_checkpointer_config
+    from deerflow.runtime.store.provider import _resolve_store_config
 
     database = config.database
     checkpoint = _resolve_checkpointer_config(config)
+    store = _resolve_store_config(config)
+    if store != checkpoint:
+        raise RuntimeError("Remote Agent requires matching checkpoint and Store configuration")
     if database.backend != "postgres" or checkpoint.type != "postgres" or not database.postgres_url or not checkpoint.connection_string:
         raise RuntimeError("Remote Agent requires shared PostgreSQL application and checkpoint storage")
     try:
@@ -66,5 +70,10 @@ def validate_remote_agent_host_configuration(config):
     keys = ("host", "hostaddr", "port", "dbname", "user", "service", "options")
     if any(application.get(key, "5432" if key == "port" else "") != checkpoints.get(key, "5432" if key == "port" else "") for key in keys) or checkpoint.postgres_schema != database.postgres_schema:
         raise RuntimeError("Remote Agent requires matching PostgreSQL checkpoint/application identity and schema")
+
+
+def validate_remote_agent_host_configuration(config):
+    """Use actual storage selection plus the Gateway ownership readiness guard."""
+    validate_remote_agent_shared_storage(config)
     if config.run_events.backend != "db" or not config.run_ownership.heartbeat_enabled:
         raise RuntimeError("Remote Agent requires database run events and ownership heartbeat")

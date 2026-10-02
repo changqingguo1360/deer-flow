@@ -6,7 +6,7 @@ import httpx
 
 
 class NodeClient:
-    def __init__(self, *, gateway_url: str, credential: str, timeout_seconds: float = 10, http_client=None):
+    def __init__(self, *, gateway_url: str, credential: str, timeout_seconds: float = 10, http_client=None, claim_kind="job", compatibility=None):
         url = urlsplit(gateway_url)
         if url.scheme not in {"http", "https"} or url.username or url.password or url.query or url.fragment:
             raise ValueError("Invalid Gateway URL")
@@ -14,6 +14,10 @@ class NodeClient:
             raise ValueError("Node credentials require HTTPS outside loopback")
         if not credential.startswith("df_fleet_"):
             raise ValueError("Node credential required")
+        if claim_kind not in {"job", "agent"} or (claim_kind == "agent") != (compatibility is not None):
+            raise ValueError("Invalid worker claim capability")
+        self.claim_kind = claim_kind
+        self.compatibility = compatibility
         self._credential = credential
         self._client = http_client or httpx.AsyncClient(base_url=gateway_url.rstrip("/") + "/", timeout=timeout_seconds, follow_redirects=False)
         self._owned = http_client is None
@@ -35,7 +39,10 @@ class NodeClient:
         return await self.call("heartbeat", {"node_session_id": self.session_id, "protocol_version": 1})
 
     async def claim(self):
-        return await self.call("claims", {"node_session_id": self.session_id})
+        body = {"node_session_id": self.session_id}
+        if self.claim_kind == "agent":
+            body.update(kind="agent", compatibility=self.compatibility)
+        return await self.call("claims", body)
 
     async def attempt(self, claim, operation, **fields):
         return await self.call("attempts/" + claim["attempt_id"] + "/" + operation, {"node_session_id": self.session_id, "token": claim["token"], **fields})

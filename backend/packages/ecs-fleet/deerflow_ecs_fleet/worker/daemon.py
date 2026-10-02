@@ -63,7 +63,7 @@ class NodeDaemon:
                 row["stop_reason"] = row.get("stop_reason", "lease_lost")
                 observation = await self.containers.inspect(ref)
                 row["exit_code"] = observation["State"]["ExitCode"] if observation else row.get("exit_code", 137)
-                response = await self.client.attempt(row["claim"], "stopped", reason=row["stop_reason"], exit_code=row["exit_code"])
+                response = await self.client.attempt(row["claim"], "stopped", reason=row["stop_reason"], exit_code=row["exit_code"], **({"process_ref": ref, "physical_stopped": True} if row["claim"]["kind"] == "agent" else {}))
                 row["reported"] = True
                 row["server_state"] = response["state"]
                 await asyncio.to_thread(self.journal.save, row)
@@ -109,7 +109,7 @@ class NodeDaemon:
         if not self._ready:
             raise RecoveryRequired("Worker must reconcile before execution")
         attempt_id = claim["attempt_id"]
-        if claim["kind"] != "job" or attempt_id in self._active:
+        if claim["kind"] not in {"job", "agent"} or attempt_id in self._active:
             raise ValueError("Unsupported or already active attempt")
         self._active.add(attempt_id)
         record = {"claim": claim, "node_id": self.client.node_id, "reported": False}
@@ -134,6 +134,8 @@ class NodeDaemon:
                 raise ValueError("Start grant arrived after local safety deadline")
             record["grant"] = grant
             await asyncio.to_thread(self.journal.save, record)
+            if claim["kind"] == "agent":
+                self.containers.bind_claim(claim)
             output = await self.prepare_workspace(claim, grant)
             input_dirs = await asyncio.to_thread(self.workspace.prepare_inputs, claim, grant) if self.workspace is not None else {}
             if Path(self.journal.root).resolve().is_relative_to(Path(output).resolve()):
@@ -159,7 +161,7 @@ class NodeDaemon:
                     await asyncio.sleep(self.renew_seconds)
                     sent_renew = time.monotonic()
                     try:
-                        response = await self.client.attempt(claim, "renew", running=True)
+                        response = await self.client.attempt(claim, "renew", running=claim["kind"] == "job")
                     except httpx.HTTPError as error:
                         if isinstance(error, httpx.HTTPStatusError) and error.response.status_code in {401, 403, 409}:
                             control_stop = True
@@ -210,7 +212,7 @@ class NodeDaemon:
                 record["exit_code"] = observation["State"]["ExitCode"] if observation else 137
                 await asyncio.to_thread(self.journal.save, record)
                 try:
-                    response = await self.client.attempt(claim, "stopped", reason=reason, exit_code=record["exit_code"])
+                    response = await self.client.attempt(claim, "stopped", reason=reason, exit_code=record["exit_code"], **({"process_ref": ref, "physical_stopped": True} if claim["kind"] == "agent" else {}))
                 except httpx.HTTPError:
                     record["reported"] = False
                 else:

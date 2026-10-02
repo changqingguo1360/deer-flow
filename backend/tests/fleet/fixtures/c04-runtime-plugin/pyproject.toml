@@ -1,0 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[project]
+name = "deerflow-c04-runtime-fixture"
+version = "0.1.0"
+requires-python = ">=3.12"
+[tool.hatch.build.targets.wheel]
+packages = ["deerflow_c04_fixture"]
+
+[project.entry-points."deerflow.fleet.agent_environment"]
+ambiguous = "deerflow_c04_alternate:factory"

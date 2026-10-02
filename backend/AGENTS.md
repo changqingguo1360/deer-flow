@@ -389,5 +389,9 @@ one SQL transaction through trusted harness execution contracts; default Local s
 compatible and remote admission creates no local task. C03 ownership
 checks joined run/attempt leases, shared capacity and SQL local-recovery exclusion.
 Explicit Agent node profiles require positive agent_limit; defaults remain job-only.
-Gateway agents_enabled remains closed until actual runner/fencing is available.
-C remote execution and continuations remain pending.
+C04 locally verifies the installed runner bridge, existing run_agent loop, private
+model/MCP/definition scopes, initial workspace snapshot and physical container lifecycle.
+Owned attachment/start checks the database wall clock after locking the actual run;
+private control credentials use actual PG/Redis parsing before MCP argv/env checks.
+Gateway agents_enabled remains closed until C05-C12 write fences, recovery and routing
+pass. User-facing remote activation and continuations remain pending.

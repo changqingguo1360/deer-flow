@@ -38,3 +38,21 @@
 
 - Long-running MCP work uses a separate durable task runtime rather than keeping remote task IDs or status polling inside the Agent loop. Explicit `task_toolsets` bind raw submit/status/cancel names; only submit remains Agent-visible, and its wrapper persists the remote handle before returning a local ID. `McpTaskService` claims due rows with leases, resolves a protocol-specific `McpTaskDriver`, and writes normalized snapshots back to `mcp_tasks`; expired leases are the restart-recovery mechanism, and a result returned after expiry or after a cancel request must be discarded even when the owner token still matches. The first cancel request fences an in-flight poll lease, while repeats preserve an active cancellation lease so they cannot issue concurrent remote cancels; cancellation backoff starts when the remote attempt finishes, so a slow timeout cannot consume the retry delay. Cancellation, polling, and notification batches isolate per-task exceptions; an unexpected cancellation/poll failure leaves that record's lease to expire, while notification failures release only the affected lease for retry. Input-required and terminal event snapshots are delivered by idempotent Agent runs and marked delivered only after run success; the trusted notification instruction stays outside the input boundary while the serialized remote event is framed as untrusted data. A busy-thread conflict is normalized back to the service boundary so the queued snapshot coalesces to the latest task event. A missing dispatched run becomes a failed delivery attempt, while transient run-store hydration errors stay distinguishable and retry the same lookup. The database is the source of truth; `ThreadState` receives only a bounded current-thread projection, and display names are neutralized at that model-state boundary. The installed process-local submitter is the source of truth for management-tool exposure; hot `mcp_tasks` edits take effect only after restart, and active skills must explicitly declare the list/cancel business tools.
 - MCP notification failures use a consecutive counter separate from the idempotency-key `dispatch_attempt`, capped exponential backoff, latest-event rebuilding before a run launches, and a five-attempt budget before `dead_letter`. A permanently missing/mismatched target thread is dead-lettered immediately instead of being recreated or reclaimed. HTTP and Agent cancellation requests return after the durable cancel fence; the background loop alone owns the potentially slow remote call and retry schedule. The HTTP cancel endpoint rejects requests with 503 when the loop is not running (`mcp_tasks_available` false, e.g. `mcp_tasks.enabled=false` with SQL persistence), so a cancellation is never acknowledged without a worker to perform it. The bounded notification error/count/status join poll and cancellation diagnostics in the task detail API and expanded card.
+
+
+### Private runner discovery (C04 locally verified)
+
+Actual `get_mcp_tools()` consults the trusted extensions snapshot when
+`extensions_config_scope` is active. The host pre-discovers tools under that
+scope and binds them through `mcp_tools_scope(tools)`; the synchronous
+`get_cached_mcp_tools()` then returns that execution's tools without initializing
+or mutating the Local global cache. Toolset enabled-server checks use the same
+private snapshot. Scope exit resets both carriers; no private authentication
+belongs in public AppConfig or a global tools/config cache.
+
+Installed runtime bindings approve MCP transports and endpoints, or bounded stdio
+commands/arguments and allowed target environment keys. Target service credentials
+are private; control database, node and attempt credentials cannot be forwarded to
+MCP subprocesses. Existing transport interceptors remain the authentication path.
+This C04 plumbing is locally verified; it does not supply C06 durable mutation
+fencing or activate remote Agent admission.

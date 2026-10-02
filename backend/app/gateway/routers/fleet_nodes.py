@@ -56,6 +56,8 @@ class RenewRequest(AttemptRequest):
 
 
 class StopRequest(AttemptRequest):
+    process_ref: str | None = Field(default=None, min_length=1, max_length=128)
+    physical_stopped: bool | None = Field(default=None, strict=True)
     reason: Literal["exit", "cancelled", "lease_lost", "execution_deadline"]
     exit_code: int = Field(ge=0, le=255, strict=True)
 
@@ -124,16 +126,18 @@ async def attempt_operation(request, attempt_id, body, method):
         raise HTTPException(status_code=403, detail="Attempt unavailable")
     if locator is not None and locator.kind == "agent":
         ownership = getattr(request.app.state, "fleet_ownership", None)
-        if ownership is None or method != "renew":
+        if ownership is None or method not in {"renew", "authorize_start", "stopped"}:
             raise HTTPException(status_code=503, detail="Agent operation awaits runner/stop integration")
         try:
-            return await ownership.renew(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump())
+            return await getattr(ownership, method)(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump(exclude_none=True))
         except PermissionError:
             raise HTTPException(status_code=403, detail="Attempt unavailable") from None
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from None
+    if method == "stopped" and (body.process_ref is not None or body.physical_stopped is not None):
+        raise HTTPException(status_code=422, detail="Agent stop fields are not job protocol fields")
     try:
-        return await getattr(runtime.attempts, method)(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump())
+        return await getattr(runtime.attempts, method)(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump(exclude_none=True))
     except PermissionError:
         raise HTTPException(status_code=403, detail="Attempt unavailable") from None
     except ValueError as exc:
@@ -166,7 +170,7 @@ async def complete_attempt(request: Request, attempt_id: str, body: CompleteRequ
     if runtime.manifests is None:
         raise HTTPException(status_code=503, detail="Fleet artifacts unavailable")
     try:
-        return await runtime.manifests.complete(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump())
+        return await runtime.manifests.complete(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump(exclude_none=True))
     except PermissionError:
         raise HTTPException(status_code=403, detail="Attempt unavailable") from None
     except (ValueError, OSError):

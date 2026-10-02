@@ -142,6 +142,12 @@ class RunStore(abc.ABC):
         """
         pass
 
+    async def get_owned_execution(self, run_id, *, user_id, thread_id, owner_worker_id, execution_backend):
+        raise RuntimeError("Owned executor attachment requires a SQL run store")
+
+    async def start_owned_run(self, run_id, *, user_id, thread_id, owner_worker_id, execution_backend):
+        raise RuntimeError("Owned executor startup requires a SQL run store")
+
     @abc.abstractmethod
     async def start_run(self, run_id: str) -> bool:
         """Atomically transition a pending run to running.

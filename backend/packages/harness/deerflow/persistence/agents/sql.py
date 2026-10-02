@@ -99,8 +99,8 @@ def _config_document(config: dict) -> dict:
 
 
 class SqlAgentStore(AgentStore):
-    def __init__(self, url: str) -> None:
-        self._Session = get_sync_sessionmaker(url)
+    def __init__(self, url: str, *, session_factory=None) -> None:
+        self._Session = session_factory if session_factory is not None else get_sync_sessionmaker(url)
 
     def _row(self, session: Session, name: str, user_id: str) -> AgentRow | None:
         stmt = select(AgentRow).where(AgentRow.user_id == user_id, AgentRow.name == name.lower())

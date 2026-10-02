@@ -11,7 +11,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import case, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -269,6 +269,38 @@ class RunRepository(RunStore):
         async with self._sf() as session:
             result = await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.status.in_(("pending", "running", "interrupted"))).values(**values))
             await session.commit()
+            return result.rowcount != 0
+
+    @staticmethod
+    def owned_execution_predicates(run_id, *, user_id, thread_id, owner_worker_id, execution_backend):
+        if not isinstance(execution_backend, str) or execution_backend in {"", "local"} or not owner_worker_id:
+            raise ValueError("A trusted nonlocal executor identity is required")
+        return (
+            RunRow.run_id == run_id,
+            RunRow.user_id == user_id,
+            RunRow.thread_id == thread_id,
+            RunRow.owner_worker_id == owner_worker_id,
+            RunRow.kwargs_json["execution_backend"].as_string() == execution_backend,
+            RunRow.status == "pending",
+            RunRow.lease_expires_at > func.clock_timestamp(),
+        )
+
+    async def get_owned_execution(self, run_id, **identity):
+        async with self._sf() as session:
+            # Acquire the row before evaluating wallclock expiry. A predicate
+            # evaluated before a lock wait can authorize an expired executor.
+            locked = (await session.execute(select(RunRow.run_id).where(RunRow.run_id == run_id).with_for_update())).scalar_one_or_none()
+            if locked is None:
+                return None
+            row = (await session.execute(select(RunRow).where(*self.owned_execution_predicates(run_id, **identity)))).scalar_one_or_none()
+            return self._row_to_dict(row) if row is not None else None
+
+    async def start_owned_run(self, run_id, **identity):
+        async with self._sf.begin() as session:
+            locked = (await session.execute(select(RunRow.run_id).where(RunRow.run_id == run_id).with_for_update())).scalar_one_or_none()
+            if locked is None:
+                return False
+            result = await session.execute(update(RunRow).where(*self.owned_execution_predicates(run_id, **identity)).values(status="running", updated_at=func.clock_timestamp()))
             return result.rowcount != 0
 
     async def start_run(self, run_id: str) -> bool:

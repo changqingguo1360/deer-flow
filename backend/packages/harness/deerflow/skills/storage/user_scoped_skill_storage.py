@@ -210,9 +210,9 @@ class UserScopedSkillStorage(LocalSkillStorage):
         # extensions_config (handled by ``super().load_skills`` above). Re-read
         # from disk here too so another worker's update cannot be masked by
         # this process's singleton cache while rebuilding a user projection.
-        from deerflow.config.extensions_config import ExtensionsConfig
+        from deerflow.config.extensions_config import ExtensionsConfig, get_scoped_extensions_config
 
-        extensions_config = ExtensionsConfig.from_file()
+        extensions_config = get_scoped_extensions_config() or ExtensionsConfig.from_file()
         skills = [
             dataclasses.replace(s, enabled=self.get_skill_enabled_state(s.name) and extensions_config.is_skill_enabled(s.name, s.category.value if hasattr(s.category, "value") else s.category))
             if dataclasses.is_dataclass(s) and not isinstance(s, type) and (s.category.value if hasattr(s.category, "value") else s.category) != SkillCategory.PUBLIC.value

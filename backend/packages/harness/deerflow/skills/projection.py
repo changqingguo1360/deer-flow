@@ -336,9 +336,9 @@ def _update_tree_digest(
 
 
 def _extensions_state() -> dict:
-    from deerflow.config.extensions_config import ExtensionsConfig
+    from deerflow.config.extensions_config import ExtensionsConfig, get_scoped_extensions_config
 
-    config = ExtensionsConfig.from_file()
+    config = get_scoped_extensions_config() or ExtensionsConfig.from_file()
     return {name: state.model_dump(mode="json") for name, state in config.skills.items()}
 
 
@@ -456,12 +456,12 @@ def _thread_projection_is_fresh(
 
 
 def _load_public_skills(storage: SkillStorage, *, enabled_only: bool) -> list[Skill]:
-    from deerflow.config.extensions_config import ExtensionsConfig
+    from deerflow.config.extensions_config import ExtensionsConfig, get_scoped_extensions_config
 
     public_root = storage.get_skills_root_path() / SkillCategory.PUBLIC.value
     if not public_root.is_dir():
         return []
-    extensions = ExtensionsConfig.from_file()
+    extensions = get_scoped_extensions_config() or ExtensionsConfig.from_file()
     skills: list[Skill] = []
     for current_root, dir_names, file_names in os.walk(public_root, followlinks=True):
         dir_names[:] = sorted(name for name in dir_names if not name.startswith("."))

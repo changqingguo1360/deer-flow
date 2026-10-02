@@ -253,9 +253,9 @@ def _is_disabled_skill_path(path: str, *, user_id: str | None = None) -> bool:
             category = matching.category.value
 
         if category == "public":
-            from deerflow.config.extensions_config import ExtensionsConfig
+            from deerflow.config.extensions_config import ExtensionsConfig, get_scoped_extensions_config
 
-            ext_config = ExtensionsConfig.from_file()
+            ext_config = get_scoped_extensions_config() or ExtensionsConfig.from_file()
             return not ext_config.is_skill_enabled(skill_name, category)
         else:
             # CUSTOM / LEGACY: use per-user state
@@ -534,9 +534,9 @@ def _get_mcp_allowed_paths() -> list[str]:
     """Get the list of allowed paths from MCP config for file system server."""
     allowed_paths = []
     try:
-        from deerflow.config.extensions_config import get_extensions_config
+        from deerflow.config.extensions_config import get_extensions_config, get_scoped_extensions_config
 
-        extensions_config = get_extensions_config()
+        extensions_config = get_scoped_extensions_config() or get_extensions_config()
 
         for _, server in extensions_config.mcp_servers.items():
             if not server.enabled:

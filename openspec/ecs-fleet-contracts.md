@@ -298,3 +298,315 @@ operations requirements. Agent start/stopped return unavailable until the runner
 protocol is implemented, and do not release capacity. Full Gateway agents_enabled
 activation stays closed until runner/fences and later acceptance are complete. C03
 does not claim a runner or complete cancellation/recovery workflow.
+
+
+## C04 runner/bootstrap contract — 2026-10-02
+
+AgentEnvironment owns actual RunContext, RunManager, StreamBridge, trusted
+agent_factory and currently installed WorkerCompatibility, with async resource
+cleanup. AgentRunner.run(spec, grant=..., environment=...) decodes the C02 input
+envelope and directly invokes harness run_agent with all config/stream/subgraph/
+interrupt parameters. Bootstrap/factory are operator-controlled, never selected
+by LaunchSpec. The runner attaches the existing SQL run; it does not admit another.
+
+RunManager.attach_existing_executor verifies actual stored user/thread/backend,
+owner and unexpired pending lease before registering its normal record/index.
+The manager has no Local heartbeat; C03 node ownership remains the sole renewer.
+A generic owned-start SQL path rechecks actual owner, nonlocal backend, pending status
+and lease > actual database wall clock after acquiring the row lock at startup;
+attachment checks the same post-lock wall clock. Transaction-start
+current_timestamp() or a pre-lock predicate alone is insufficient when a lock wait
+outlives the lease. Attachment alone is not a later start fence.
+Existing Local start calls retain their signature. This narrow startup check does not
+claim C05/C06 complete durable-write fencing.
+Agent start does not prematurely set the core run running: actual run_agent.try_start
+performs that transition. Daemon avoids running=True renewal before real startup.
+
+FleetRunOwnership.authorize_start returns an immutable authorized Agent grant:
+kind, node/session, run/task/generation/attempt/owner, deterministic fleet-<attempt>
+process_ref, full LaunchSpec, frozen approved execution profile, and bounded remaining
+lease/execution time. Claim freezes Agent Attempt.launch_spec as
+{kind:'agent', launch_spec:..., execution_profile:..., input_limits:...}; canonical LaunchSpecRow stays
+unchanged and B job wire is unchanged. Legacy flat Agent attempts lacking the approved
+profile fail closed, rather than guessing current profiles. First start persists
+start_authorized_at/starting/process_ref; retry returns the same authorization.
+
+Agent Docker adapter retains nonroot numeric UID, dropped capabilities, no-new-
+privileges, bounded CPU/memory/pids/logs and immutable image. All tools/subagents share
+the parent container cgroup and lifecycle. A durable fsynced one-shot start marker
+prevents restart. Private BootstrapV1 is sent over stdin/inherited FD via create -i
+and one start -ai; argv/env/inspect labels/Agent start marker/NAS and model-visible JSON contain
+no control credentials. Bootstrap has bounded length, closes its FD and resets stdin
+before tools/plugins execute. Safe ready acknowledgement precedes launch return;
+timeout or broken bootstrap stops the container, never repeats start.
+
+Before reading control data, Linux entry sets and verifies PR_SET_DUMPABLE=0 and
+RLIMIT_CORE=(0,0); unsupported or failed hardening fails closed. Tool exec closes
+FDs and receives clean environment. Control DB/Redis/node credentials never enter
+argv/environment or files mounted into the execution container. Connections stay
+in non-JSON infrastructure; ToolRuntime receives a redacted execution AppConfig.
+Trusted factory may retain private model setup credentials. The existing host
+LocalSandbox alone is not a filesystem boundary. Actual same-UID Docker probes
+must verify denied control process environ/fd/mem and inaccessible raw configuration,
+alongside actual graph/tool behavior. Model-generated scripts are separate exec
+processes, never arbitrary in-process Python in the trusted runner.
+
+stopped(reason,exit_code,process_ref, node/session/attempt/token) accepts only the
+matching deterministic execution identity and trusted node physical stop proof.
+Server relies explicitly on the trusted daemon inspecting/stopping its Docker
+process; it does not claim independent observation. No proof means no ledger release.
+Valid physical stop permits release even when the outcome remains unknown/quarantined;
+such work never auto-retries or auto-accepts uncertain outputs. Basic terminal
+synchronization is in C04; complete cancellation/recovery/reconciliation remains C09.
+
+Required C04 evidence uses actual assembled lead graph and scripted streaming/tool/
+usage model, comparing Local to an independent Linux worker PID with actual PG
+checkpointer/events, messages, usage, semantic checkpoint references/state and
+artifact bytes. Verify tool/subagent lifecycle and container resource boundaries.
+Mock graph or standalone hardening probes do not constitute full runner acceptance.
+Gateway agents_enabled remains fail closed until all later write fences and gates.
+
+
+C04 model credentials: generic harness models/credentials.py provides a trusted
+ContextVar model_credential_scope(resolver(name, provider_use) -> Mapping). The
+actual create_chat_model entry injects only approved authentication fields into
+client construction, covering lead/subagent/goal model creation. No resolver leaves
+Local constructor/kwargs behavior unchanged. Resolver selection and named-model/use
+mapping are operator-controlled; client normalized config cannot inject them.
+Credentials never mutate execution AppConfig. Verify scope exit, concurrent
+isolation and to_thread/task propagation. Unsupported custom authentication shapes
+fail closed explicitly, rather than silently stripping required credentials.
+
+
+C04 host bootstrap discovery uses the installed trusted entry-point group
+deerflow.fleet.agent_environment; the Gateway distribution registers
+gateway=app.fleet.runner_context:build_agent_environment. Operator WorkerSettings/CLI
+selects the provider. LaunchSpec, client fields and bootstrap data cannot select a
+provider. Fleet code uses metadata discovery with no direct app import/dependency;
+missing/unknown providers fail closed. Nonsecret compatibility preflight uses the
+same selected entry-point factory's callable worker_compatibility() attribute,
+returning strict WorkerCompatibility. It must not assume Gateway app exists.
+The factory retains its async bootstrap/spec/grant call shape; a missing, ambiguous
+or unfit provider fails closed. The operator-only --compatibility CLI branch
+hardens before site/provider loading and does not consume private bootstrap.
+Real runner images install actual host wheel
+metadata. Disabled or standalone Fleet installation must not import the host.
+Only necessary lock metadata changes are allowed, with no dependency version drift.
+
+
+C04 private AgentEnvironment ExecutionIdentity retains original node/session,
+task/generation, attempt/owner and SHA256 of the originally authorized claim token
+as a non-bearer token_stamp. The trusted daemon computes that original stamp and
+sends it only over private bootstrap; do not substitute the current database hash
+for an old grant. No raw attempt token/node bearer reaches the runner. This is an
+infrastructure identity reserved for later C05/C06 writes, not a claim those fences
+are implemented in C04. The public grant need not expose a new token field.
+
+
+C04 packaging adds a real Hatchling host build with packages=['app'] because the
+existing Gateway project was virtual and could not supply installed entry-point
+metadata. Verify real wheel build/install/provider invocation and existing extension
+manager/runtime behavior; do not manufacture dist-info. A separate pinned Python3.12
+runner image may satisfy the existing frozen dependency wheels. The retained B
+Python3.14 image stays unchanged. No dependency version drift or production enablement
+is part of this change.
+
+The Agent container entry uses trusted standalone stdlib bootstrap with python -I -S:
+hardening precedes site/installed package/provider loading. Avoid python -m importing
+FleetConfig/pydantic before the guard. Agent-only imports remain lazy so normal job
+worker/standalone installation does not acquire harness/app dependencies.
+
+
+C04 immutable image /opt/deerflow/model-bindings.json maps approved named model to
+{provider_use,target_model,version}; this nonsecret manifest participates in the
+actual installed runtime digest. Bootstrap compares actual private operator model
+use/target against the binding, and LaunchSpec name/version must match that binding.
+Changed target/provider/version fails closed. Version is operator-approved binding
+metadata, not an assertion about immutable external vendor weights; it is not added
+to ModelConfig or forwarded as an unknown provider constructor kwarg. Unsupported
+or missing target shapes fail explicitly. The credential resolver uses the same
+approved binding. Test actual parent/worker binding and configuration drift rejection.
+
+
+C04 MCP private bootstrap uses a generic trusted extensions_config_scope(config:
+ExtensionsConfig) context manager with a private ContextVar defaulting to None.
+Actual get_mcp_tools reads that frozen snapshot only within the scope; Local without
+it retains ExtensionsConfig.from_file hot reload. Do not populate public AppConfig,
+ToolRuntime or the global extensions cache with private credentials. Scope resets,
+concurrent isolation and real task/subagent context propagation must be verified.
+Existing OAuth, user-scoped and request-context interceptors remain active. MCP
+server bindings come from the operator snapshot; remote HTTP/SSE data APIs are
+supported. Approved stdio launches stay inside the parent container cgroup with
+closed FDs and clean environment, never control credentials in argv or environment.
+This bridge is configuration plumbing, not the later C06 durable-write fence.
+
+
+C04 actual lead-agent assembly accepts a neutral trusted keyword
+expected_model_name: str | None = None. The host factory supplies LaunchSpec.model_name;
+after existing request/custom-agent/default and authorization fallback resolve the
+actual model, a mismatch rejects before execution, including the bootstrap branch.
+Local default None preserves prior behavior. Normalized client configuration cannot
+set this keyword. Reuse actual selection; do not duplicate its algorithm. Verify
+custom-agent, authorization fallback and default-model mismatch paths.
+
+
+C04 read-only operator runtime-bundle.json binds skills {name,version,path} and
+activated plugins {name,distribution,use}. Compatibility hashes the manifest,
+actual complete skill-directory contents, installed plugin version/code and actual
+approved model-provider module/distribution code/version. Source-only test providers
+hash their actual file. Activated plugin configuration must equal the manifest;
+missing files, path escape or binding drift fail closed. Empty fixtures derive empty
+snapshots from actual empty bundles/activation lists, never hardcoded compatibility.
+Skill versions remain explicit operator binding metadata.
+
+
+C04 neutral agent_definition_store_scope(agent_store, managed_subagent_store)
+context manager supplies private trusted store objects through a ContextVar default
+None. Actual custom-agent and managed-subagent make/get entries prefer the scope;
+without it Local configuration/SQL/file behavior remains unchanged. Host constructs
+real stores from private operator configuration before entering the scope. Do not
+populate global singleton or public AppConfig with private stores/DSNs. Verify actual
+PostgreSQL definition reads, reset/concurrency and task/thread propagation. Existing
+process-wide sync engine cache must not be globally disposed by another run cleanup.
+This provides real runtime resources; ownership fencing of writes remains C06.
+
+
+C04 runtime-bundle mcp_servers maps approved active server names to nonsecret
+{transport,url} for HTTP/SSE or {transport,command,args,allowed_env_keys} for stdio.
+Hash this binding into runtimeDigest and compare actual enabled server set,
+normalized transport, endpoint or command/arguments/environment key set exactly.
+Missing or changed bindings reject. URL userinfo/query authentication and command-line
+secret shapes are unsupported; reject explicitly rather than exposing credentials
+in a public manifest. Authentication values remain in private scoped configuration.
+Approved stdio environment keys may carry only necessary target-MCP values, never
+control DB/Redis/node/attempt credentials. Local without the scope retains its
+existing behavior. Disabled-server handling must explicitly preserve active-set
+agreement rather than silently allowing an unbound enabled endpoint.
+
+
+C04 journal boundary preserves B trusted daemon restart authentication: the private
+0700/0600 fsynced AttemptJournal may retain the original claim attempt token for
+recovery and authenticated stopped reports. It is control-plane credential storage,
+never an execution mount, output/NAS-visible file or exported diagnostic. Agent
+one-shot start markers and execution-visible/exported journals contain no control
+credentials. Operator DB/Redis/model credentials and full private bootstrap never
+enter the daemon journal. Only the original token stamp reaches the runner. Verify
+private daemon journal paths cannot become any execution-visible mount; do not
+claim all host journals lack tokens or break existing B recovery by discarding them.
+
+
+C04 skill storage and projection consume the trusted scoped ExtensionsConfig for
+actual enabled-state reads, falling back to their existing from_file behavior when
+no scope exists. A missing raw configuration mount must never silently re-enable
+operator-disabled skills. Verify actual bundled skill loading and projection with
+a disabled skill. Bundle names must agree with parsed SKILL.md identity. Existing
+LocalSandbox skill-isolation capability remains unchanged and unsupported policies
+fail explicitly. Private model/MCP/definition scopes also cover supported plugin
+initialization, start and cleanup hooks, not just the graph call. Verify real plugin
+factory usage across lifecycle without placing private setup in public globals.
+
+
+C04 private MCP discovery must reach actual lead/subagent toolset construction,
+not only get_mcp_tools. The toolset's enabled-server gate uses the trusted scope.
+A neutral mcp_tools_scope(actual_tools) ContextVar may expose the actual privately
+discovered tool list to get_cached_mcp_tools while scoped; without it Local retains
+its prior cache/hot-reload behavior. Private clients or credentials never enter the
+global tools cache, and scopes remain isolated across concurrent contexts. Avoid
+lazy initializer threads dropping the private configuration scope. Actual skill
+projection/public loading, disabled-skill file access and approved MCP filesystem
+path reads honor the same trusted configuration. Do not change from_file globally
+and thereby alter unrelated client/operator configuration mutation semantics.
+
+
+C04 synchronous definition stores use the same actual PostgreSQL schema as async
+runtime/checkpointer resources. SqlAgentStore and SqlManagedSubagentStore may accept
+an optional trusted session_factory; omitted preserves existing Local construction.
+Host-owned sync engine/session factory applies validated operator postgres_schema
+and owns its cleanup without disposing the shared Local engine cache. Respect the
+actual operator agent_storage backend; file configuration cannot silently become DB.
+Verify nonpublic-schema definition reads through the actual container graph.
+
+
+C04 AgentAttempts.authenticate may accept trusted allow_terminal_run=False. Only
+renew(running=False) may explicitly allow terminal Core success/error/interrupted/
+timeout while the same physically running process performs cleanup. Require prior
+start authorization and deterministic process_ref, unchanged node/session/token/
+generation/owner, identical unexpired run/attempt leases, active attempt/placement/
+reservation and original task/execution deadline bounds in the same transaction.
+Renew extends that bounded cleanup lease without changing terminal status or
+releasing capacity. running=True, authorize_start and other execution entrypoints
+never use this allowance. It grants neither restart nor new graph/checkpoint writes;
+C05/C06 write permissions remain separately fenced. Verify real SQL terminal-cleanup
+renewal and expired/stale identity/running-start rejection, then actual nonempty MCP
+container shutdown. Physical stopped proof still precedes ledger release.
+
+
+C04 initial Agent workspace input must resolve workspace_manifest_ref to a real
+immutable, approved snapshot, including an explicit empty snapshot when applicable.
+A trusted operator/host resolver supplies the manifest; LaunchSpec/client fields
+cannot select executable resolver code or arbitrary filesystem roots. Validate
+manifest user/thread against the immutable LaunchSpec and manifest content identity.
+Entries declare category workspace/uploads, safe relative destination, size and
+SHA256. Copy approved regular no-follow, symlink-free NAS source files into the
+actual attempt-local user/thread paths before launch. Reject missing references,
+cross-user/thread snapshots, hash/size drift, traversal, special files and control
+state paths. Do not mount mutable canonical thread data as Agent scratch space.
+Repeated preparation/start must preserve snapshot identity and one-shot semantics.
+
+Verify actual preexisting workspace and uploaded asset consumption through real
+graph tools, matching Local input bytes and resulting artifacts, plus negative
+reference/ownership/path/hash controls. B Job manifests cannot stand in for Agent
+identity. This C04 first-execution input bridge is separate from C08's stopped-writer
+workspace sealing and owner-fenced checkpoint/workspace recovery-point pairing.
+C08 remains unchecked; do not claim joint recovery or output publication here.
+
+
+The locked C04 initial input interface is worker/agent_workspace.py:
+AgentWorkspaceManifest v1 is frozen/strict with schema_version, user_id, thread_id,
+files[{category:workspace|uploads,path,size,sha256}],total_bytes. Its reference is
+the SHA256 hex64 of canonical JSON. AgentWorkspaceSnapshots(approved nas_root, state_dir=<trusted private control state>)
+resolves only .fleet-agent-inputs/<user>/<thread>/<ref>/manifest.json and the declared
+category/path files beneath that immutable snapshot. AgentContainers.prepare_workspace
+uses this trusted resolver before first start; no client-selected resolver/root.
+Copies target attempt_root/.deer-flow/users/<user>/threads/<thread>/user-data/
+{workspace,uploads}, using independent inodes. Source opens use layered O_NOFOLLOW,
+regular-file/single-link checks, size/hash and before/after stat validation.
+Enforce manifest/file/count/total byte bounds, exact aggregate size and unique
+category/path entries. Owner identities and content-addressed reference must agree.
+A durable prepared-snapshot marker/fingerprint in the private daemon control state
+outside execution NAS makes repeat prepare idempotent without overwriting already-
+running or recovered execution outputs. Marker reads require bounded regular,
+single-link, owner-only no-follow/nonblocking files; runner-writable NAS metadata
+cannot certify successful preparation. Failed input
+validation cannot start the runner. Later C10 publication may reuse this schema;
+this slice proves operator-supplied initial snapshots only.
+
+
+Agent-only authorized Attempt.launch_spec additionally freezes
+input_limits:{max_input_bytes:<strict positive FleetConfig value>} with the profile.
+Start/renew grants return the same frozen limits; later config edits cannot replace
+accepted limits. Initial workspace prepare uses that actual operator budget.
+Incomplete legacy Agent envelopes fail closed; B envelopes/wire are unchanged.
+Additional preparation bounds are manifest <=1MiB, <=4096 files and <=64MiB per file,
+with exact aggregate accounting. They are input safety limits, not resource charges.
+
+C04 runtime-bundle.json additionally requires secret_bindings mapping reference_id
+to {name,kind:model|mcp,target:<approved model/server name>}. The nonsecret mapping
+is covered by actual installed compatibility digest. Each LaunchSpec secret ref must
+match name/reference and a real approved target; unknown refs, dangling targets and
+unsupported skill secret refs fail closed. Actual private credential injection may
+use only targets authorized by declared references, including separate parent/child
+model and authenticated MCP bindings when required. Anonymous providers with no
+authentication need no secret ref. The private operator FD still supplies values;
+no vault, broker, plaintext model-visible configuration or secret-bearing manifest
+is introduced. Test real successful bindings and unknown/wrong/undeclared target
+rejection through the actual resource path.
+
+
+C04 private MCP control-credential exclusion compares actual supported connection
+credential values, including URL-decoded PG/Redis userinfo passwords and supported
+query/conninfo authentication values. Effective legacy checkpoint connection
+credentials join database/stream/ownership control resources. Encoded credentials
+or query parameters must not evade the argument/environment rejection. Public
+usernames alone do not prove credential disclosure. No control secrets become
+public configuration or test output. This is bootstrap isolation, not C05 fencing.

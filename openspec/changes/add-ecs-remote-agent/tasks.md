@@ -26,10 +26,10 @@
 
 ## 4. C04 启动复用 run_agent 的完整 runner
 
-- [ ] 4.1 写并运行 backend/tests/fleet/test_c04_remote_agent_runtime.py，确认 C04 行为测试 RED。
-- [ ] 4.2 完成计划列出的接口、事务和部署接线；满足 `Full runtime execution on worker`。
-- [ ] 4.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 4.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 4.1 写并运行 backend/tests/fleet/test_c04_remote_agent_runner.py，确认 C04 行为测试 RED。
+- [x] 4.2 完成计划列出的接口、事务和部署接线；满足 `Full runtime execution on worker`。
+- [x] 4.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 4.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 5. C05 实现 checkpoint 事务内 fencing
 
@@ -166,3 +166,35 @@ capacity, legacy defaults remain jobs, and accepted renewal survives closed flag
 No migration change. Raw runtime github_token now requires out-of-band references.
 Gateway activation stays closed. C04 runner, complete cancellation/physical stop,
 Agent read/reconcile and all remaining C/BC work are outstanding.
+
+
+## C04 independent local acceptance — 2026-10-02
+
+Formal spec and quality/security re-review approved the final52file freeze.
+The two P1 repairs have actual PG unchanged-row lock-wait and decoded/query/legacy
+credential RED/GREEN evidence. Original genuine REDs and the intermediate optional
+Redis loading regression remain separate, retained logs; no fixture failure or
+API absence was counted as a behavioral RED. Redis parsing stays lazy, with no
+new dependency version. Gateway activation is still closed; C05-C12/BC are pending.
+
+Child final92/0/2warnings76.10s and related313/0/3warnings17.14s:
+/private/tmp/c04-clock-secret-fix-final-full-matrix.log and final-neighbor.log.
+Root final runner92/0 (61.67s), C01-C03
+74/0 (11.30s), unchanged retained-image B gate
+259/0 (120.37s), with actual required PostgreSQL and
+container scenarios independently executed without skips. All root logs/XML use
+/private/tmp/fleet-c04-root-final-*. Full backend: 13287 passed, 261 skipped, 1 deselected, 19 warnings in 274.70s (0:04:34)
+Blocking-I/O75/0 (4.01s), boundary/thread
+74/0 (2.41s). Full backend Ruff clean,
+final guidance0errors/4 existing soft chain-size warnings, strict OpenSpec3/3 and
+diffcheck clean. The same four warning paths/codes exist in parent HEAD; no new
+warning category/path. Strict-warnings is not reported as passing. Final make
+format left all1414 Python files unchanged.
+Optional default-suite skips do not replace the independently run required cases.
+
+Immutable runner sha256:d553a22390438717b7c19a8c417eeb53f393ddc981693cb454afeaba3c792d00; alternate provider sha256:c95135de1a1383c9239c859026fea0d64b2ad37e0e8b1b30d472b58752c77ed8.
+Exact source/image binding: /private/tmp/c04-clock-secret-fix-source-freeze.json.
+Original B image sha256:c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8
+was not rebuilt. This is local Docker/PostgreSQL acceptance, not production ECS
+or user-facing activation. The slice contains this evidence; exact commit is
+recorded after committing. The full C change is not IMPLEMENTED or archived.

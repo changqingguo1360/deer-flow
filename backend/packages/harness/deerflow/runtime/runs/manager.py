@@ -819,6 +819,23 @@ class RunManager:
 
         return self._compute_edit_replay_visibility(list(records_by_id.values()))
 
+    async def attach_existing_executor(self, run_id, *, user_id, thread_id, owner_worker_id, execution_backend, task=None):
+        """Trusted worker attachment; never admit a new run or renew its lease."""
+        if self._store is None or self._heartbeat_task is not None or owner_worker_id != self._worker_id:
+            raise RunStartupError("Owned attachment requires the matching worker and SQL store without Local heartbeat")
+        row = await self._store.get_owned_execution(run_id, user_id=user_id, thread_id=thread_id, owner_worker_id=owner_worker_id, execution_backend=execution_backend)
+        if row is None:
+            raise RunStartupError("Existing executor no longer owns a pending run")
+        record = self._record_from_store(row)
+        record.store_only = False
+        record.task = task
+        async with self._lock:
+            if run_id in self._runs:
+                raise RunStartupError("An executor is already attached to this run")
+            self._runs[run_id] = record
+            self._index_run_locked(record)
+        return record
+
     async def try_start(self, run_id: str) -> RunStartOutcome:
         """Transition an uncancelled pending run to running before building the agent."""
         async with self._lock:
@@ -836,7 +853,11 @@ class RunManager:
                     updated = await self._call_store_with_retry(
                         "start_run",
                         run_id,
-                        lambda: self._store.start_run(run_id),
+                        lambda: (
+                            self._store.start_run(run_id)
+                            if record.execution_backend == "local"
+                            else self._store.start_owned_run(run_id, user_id=record.user_id, thread_id=record.thread_id, owner_worker_id=record.owner_worker_id, execution_backend=record.execution_backend)
+                        ),
                     )
                 except Exception as exc:
                     raise RunStartupError(f"Failed to start run {run_id}: {exc}") from exc
