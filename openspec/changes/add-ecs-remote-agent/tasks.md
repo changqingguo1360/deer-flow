@@ -228,3 +228,6 @@ parent HEAD. C06-C12 and BC remain pending and remote activation remains closed.
 See [C06 acceptance](../../../docs/ecs-fleet-c06-acceptance.md). Final-v12 whole SOURCE+RUNTIME SPEC and QUALITY C0/I0/M0; immutable source/input/wheels and installed50/7 bytes match. Daemon6/full1916 zero; independentroot C/Local/PG1920 and unchanged B259 zero skipped. Fullbackend13302pass/826default-suite skip/1deselected, blocking75, boundaries74, Ruff/format1428clean, guidance24/0error/3soft warnings, strictOpenSpec3/0, diff0. Root92763 naturallyexit0. C06a/b historical substeps plus final C06c cover the whole requirement; C07-C12/BC/activation remain pending. Slice commit ID is recorded after the explicit accepted commit.
 
 Final nonpackaged acceptance documentation: guidance24/0errors/6soft chain warnings (all below hard limits), OpenSpec3/0 and diff0; frozen technical60/18 and wheels unchanged.
+
+
+C06 accepted implementation commit: `5e936510964222d0f9e556fbe18c9f6e60cdd2f9` (`feat(fleet): fence remote durable writes and settle owned cleanup`), 59 explicitly staged files. Postcommit all frozen technical60/18 SHA values still match; worktree was clean. OpenSpec6.1-6.4 and all detailed C06 steps are complete. C07-C12 and B/C continuations remain pending; remote activation stays closed. This receipt changes documentation only.

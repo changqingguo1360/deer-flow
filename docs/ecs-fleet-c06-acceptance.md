@@ -1,6 +1,6 @@
 # C06 durable mutation acceptance
 
-C06 is accepted locally on 2026-10-03. Supported remote durable mutations are fenced by the original execution identity in the actual writer transaction. Remote Agent activation remains closed while C07-C12 are pending. This does not report production ECS deployment or completion of B/C continuations.
+C06 is accepted locally on 2026-10-03. Accepted implementation commit: `5e936510964222d0f9e556fbe18c9f6e60cdd2f9`. Supported remote durable mutations are fenced by the original execution identity in the actual writer transaction. Remote Agent activation remains closed while C07-C12 are pending. This does not report production ECS deployment or completion of B/C continuations.
 
 ## Accepted behavior
 

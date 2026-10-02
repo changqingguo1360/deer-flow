@@ -277,3 +277,6 @@ PG/Docker remains sole implementer-exclusive until natural full-matrix completio
 C06 final-v12 independent acceptance — 2026-10-03
 
 Root session92763 naturallyexit0/allgatespassed; requiredC/Local/PG1920+B259 zero skipped. Fullbackend13302pass826default-suite skip1deselected; blocking75/boundaries74; allstaticgatespassed. Actualrootv11 deadlocks closed by new originalstream/trueTask settlement underfirst120deadline, not overwritten by historical1156. Whole source/runtime dualreviews approve exactv12. C06 checkboxes nowaccepted; finalnonpackagedREADME/backendorientation/acceptancereceipt reflect this completed slice without changing frozenproduction/tests/packagedguides/wheels. Commit remains pending finaldocumentationchecks and explicit staging. C07-C12/BC/activation stillpending.
+
+
+C06 accepted implementation commit: `5e936510964222d0f9e556fbe18c9f6e60cdd2f9` (`feat(fleet): fence remote durable writes and settle owned cleanup`), 59 explicitly staged files. Postcommit all frozen technical60/18 SHA values still match; worktree was clean. OpenSpec6.1-6.4 and all detailed C06 steps are complete. C07-C12 and B/C continuations remain pending; remote activation stays closed. This receipt changes documentation only.
