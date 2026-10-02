@@ -1,0 +1,67 @@
+# C06 durable mutation implementation plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans. Implement the steps below sequentially with genuine RED/GREEN and specification then quality review.
+
+**Goal:** Fulfil the approved OpenSpec `All remote durable mutations respect ownership` requirement using the actual runtime repositories, background callbacks and configured backend interfaces.
+
+**Architecture:** The trusted host binds one immutable mutation capability to each remote resource instance. Each actual write transaction locks the original execution before any target row/advisory lock and retains those locks through commit or rollback. Context propagation preserves the original attempt across callbacks; it never substitutes for transaction validation.
+
+**Tech Stack:** Existing SQLAlchemy async/sync sessions, psycopg PostgreSQL Store, LangGraph runtime, MemoryManager and extension contracts. No parallel Agent runtime and no new default PostgreSQL dependency.
+
+## Locked boundaries
+
+This refines the already approved C06 requirement after an audit of the installed runtime. C05 checkpoint behavior remains unchanged. No remote activation, deployment, C07 outbox, C08 workspace recovery or C09 cancellation implementation is included.
+
+- Original identity includes user/thread/run/task/generation/owner/node/session/attempt and token **stamp**, plus immutable launch spec. Raw node or attempt bearer must not enter the runner, graph config or model tools.
+- Lock order is task -> run -> placement -> node -> reservation -> attempt -> target/advisory locks. Use database `clock_timestamp()` after all execution locks. Match the original canonical launch, positive charged Agent reservation, authorized process, equal unexpired run/attempt leases and all execution deadlines.
+- Neutral harness contracts must not import app or Fleet. Host adapters supply SQLAlchemy async/sync and psycopg cursor validation on the caller's actual connection and transaction; never validate on an independent connection.
+- Remote-bound resources reject missing/wrong mutation context; Local resources without a bound capability keep their existing API and behavior. Ownership rejection is a distinct nonretryable execution failure.
+- Active writes require pending/running. Terminal bookkeeping may only update original-run completion fields, checkpoint-derived ThreadMeta display_name and consistent terminal status, associated scheduler completion, final journal/receipt events and declared fenced task-stop hooks while the same original bounded ownership/lease remains valid. It cannot change an inconsistent terminal result, resume a run, change ownership, write checkpoints or permit arbitrary memory/Store/definition changes after terminal.
+- Mutation operation names are an allowlist controlled by production adapters, not client metadata. Callback code cannot turn arbitrary SQL into terminal authorization by choosing a string. Validate target association in the same transaction.
+- Trusted Gateway recovery/reconciler resources keep their separate host ownership rules; remote finalizers always retain the original bound attempt, including manager retry/completion/delivery-receipt paths. Read-only operations remain available. A Store Get/Search that refreshes TTL is a mutation; Store TTL sweeping without an attempt is trusted-host work and unavailable to the runner.
+- Remote setup performs read-only schema/migration/column/index readiness checks. Gateway/Local remain responsible for CREATE SCHEMA and stock setup DDL.
+- Existing file-backed DeerMem and external memory SDKs are not made atomic by a PG precheck. Initial profiles accept noop or a configured backend implementing the trusted fenced mutation capability. Exercise a real configured PostgreSQL backend through MemoryManager (including actual extraction/callback and CRUD), rather than a fake observation dictionary or a shadow memory path. A new default memory product is outside this slice.
+- Extension state declaration is additive and defaults to unsupported for remote stateful contributions. Validate all activated contributors before starting services. Stateless operator-trusted contributors remain supported; adapted stateful contributors receive the bound transaction capability instead of an unrestricted session factory. A declaration alone does not fence arbitrary files/SDK writes. Terminal extension capabilities expose only approved target-specific operations; a validated unrestricted SQL session is not a terminal-safe API. Local extension construction remains compatible.
+- Capture original context at enqueue, thread creation and cross-loop dispatch, never at callback return; queue items and shutdown drain retain their original capability as well as attempt identity. Instance binding covers extension start/stop/background work as well as run_agent. to_thread, isolated subagent loops, cross-loop notifications and raw Timer/shutdown threads retain original immutable context. Any debounced queue separates attempts when coalescing.
+- Runner-originated MCP tracking is fenced; trusted Gateway poll/cancel/notification work retains its existing service ownership. External MCP side effects are not promised rollback or exactly-once replay.
+
+## C06a: execution capability and primary SQL repositories
+
+**Files:** Create `backend/packages/harness/deerflow/runtime/execution/mutation_context.py`; create a focused host adapter under `backend/app/fleet/`; modify `backend/packages/harness/deerflow/persistence/run/sql.py`, `persistence/thread_meta/sql.py`, `runtime/events/store/db.py`, `runtime/runs/worker.py`, `runtime/runs/manager.py`, and `backend/app/fleet/runner_context.py`. Add `backend/tests/fleet/test_c06_remote_agent_runtime.py`. Update affected packaged runtime guidance before any final image build.
+
+- [ ] Add real PostgreSQL tests using existing Fleet admission/claim/start fixtures. After original context is captured, replace token/owner or expire the lease; call the existing RunRepository completion/status/progress, ThreadMeta update and DbRunEventStore put/put_batch/put_if_absent/delete APIs. Assert actual rows and event sequence remain unchanged. Include wrong run/thread/user and mixed-run batch targets.
+- [ ] Run those tests against the original implementation and retain actual behavior RED. Fixture/import/API absence is not behavior RED. Use wrappers only to pass future optional constructor arguments while preserving original real writes for the negative control.
+- [ ] Define immutable neutral context, typed ownership rejection and trusted bound transaction contract. Add optional repository constructor capability, validate inside each write transaction before target locks, and bind it in the actual runner environment. Audit all reachable repository mutation APIs, including create/delete/lease/takeover/admin methods; unsupported runner operations explicitly reject before their first SQL mutation.
+- [ ] Preserve legitimate finalization by assigning tightly scoped production operation policies and checking consistent existing terminal state. Test real worker finalization order, not only direct repository calls. Checkpoint terminal restrictions stay as implemented by C05.
+- [ ] Verify positive writes, expired lock waits, takeover blocked until commit, first-SQL exception/CancelledError rollback and guard/write PID+TXID equality. An independent-connection negative control must fail the same race test.
+- [ ] Run C01-C05 neighbors and targeted Local repository/worker regressions. Complete spec and quality review for this substep before proceeding. Keep OpenSpec 6.1-6.4 and main C06 checkboxes unchecked.
+
+## C06b: real Store and synchronous definitions
+
+**Files:** `backend/packages/harness/deerflow/runtime/store/async_provider.py`, a focused fenced Store adapter in that directory, `persistence/agents/sql.py`, `persistence/managed_subagents/sql.py`, actual definition-store scope and runner host wiring; extend C06 real tests and relevant packaged guides.
+
+- [ ] Enumerate installed Store abatch and all public sync/async put/delete/batch aliases, including external-thread entrypoints, PutOp upsert/delete/vector and TTL refresh by Get/Search. Retain truly read-only Get/Search with TTL refresh explicitly disabled after terminal. Write genuine stale-behavior RED tests and retain stock version/API inspection evidence.
+- [ ] Add same-cursor transaction guard and read-only remote readiness. Reject unbound global sweep; keep Local stock setup. Add same-session synchronous definition guards and reject unsafe file definition profiles before execution.
+- [ ] Verify actual Store rows/vectors/TTL timestamps and definition tables under stale identities, lock wait/rollback/positive cases. Verify missing schema produces no DDL and Local setup/reads stay compatible.
+- [ ] Run and review C06a+b and Local neighbors. Finalize affected packaged guides before a source/image freeze. C06 remains incomplete.
+
+## C06c: memory, extensions, scheduler and MCP tracking
+
+**Files:** `backend/packages/harness/deerflow/agents/memory/manager.py` and actual supported backend/queue boundaries, `extensions/gateway.py`, `extensions/notify.py`, `backend/packages/extension-api/deerflow_extension_api/contracts.py`, `backend/packages/ecs-fleet/deerflow_ecs_fleet/profile_compatibility.py`, actual scheduler/MCP repositories and host wiring, C04 installed test fixture backend/plugin, C06 tests and affected guides.
+
+- [ ] Add real configured PostgreSQL MemoryManager extraction barrier: capture original context, enter actual background callback, revoke ownership, release result, then inspect the durable memory table for zero changes. Include legal positive memory writes and direct CRUD. Noop is only a compatibility case, not stale-write proof.
+- [ ] Add unsafe stateful plugin preflight RED before service.start; add actual fenced SQL service/callback positive and stale cases, stateless plugin parity and missing/wrong-context rejection. Test start/stop, to_thread, raw threads, isolated subagent loop and cross-loop observer propagation.
+- [ ] Bind memory/extension capabilities through trusted factories, with additive Local-compatible contracts and strict remote compatibility. Prevent attempts from coalescing in queued background extraction. Reject unsupported provider profiles before resources with write side effects start.
+- [ ] Fence both actual scheduler completion transactions and validate scheduled occurrence/task association to original core run. Fence runner MCP tracking writes while preserving trusted Gateway background behavior. Test actual tables and consistent terminal finalization.
+- [ ] Execute the real installed full lead/subagent runner with skills, MCP and hooks, plus all C06 stale-write and race scenarios. Freeze all changed source and packaged guides before rebuilding exact immutable runner/provider images. Verify installed bytes match the frozen source.
+- [ ] Obtain full C06 specification and quality/security approval, then independent root gates: C01-C06 required PG/container cases zero skips; unchanged original B image gate; full backend, blocking-I/O, Ruff/format, boundaries, guidance and strict OpenSpec. Only then check C06, document actual evidence and commit explicit slice files. C07-C12 and BC remain pending.
+
+## Commands and evidence
+
+Run from the feature worktree backend with required PG extras only for integration tests:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/private/tmp/c04-native-extra TEST_POSTGRES_URI=postgresql+asyncpg://fleet_test@127.0.0.1:15436/postgres .venv/bin/python -m pytest tests/fleet/test_c06_remote_agent_runtime.py -q
+```
+
+Use freshly built immutable C06 image references for C04/full-runner cases; C05 immutable image is baseline only. Record all actual commands/counts and separate behavior RED from setup errors. Do not use UV_NO_SYNC/UV_OFFLINE for the full backend gate. Repository mutation and Docker/PG access in the feature checkout require elevated execution under this session's sandbox.

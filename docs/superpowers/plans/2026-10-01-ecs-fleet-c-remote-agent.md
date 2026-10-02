@@ -463,70 +463,18 @@ git commit -m "feat(fleet): c05 实现 checkpoint 事务内 fencing"
 
 - [x] **Step 6 — 记录结果。** 在 OpenSpec `5.1` 至 `5.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
-### Task C06: 覆盖 memory、扩展和最终状态写入
-
-**Files:**
-- Create: `backend/packages/harness/deerflow/runtime/execution/mutation_context.py`
-- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/profile_compatibility.py`
-- Modify: `backend/packages/harness/deerflow/agents/memory/manager.py`
-- Modify: `backend/packages/harness/deerflow/runtime/runs/worker.py`
-- Modify: `backend/packages/harness/deerflow/runtime/runs/manager.py`
-- Modify: `backend/packages/extension-api/deerflow_extension_api/contracts.py`
-- Test: `backend/tests/fleet/test_c06_remote_agent_runtime.py`
-- Docs: `README.md`、`backend/AGENTS.md`；涉及前端时同步 `frontend/AGENTS.md`。
+### Task C06: 覆盖所有远程持久写入口
 
 **OpenSpec:** `remote-agent-runtime` / `All remote durable mutations respect ownership`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 延迟 memory 结果到 ownership_lost 之后；测试 callback 执行线程传播 attempt context；启用不支持远程写契约的插件应启动失败。
+实际入口审计发现原文件清单漏掉 Run/ThreadMeta/event repositories、Store TTL、同步定义、scheduler 与 MCP tracking，以及 extension.start/stop。此前 `fleet_probe` 和 raw token 示例不再作为实施依据。使用已锁定的[详细 C06 计划](2026-10-02-ecs-fleet-c06-durable-mutations.md)，按 C06a → C06b → C06c 顺序执行；子步骤不代表整个 C06 完成。
 
-测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
-
-```python
-import pytest
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_c06_contract(fleet_probe):
-    observed = await fleet_probe.exercise("C06")
-    assert observed['stale_memory_commits'] == 0
-    assert observed['stale_finalization_commits'] == 0
-    assert observed['unsafe_plugin_enabled'] == False
-```
-
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
-
-```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_c06_remote_agent_runtime.py::test_c06_contract -vv
-```
-
-期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
-
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
-
-```python
-# Introduce RemoteMutationContext(run_id,attempt_id,token) propagated into callbacks.
-# Durable repositories accept transaction fence; external mutations are NOT replay-safe.
-# Profiles declare remote-safe state adapters; fail closed on undeclared stateful extension.
-```
-
-不支持事务的第三方 memory provider 在初版 C 禁用；提供 noop/已适配 backend，不能声称普通 checkpoint fence 自动保护外部服务。
-
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
-
-```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_c06_remote_agent_runtime.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
-```
-
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
-
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
-
-```bash
-git commit -m "feat(fleet): c06 覆盖 memory、扩展和最终状态写入"
-```
-
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `6.1` 至 `6.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [ ] **Step 1 — 真实行为 RED。** 实际 PostgreSQL 延迟写、原 attempt 替换、回调线程与不安全插件启动场景；不统计夹具错误或 skip。
+- [ ] **Step 2 — C06a。** 中性实例绑定 capability；Run/ThreadMeta/events 同事务 fence 与限定终态 bookkeeping，完成双阶段审查。
+- [ ] **Step 3 — C06b。** 真实 Store put/delete/vector/TTL 和同步 Agent definitions 同事务 fence；remote setup 只读。
+- [ ] **Step 4 — C06c。** 实际 adapted memory、extension 生命周期/线程传播、scheduler 两个事务及 runner MCP tracking；不支持的有状态后端启动拒绝。
+- [ ] **Step 5 — 完整 GREEN 与回归。** 全部实际 PG/container 场景零跳过、完整 runner 正常终态、本地兼容、原 B 镜像回归及 backend 检查。
+- [ ] **Step 6 — 审查、证据、提交。** 完整 spec/quality 批准后记录 source/image 绑定、实际日志与 commit；再勾选 OpenSpec 6.1–6.4。对外开关继续关闭。
 
 ### Task C07: 持久事件 outbox 与可恢复 SSE
 

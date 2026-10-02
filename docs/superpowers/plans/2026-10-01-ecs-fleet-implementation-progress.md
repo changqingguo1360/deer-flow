@@ -1150,3 +1150,18 @@ All eight frozen source hashes match the actual committed blobs. Final make form
 left1417files unchanged. Post-document boundary/thread checks74passed/0skip
 (2.81s), strict OpenSpec3/3 and diffcheck clean; guidance warning paths/codes equal
 parent HEAD. C06-C12 and BC remain pending and remote activation remains closed.
+
+
+## C06 planning checkpoint — 2026-10-02
+
+Resumed from clean `cd251cbf`; C05 source `cf7b1079` remains verified. Actual
+write-surface audit refined C06 into sequential C06a (execution capability and
+Run/ThreadMeta/events), C06b (Store including TTL and sync definitions), C06c
+(configured adapted memory, extensions, scheduler and runner MCP tracking).
+The [detailed plan](2026-10-02-ecs-fleet-c06-durable-mutations.md) replaces the
+phantom fleet_probe/raw-token sketch. Read-only plan review found no blocker to
+C06a and its four coverage clarifications were incorporated. A single implementer
+was dispatched for C06a; no C06 behavior RED/GREEN or completion is claimed here.
+Strict OpenSpec validation passed all three changes; git diff --check passed
+before the implementation dispatch. Main C06 and OpenSpec 6.1–6.4 remain unchecked;
+C07–C12/BC and remote activation remain pending.
