@@ -1293,3 +1293,11 @@ C06a detailed substep checkboxes only now checked. MainC06 andOpenSpec6.1-6.4
 remain unchecked; C06b realStore/synchronousdefinitions is next, C06c memory/
 extensions/scheduler/MCP andC07-C12/BC still pending. Remoteactivation closed.
 Source commit is a partial capability/primary-repository increment, not fullC06.
+
+
+C06a verified source commit:48a2b501bc0a9c933c5584bf1c1c1a2124c02669
+(feat(fleet): fence primary remote Agent mutations), explicit15files; clean
+worktree immediately after commit. Single implementer dispatched C06b with actual
+Store batching-context/pureSELECT TTL-read findings and synchronousdefinition
+guards; no parallel implementation. C06a remains accepted; wholeC06, C06b/c and
+C07-C12/BC still pending. No remote activation/deployment.
