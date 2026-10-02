@@ -1165,3 +1165,32 @@ was dispatched for C06a; no C06 behavior RED/GREEN or completion is claimed here
 Strict OpenSpec validation passed all three changes; git diff --check passed
 before the implementation dispatch. Main C06 and OpenSpec 6.1–6.4 remain unchecked;
 C07–C12/BC and remote activation remain pending.
+
+
+C06a genuine behavior RED: 36 failed in6.96s, retained at
+/private/tmp/c06a-primary-behavior-red.log. Root inspected the failure summary:
+all36 failures are expected rejection DID NOT RAISE, covering token/owner/expiry
+with actual Run completion/status/progress/model, ThreadMeta display/status/metadata,
+and event put/batch/singleton/delete_run/delete_thread. Fixture/import/connection
+failures were not counted. C06a implementation is in progress; no GREEN, final
+review, full C06 acceptance or remote activation is claimed. Planning source commit:
+`3195f375` (four planning documents only).
+
+
+Additional C06b installed-code finding: inspected langgraph/store/postgres/aio.py
+and installed langgraph/store/base/batch.py. Public async conveniences enqueue
+(Future,Op) to a constructor-created worker without per-call mutation context.
+The detailed plan now requires capture at that boundary or direct BaseStore async
+conveniences preserving caller context. Stock GET with refresh_ttl=False still
+contains an UPDATE CTE; a truly read-only terminal GET needs pure SELECT.
+This is verified source inspection, not a C06b implementation/test pass. C06a
+implementer remains active; no parallel source edits or Docker tests were started.
+
+
+C06a focused first GREEN (implementer run, root inspected retained output):
+166passed/0skipped in24.02s, /private/tmp/c06a-primary-first-green.log, comprising
+36 primary stale-write cases plus130 C05 checkpoint cases. This proves the
+focused RED cases now reject; it is not full C06a/C06 acceptance. Actual target
+owner/stamping, positive terminal, unsupported operation, lock/race/rollback and
+manager rejection propagation tests are still being added before source freeze,
+independent reviews and root gates. Original B image remains unchanged.
