@@ -9,6 +9,8 @@ from pathlib import Path
 from deerflow_ecs_fleet.launch_spec import Snapshot, WorkerCompatibility, thaw
 from deerflow_ecs_fleet.worker.agent_environment import AgentEnvironment
 
+from app.fleet.mutation import FleetCheckpointFence, FleetMutationCapability
+
 
 def _distribution_files(name):
     distribution = metadata.distribution(name)
@@ -275,84 +277,6 @@ def validate_model_bindings(private, spec, bindings):
         raise ValueError("Launch model version is incompatible")
 
 
-class FleetCheckpointFence:
-    """Bind the original accepted execution to writes on the saver connection."""
-
-    def __init__(self, identity, spec):
-        self._identity = identity
-        self._spec = spec
-
-    async def validate(self, cursor, *, thread_id, operation):
-        import hmac
-
-        identity, spec = self._identity, self._spec
-
-        def reject():
-            raise RuntimeError("Checkpoint ownership fence rejected execution")
-
-        if thread_id != spec.thread_id or (identity.agent_task_id, identity.generation) != (spec.agent_task_id, spec.generation):
-            reject()
-        # Lock in the shared admission/renewal order on this exact psycopg TX.
-        rows = []
-        for statement, value in (
-            ("SELECT * FROM fleet_agent_tasks WHERE id=%s FOR UPDATE", spec.agent_task_id),
-            ("SELECT * FROM runs WHERE run_id=%s FOR UPDATE", spec.run_id),
-            ("SELECT * FROM fleet_run_placements WHERE run_id=%s FOR UPDATE", spec.run_id),
-            ("SELECT * FROM fleet_nodes WHERE id=%s FOR UPDATE", identity.node_id),
-            ("SELECT * FROM fleet_reservations WHERE attempt_id=%s FOR UPDATE", identity.attempt_id),
-            ("SELECT * FROM fleet_attempts WHERE id=%s FOR UPDATE", identity.attempt_id),
-        ):
-            await cursor.execute(statement, (value,))
-            row = await cursor.fetchone()
-            if row is None:
-                reject()
-            rows.append(row)
-        task, run, placement, node, reservation, attempt = rows
-        await cursor.execute("SELECT clock_timestamp() AS now")
-        now = (await cursor.fetchone())["now"]
-        owner = (spec.user_id, spec.thread_id)
-        if any((row["user_id"], row["thread_id"]) != owner for row in (task, run, placement)):
-            reject()
-        if (
-            task["current_run_id"] != spec.run_id
-            or task["generation"] != spec.generation
-            or task["state"] not in {"queued", "running"}
-            or placement["agent_task_id"] != spec.agent_task_id
-            or placement["generation"] != spec.generation
-            or placement["active_attempt_id"] != identity.attempt_id
-            or placement["node_id"] != identity.node_id
-            or placement["state"] not in {"claimed", "running"}
-            or run["owner_worker_id"] != identity.owner_worker_id
-            or run["status"] not in {"pending", "running"}
-            or (run["kwargs_json"] or {}).get("execution_backend") != "fleet"
-            or node["session_id"] != identity.node_session_id
-            or attempt["kind"] != "agent"
-            or attempt["run_id"] != spec.run_id
-            or attempt["node_id"] != identity.node_id
-            or attempt["node_session_id"] != identity.node_session_id
-            or not hmac.compare_digest(attempt["token_hash"], identity.token_stamp)
-            or attempt["state"] not in {"starting", "running"}
-            or attempt["stopped_at"] is not None
-            or attempt["start_authorized_at"] is None
-            or attempt["process_ref"] != "fleet-" + identity.attempt_id
-            or (attempt["launch_spec"] or {}).get("launch_spec") != spec.canonical_payload()
-            or reservation["node_id"] != identity.node_id
-            or reservation["state"] not in {"reserved", "active"}
-            or reservation["released_at"] is not None
-            or reservation["agent_units"] != 1
-            or reservation["cpu_millis"] <= 0
-            or reservation["memory_mib"] <= 0
-            or run["lease_expires_at"] is None
-            or attempt["lease_expires_at"] != run["lease_expires_at"]
-            or run["lease_expires_at"] <= now
-            or task["deadline"] <= now
-            or attempt["execution_deadline"] is None
-            or attempt["execution_deadline"] <= now
-            or spec.execution_deadline <= now
-        ):
-            reject()
-
-
 async def build_agent_environment(*, bootstrap, spec, grant):
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -409,7 +333,10 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         sf = async_sessionmaker(engine, expire_on_commit=False)
         checkpointer = await stack.enter_async_context(make_checkpointer(private, write_fence=FleetCheckpointFence(bootstrap.identity, spec)))
         store = await stack.enter_async_context(make_store(private))
-        repository = RunRepository(sf)
+        from deerflow.runtime.execution.mutation_context import remote_mutation_scope
+
+        mutation_capability = FleetMutationCapability(bootstrap.identity, spec)
+        repository = RunRepository(sf, mutation_capability=mutation_capability)
         manager = RunManager(store=repository, worker_id=bootstrap.identity.owner_worker_id)
         bridge = await stack.enter_async_context(make_stream_bridge(private))
         from sqlalchemy import create_engine
@@ -435,6 +362,9 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         @contextmanager
         def private_scope():
             with ExitStack() as scoped:
+                from deerflow.runtime.execution.mutation_context import remote_mutation_scope
+
+                scoped.enter_context(remote_mutation_scope(mutation_capability.context))
                 scoped.enter_context(model_credential_scope(resolver))
                 scoped.enter_context(extensions_config_scope(private.extensions))
                 scoped.enter_context(agent_definition_store_scope(*definitions))
@@ -485,9 +415,9 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         context = RunContext(
             checkpointer=checkpointer,
             store=store,
-            event_store=DbRunEventStore(sf, max_trace_content=private.run_events.max_trace_content),
+            event_store=DbRunEventStore(sf, max_trace_content=private.run_events.max_trace_content, mutation_capability=mutation_capability),
             run_events_config=private.run_events,
-            thread_store=ThreadMetaRepository(sf),
+            thread_store=ThreadMetaRepository(sf, mutation_capability=mutation_capability),
             mcp_task_repo=McpTaskRepository(sf),
             app_config=execution,
             extensions=extensions,
@@ -504,6 +434,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
 
         return AgentEnvironment(
             identity=bootstrap.identity,
+            mutation_scope=lambda: remote_mutation_scope(mutation_capability.context),
             context=context,
             manager=manager,
             bridge=bridge,

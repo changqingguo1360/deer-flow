@@ -7,12 +7,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import case, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm.attributes import flag_modified
 
 from deerflow.persistence.json_compat import json_match
 from deerflow.persistence.thread_meta.base import THREAD_PINNED_METADATA_KEY, InvalidMetadataFilterError, ThreadMetaStore
 from deerflow.persistence.thread_meta.model import ThreadMetaRow
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, reject_remote_operation, validate_mutation
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import coerce_iso
 
@@ -20,8 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 class ThreadMetaRepository(ThreadMetaStore):
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, mutation_capability=None) -> None:
         self._sf = session_factory
+        self._mutation_capability = mutation_capability
 
     @staticmethod
     def _row_to_dict(row: ThreadMetaRow) -> dict[str, Any]:
@@ -47,6 +50,8 @@ class ThreadMetaRepository(ThreadMetaStore):
         # Auto-resolve user_id from contextvar when AUTO; explicit None
         # creates an orphan row (used by migration scripts).
         resolved_user_id = resolve_user_id(user_id, method_name="ThreadMetaRepository.create")
+        if self._mutation_capability is not None and resolved_user_id is None:
+            resolved_user_id = self._mutation_capability.context.user_id
         now = datetime.now(UTC)
         row = ThreadMetaRow(
             thread_id=thread_id,
@@ -58,10 +63,28 @@ class ThreadMetaRepository(ThreadMetaStore):
             updated_at=now,
         )
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "thread.create", thread_id=thread_id, user_id=resolved_user_id)
             session.add(row)
             await session.commit()
             await session.refresh(row)
             return self._row_to_dict(row)
+
+    async def ensure_executor_thread(self, thread_id: str, *, user_id: str, assistant_id=None, metadata=None) -> dict:
+        """Initialize the original remote thread without adopting or replacing it."""
+        if self._mutation_capability is None:
+            raise OwnershipRejected("Executor thread initialization requires bound authority")
+        async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "thread.ensure", thread_id=thread_id, user_id=user_id)
+            now = datetime.now(UTC)
+            await session.execute(
+                pg_insert(ThreadMetaRow).values(thread_id=thread_id, user_id=user_id, assistant_id=assistant_id, metadata_json=metadata or {}, created_at=now, updated_at=now).on_conflict_do_nothing(index_elements=[ThreadMetaRow.thread_id])
+            )
+            row = (await session.execute(select(ThreadMetaRow).where(ThreadMetaRow.thread_id == thread_id).with_for_update())).scalar_one()
+            if row.user_id != self._mutation_capability.context.user_id:
+                raise OwnershipRejected("Executor thread target ownership rejected")
+            result = self._row_to_dict(row)
+            await session.commit()
+            return result
 
     async def get(
         self,
@@ -165,17 +188,28 @@ class ThreadMetaRepository(ThreadMetaStore):
         row = await session.get(ThreadMetaRow, thread_id)
         return row is not None and row.user_id == resolved_user_id
 
-    async def update_display_name(
+    async def update_display_name(self, thread_id, display_name, *, remove_metadata_keys=(), user_id=AUTO):
+        return await self._update_display_name(thread_id, display_name, remove_metadata_keys=remove_metadata_keys, user_id=user_id)
+
+    async def update_checkpoint_display_name(self, thread_id, display_name, *, user_id=AUTO):
+        """Trusted worker checkpoint-title synchronization; not general metadata."""
+        return await self._update_display_name(thread_id, display_name, user_id=user_id, checkpoint_title=True)
+
+    async def _update_display_name(
         self,
         thread_id: str,
         display_name: str,
         *,
         remove_metadata_keys: tuple[str, ...] = (),
         user_id: str | None | _AutoSentinel = AUTO,
+        checkpoint_title: bool = False,
     ) -> None:
         """Update the display name and remove caller-selected stale metadata atomically."""
         resolved_user_id = resolve_user_id(user_id, method_name="ThreadMetaRepository.update_display_name")
+        if self._mutation_capability is not None and resolved_user_id is None:
+            resolved_user_id = self._mutation_capability.context.user_id
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "thread.checkpoint_title" if checkpoint_title else "thread.display", thread_id=thread_id, user_id=resolved_user_id)
             if session.get_bind().dialect.name == "sqlite":
                 await session.execute(text("BEGIN IMMEDIATE"))
                 row = await session.get(ThreadMetaRow, thread_id)
@@ -200,7 +234,10 @@ class ThreadMetaRepository(ThreadMetaStore):
         user_id: str | None | _AutoSentinel = AUTO,
     ) -> None:
         resolved_user_id = resolve_user_id(user_id, method_name="ThreadMetaRepository.update_status")
+        if self._mutation_capability is not None and resolved_user_id is None:
+            resolved_user_id = self._mutation_capability.context.user_id
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "thread.status", thread_id=thread_id, user_id=resolved_user_id, status=status)
             if not await self._check_ownership(session, thread_id, resolved_user_id):
                 return
             await session.execute(update(ThreadMetaRow).where(ThreadMetaRow.thread_id == thread_id).values(status=status, updated_at=datetime.now(UTC)))
@@ -226,7 +263,10 @@ class ThreadMetaRepository(ThreadMetaStore):
         preserve recency ordering for metadata-only changes such as pin/unpin.
         """
         resolved_user_id = resolve_user_id(user_id, method_name="ThreadMetaRepository.update_metadata")
+        if self._mutation_capability is not None and resolved_user_id is None:
+            resolved_user_id = self._mutation_capability.context.user_id
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "thread.metadata", thread_id=thread_id, user_id=resolved_user_id)
             if session.get_bind().dialect.name == "sqlite":
                 # A deferred SQLite transaction does not reserve the writer
                 # until the UPDATE, which is too late for a read-modify-write
@@ -262,6 +302,7 @@ class ThreadMetaRepository(ThreadMetaStore):
         user_id: str | None | _AutoSentinel = AUTO,
     ) -> None:
         """Move a thread metadata row to ``owner_user_id``."""
+        reject_remote_operation(self._mutation_capability)
         resolved_user_id = resolve_user_id(user_id, method_name="ThreadMetaRepository.update_owner")
         async with self._sf() as session:
             if not await self._check_ownership(session, thread_id, resolved_user_id):
@@ -275,6 +316,7 @@ class ThreadMetaRepository(ThreadMetaStore):
         *,
         user_id: str | None | _AutoSentinel = AUTO,
     ) -> None:
+        reject_remote_operation(self._mutation_capability)
         resolved_user_id = resolve_user_id(user_id, method_name="ThreadMetaRepository.delete")
         async with self._sf() as session:
             row = await session.get(ThreadMetaRow, thread_id)

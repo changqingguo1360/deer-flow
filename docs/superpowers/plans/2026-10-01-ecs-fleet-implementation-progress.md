@@ -1194,3 +1194,102 @@ focused RED cases now reject; it is not full C06a/C06 acceptance. Actual target
 owner/stamping, positive terminal, unsupported operation, lock/race/rollback and
 manager rejection propagation tests are still being added before source freeze,
 independent reviews and root gates. Original B image remains unchanged.
+
+
+C06a expanded intermediate GREEN:89passed/0skip in14.23s at
+/private/tmp/c06a-primary-matrix-green.log (root inspected). Prior intermediate
+logs preserve four fixture/snapshot failures and then87pass/2fail (one explicit
+batch-user behavior regression, one admission TypeError fixture); the regression
+was repaired before this GREEN. Later expanded96pass/2NameError fixture failures
+are not counted as RED or final evidence. C06a now also includes runtime/journal.py:
+actual background flush rebuffering and worker delivery-receipt generic retries
+must distinguish nonretryable OwnershipRejected. This is necessary original
+C06 ownership propagation scope, not a replacement runtime. Matrix/full runner,
+source freeze, both reviews and independent acceptance remain pending.
+
+
+C06a additional retry-path genuine RED2 at
+/private/tmp/c06a-journal-retry-behavior-red.log (2fail/98deselected/2.68s):
+actual stale PG receipt rejection was swallowed/retried and journal rejection
+rebuffered; fixture errors excluded. Focused worker/journal GREEN5/96deselected
+2.54s and expanded PG GREEN231/0 (101C06a+130C05,38.63s); Local neighbors
+481/0/1warning15.47s, retained distinct logs. Root inspected these outputs.
+
+First rebuilt Linux matrix395pass/2actual C04 failures90.70s at
+/private/tmp/c06a-linux-complete-matrix.log: parity/interrupt fail because direct
+remote store_only admission skips Local metadata initialization and has no
+ThreadsMeta row. Earlier silent no-op hid this gap. No full runner acceptance
+is claimed. Root approved actual trusted runner/repository original-owner
+initialization (atomic, existing-row preserving, never adopt another user),
+with genuine positive/stale/wrong-owner/concurrent tests, source rebuild and
+full matrix rerun. This preserves ownership rules and Local parity. Initial
+images are retained as failed evidence, not final images: runner e9579ee533822a2c86d5a9d77516c1f466076dc2bd22dcc624919c104e447efe;
+provider261bcbfcdcb5f2882328e7377f7c7a16eb5780c7fe595d6fcc290bf512aa858c.
+Packaged runtime guide was updated before rebuild; C06a/C06 review and root
+acceptance remain pending and remote activation remains closed.
+
+
+C06a atomic-initialization frozen candidate: implementer complete matrix404passed/0skip
+107.05s at /private/tmp/c06a-atomic-final-complete-matrix.log; Local481passed
+18.05s at /private/tmp/c06a-atomic-final-local-neighbors.log (root inspected).
+Candidate runner16021c02fb37f8306ef8245b47179eb6f707c69e99e10e0d6ed1d070c3d82a12
+and provider6fe7809b9035159e3a70dc5618085ded9bc8e39bc5f11cde6cf304a84ba785a1.
+These are candidate evidence, not independent root acceptance. Formal SPEC review
+confirmed all13 hashes at review start/end but returned must-fix at RunManager.try_start:
+start_owned_run OwnershipRejected is wrapped in RunStartupError without immediately
+marking local ownership_lost. Candidate is not approved. Single implementer now
+adds genuine manager/worker startup RED/GREEN and typed propagation fix; images and
+freeze must be rebuilt before review and independent gates. C06b/c, whole C06 and
+C07-C12/BC remain pending; OpenSpec6.1-6.4 remain unchecked, remote activation closed.
+
+
+C06a startup review fix: actual strongRED6 (manager/worker x token/owner/expiry)
+2.85s at /private/tmp/c06a-start-rejection-strong-behavior-red.log, GREEN6
+2.41s. New frozen candidate13files at /private/tmp/c06a-start-fix-source-freeze.json:
+runner65c9d3a3c9b8716a71bdb9bbf8ae592a2f1df0e225aceb744c03c940cf28459b,
+provider3a891c13c679508e9c17c76df3f51e09e9a3a6bc218e1400d991b57d3b72c446.
+Implementer matrix410/0skip117.26s; Local481/0skip16.18s. Formal SPEC re-review
+Approved; quality review then found one must-fix: actual worker
+_SubagentEventBuffer.flush swallows OwnershipRejected and re-buffers it;
+final pending flush must also mark loss and allow cleanup/end/finalizing release.
+Single implementer repairs this path with actual PG streaming/final-buffer RED/GREEN.
+
+Root independent gates on that candidate completed before the attempted stop,
+exit0 session81152, prefix /private/tmp/fleet-c06a-root-reviewed-:
+mutation114/0skip26.73s, checkpoint130/0skip22.03s, realrunner92/0skip71.15s,
+C01-C0374/0skip8.54s, Local481/0skip15.81s; fresh required XML verified nonempty
+and zero skipped/failed/error. Blocking75/4.36s, boundaries74/2.79s, Ruffcheck
+plus1420formatted, guidance24/0errors/0warnings, strictOpenSpec3/3, diffclean.
+These are prior-candidate evidence only, not approval despite passing tests.
+Installedbytes proof at /private/tmp/fleet-c06a-root-reviewed-installed-bytes.log
+matched runner12productionfiles includingguide, provider2Fleetfiles and absent
+app/harness. Initial generic provider proof wrongly expected host files; corrected
+per actual Dockerfile.provider (fixture-only image), no source/image modification.
+No commit/wholeC06 checkmarks or remote activation; final rebuilt candidate and
+repeat reviews/affected independent gates required before C06a acceptance.
+
+
+C06a accepted partial substep after both formal SPEC and QUALITY/SECURITY reviews
+Approved against all13 start/end hashes. The sole quality subagent-buffer defect
+has genuine strongRED6/7.09s at /private/tmp/c06a-subagent-rejection-strong-behavior-red.log
+and GREEN6/6.63s. Final implementer installedmatrix416/0skip279.32s andLocal492
+29.81s retained under /private/tmp/c06a-subagent-fix-*; candidate freeze
+/private/tmp/c06a-subagent-fix-source-freeze.json.
+runner34d1eadb03d23aa2f8a837df134b1fea23d1d175b973b15179e4ff9ed927759a,
+provider544eb103492ed1f84b5a639bff9e68a4e8ed4e63304c98d627f635bfb8b798d3.
+
+Root independent final gates exit0 session66766, prefix
+/private/tmp/fleet-c06a-root-subagent-final-: mutation120/0skip61.90s,
+checkpoint130/0skip22.12s, realrunner92/0skip70.74s, C01-C0374/0skip8.33s,
+Local492/0skip17.09s; every required fresh XML verified nonempty/no
+skipped/failure/error. Blocking75/4.32s, boundaries74/2.65s, Ruffcheck and
+1420formatted, guidance24/0errors/0warnings, strictOpenSpec3/3, diffclean.
+Installedbytes log matched all12runner productionfiles includingguide and
+2providerFleetfiles, noapp/harness in the independent fixture-provider image.
+No fullB/fullbackend gate is claimed for this partial substep; those remain
+mandatory at wholeC06 acceptance after b/c. OriginalB image remains unchanged.
+
+C06a detailed substep checkboxes only now checked. MainC06 andOpenSpec6.1-6.4
+remain unchecked; C06b realStore/synchronousdefinitions is next, C06c memory/
+extensions/scheduler/MCP andC07-C12/BC still pending. Remoteactivation closed.
+Source commit is a partial capability/primary-repository increment, not fullC06.

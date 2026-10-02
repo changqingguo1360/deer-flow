@@ -52,6 +52,7 @@ class AgentEnvironment:
     credential_resolver: Callable
     decode_input: Callable
     close: Callable[[], Awaitable[None]]
+    mutation_scope: Callable | None = None
     private_extensions_config: Any = None
     definition_stores: Any = None
     private_mcp_tools: Any = None

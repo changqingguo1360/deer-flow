@@ -165,7 +165,7 @@ records have no Gateway owner or lease and create no local asyncio task.
 C03 ownership adds SQL local eligibility for absent/local server-owned
 backend labels, plus a trusted host predicate applied to scans and mutations. Remote
 hydration preserves its label; store_only requires valid nonlocal admission output.
-Later durable write fences remain pending; Gateway remote activation remains closed. See the Fleet development guide for the app adapter and input codec.
+See the C05/C06a write boundaries below. Gateway remote activation remains closed; the Fleet development guide owns app adapters and input codecs.
 
 
 ### Trusted existing-executor attachment (C04 locally verified)
@@ -180,8 +180,8 @@ normalized config, stream modes, subgraph flag, interrupts and recursion budget.
 
 The host supplies private identity, resources and agent factory through the
 installed runner bridge. Harness remains independent of Fleet/app. This attachment
-is not C05 checkpoint fencing or C06 durable finalizer protection, and remote
-activation stays closed pending the remaining slices.
+alone grants no checkpoint or finalizer write authority. Remote activation
+stays closed pending the remaining slices.
 
 
 ### Trusted PostgreSQL checkpoint write boundary (C05)
@@ -215,3 +215,34 @@ prior-finalizing and later-run guards. Daemon terminal cleanup renewal grants no
 checkpoint write permission. This boundary does not protect thread metadata,
 memory, event stores or extension finalizers; their C06 contracts remain separate.
 Remote Gateway activation remains closed until all required C slices are verified.
+
+
+### Trusted remote primary mutations (C06a)
+
+`execution/mutation_context.py` supplies immutable private attempt context and
+nonretryable `OwnershipRejected`. Host-bound optional `mutation_capability` on
+RunRepository, ThreadMetaRepository and DbRunEventStore validates the original
+identity on the actual writer session/transaction, before target or event advisory
+locks, and holds execution locks through commit/rollback. Harness never imports
+app/Fleet. Missing/wrong callback context rejects; Local unbound resources retain
+existing behavior. Context scopes span executor attachment and host lifecycle;
+identity/token stamp never belongs in model-visible config.
+
+Trusted runner initialization atomically creates missing original-owned thread
+metadata and preserves existing rows; never adopt another owner.
+Remote targets and actual ThreadMeta ownership must match the bound user/thread/run.
+Absent ambient auth does not authorize ownerless writes or another user's events.
+Remote admission/admin/ownership mutations and thread-wide history deletion reject.
+Active writes require pending/running. Same terminal outcome allows only completion
+bookkeeping, matching final thread status and the worker's checkpoint-title sync;
+conflicting outcome/error/stop reason, ordinary metadata/progress and event writes
+reject. Original bounded leases/reservation/deadlines still apply. Checkpoints
+remain active-only under C05.
+
+RunManager/worker mark rejected execution ownership lost without durable writes.
+Journal background/explicit flush retains the rejection even after a task's done
+callback; it must not rebuffer it for retry. Delivery receipt persistence stops on
+this rejection. Preserve ordinary transient retries and cleanup notifications.
+This covers primary SQL writes only: Store/definitions (C06b), memory/extensions/
+scheduler/MCP tracking (C06c) and remaining C/BC acceptance are still outstanding.
+Remote activation stays closed.

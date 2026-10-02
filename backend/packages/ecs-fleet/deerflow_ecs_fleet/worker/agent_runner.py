@@ -13,6 +13,13 @@ from .agent_environment import BootstrapV1, build_environment
 
 class AgentRunner:
     async def run(self, spec: LaunchSpec, *, grant, environment):
+        from contextlib import nullcontext
+
+        scope = getattr(environment, "mutation_scope", None)
+        with scope() if scope is not None else nullcontext():
+            return await self._run(spec, grant=grant, environment=environment)
+
+    async def _run(self, spec: LaunchSpec, *, grant, environment):
         from contextlib import ExitStack
 
         from deerflow.config.extensions_config import extensions_config_scope
@@ -50,6 +57,12 @@ class AgentRunner:
         graph_input = environment.decode_input(spec.input)
         token = set_current_user(SimpleNamespace(id=spec.user_id))
         try:
+            # Store-only admission does not enter the Gateway's local metadata
+            # worker. Initialize this original thread through the bound writer
+            # before its first status update, never adopting another owner.
+            thread_store = environment.context.thread_store
+            if thread_store is not None:
+                await thread_store.ensure_executor_thread(spec.thread_id, assistant_id=record.assistant_id, metadata=record.metadata, user_id=spec.user_id)
             with ExitStack() as scopes:
                 scopes.enter_context(model_credential_scope(environment.credential_resolver))
                 if environment.private_extensions_config is not None:

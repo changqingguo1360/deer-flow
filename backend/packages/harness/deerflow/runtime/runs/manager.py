@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import IntegrityError as SAIntegrityError
 
 from deerflow.runtime.execution.contracts import ExecutionPlan
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import is_lease_expired
 from deerflow.utils.time import now_iso as _now_iso
@@ -121,6 +122,8 @@ def _is_retryable_persistence_error(exc: BaseException) -> bool:
     finalization from transient writer pressure without hiding permanent
     failures forever.
     """
+    if isinstance(exc, OwnershipRejected):
+        return False
 
     pending: list[BaseException] = [exc]
     seen: set[int] = set()
@@ -347,6 +350,9 @@ class RunManager:
                 lambda: self._store.put(run_id, **payload),
             )
             return True
+        except OwnershipRejected:
+            await self.mark_execution_ownership_lost(run_id)
+            return False
         except Exception:
             logger.warning("Failed to persist run %s to store", run_id, exc_info=True)
             return False
@@ -432,6 +438,9 @@ class RunManager:
                     return False
                 return await self._persist_snapshot_to_store(record.run_id, row_recovery_payload)
             return True
+        except OwnershipRejected:
+            await self.mark_execution_ownership_lost(record.run_id)
+            return False
         except Exception:
             logger.warning("Failed to persist status update for run %s", record.run_id, exc_info=True)
             return False
@@ -531,6 +540,9 @@ class RunManager:
                 )
                 if recovered is False:
                     logger.warning("Run completion update for %s affected no rows after row recreation", run_id)
+        except OwnershipRejected:
+            await self.mark_execution_ownership_lost(run_id)
+            return None
         except Exception:
             logger.warning("Failed to persist run completion for %s", run_id, exc_info=True)
 
@@ -549,6 +561,9 @@ class RunManager:
         if should_persist and self._store is not None:
             try:
                 await self._store.update_run_progress(run_id, **kwargs)
+            except OwnershipRejected:
+                await self.mark_execution_ownership_lost(run_id)
+                return None
             except Exception:
                 logger.warning("Failed to persist run progress for %s", run_id, exc_info=True)
 
@@ -569,6 +584,9 @@ class RunManager:
                 # The local status is already staged as terminal, but the store
                 # row intentionally remains running until checkpoint finalization.
                 await self._store.update_run_progress(run_id, **kwargs)
+            except OwnershipRejected:
+                await self.mark_execution_ownership_lost(run_id)
+                return None
             except Exception:
                 logger.warning("Failed to persist finalizing progress for %s", run_id, exc_info=True)
 
@@ -859,6 +877,9 @@ class RunManager:
                             else self._store.start_owned_run(run_id, user_id=record.user_id, thread_id=record.thread_id, owner_worker_id=record.owner_worker_id, execution_backend=record.execution_backend)
                         ),
                     )
+                except OwnershipRejected:
+                    await self.mark_execution_ownership_lost(run_id)
+                    raise
                 except Exception as exc:
                     raise RunStartupError(f"Failed to start run {run_id}: {exc}") from exc
                 if updated is False:
@@ -1028,6 +1049,9 @@ class RunManager:
                     stop_reason=stop_reason,
                 ),
             )
+        except OwnershipRejected:
+            await self.mark_execution_ownership_lost(run_id)
+            return None
         except Exception:
             async with self._lock:
                 record = self._runs.get(run_id)
@@ -1153,6 +1177,9 @@ class RunManager:
                 run_id,
                 lambda: self._store.update_model_name(run_id, model_name),
             )
+        except OwnershipRejected:
+            await self.mark_execution_ownership_lost(run_id)
+            return None
         except Exception:
             logger.warning("Failed to persist model_name update for run %s", run_id, exc_info=True)
 
@@ -1965,6 +1992,13 @@ class RunManager:
         if deadline.tzinfo is None:
             deadline = deadline.replace(tzinfo=UTC)
         return deadline
+
+    async def mark_execution_ownership_lost(self, run_id: str) -> None:
+        """Handle a trusted nonretryable mutation rejection without store writes."""
+        async with self._lock:
+            record = self._runs.get(run_id)
+        if record is not None:
+            await self._mark_ownership_lost(record, reason="Execution mutation ownership was rejected.", require_active=False)
 
     async def _mark_ownership_lost(
         self,

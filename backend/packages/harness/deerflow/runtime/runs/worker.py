@@ -50,6 +50,7 @@ from deerflow.runtime.checkpoint_state import (
     graph_writable_channels,
 )
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
 from deerflow.runtime.goal import (
     DEFAULT_MAX_GOAL_CONTINUATIONS,
     DEFAULT_MAX_NO_PROGRESS_CONTINUATIONS,
@@ -153,6 +154,8 @@ async def _persist_delivery_receipt(
                 content=content,
             )
             return True
+        except OwnershipRejected:
+            raise
         except Exception:
             if attempt == attempts - 1:
                 logger.warning(
@@ -511,8 +514,9 @@ class _SubagentEventBuffer:
     which acquires the lock once per batch, honoring the store's contract.
 
     Best-effort: a missing store (run_events not configured) or an unrecognized
-    chunk is a no-op, flush failures are logged but never propagate into the
-    stream loop, and terminal ``subagent.end`` events flush eagerly so a completed
+    chunk is a no-op and transient flush failures are logged and rebuffered.
+    Ownership rejection propagates without retry so the worker immediately
+    fences execution. Terminal ``subagent.end`` events flush eagerly so a completed
     subagent's step history is durable promptly rather than only at run end.
     """
 
@@ -544,13 +548,16 @@ class _SubagentEventBuffer:
             await self.flush()
 
     async def flush(self) -> None:
-        """Persist buffered events in one ``put_batch`` call; swallow store errors."""
+        """Persist one batch; retry transient errors, propagate lost ownership."""
         if self._event_store is None or not self._pending:
             return
         batch = self._pending
         self._pending = []
         try:
             await self._event_store.put_batch(batch)
+        except OwnershipRejected:
+            self._pending.clear()
+            raise
         except Exception:
             # Re-buffer the failed batch (ahead of any events queued since) so a
             # transient store error does not silently drop subagent step events.
@@ -644,6 +651,8 @@ async def run_agent(
                 **graph_input,
                 "background_tasks": _project_background_tasks(task_rows),
             }
+        except OwnershipRejected:
+            await run_manager.mark_execution_ownership_lost(run_id)
         except Exception:
             logger.warning("Run %s: failed to project MCP task state", run_id, exc_info=True)
 
@@ -677,6 +686,8 @@ async def run_agent(
                     run_id,
                     pre_run_checkpoint_id,
                 )
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning(
                     "Run %s cancellation rollback failed",
@@ -750,6 +761,8 @@ async def run_agent(
         if not record.ownership_lost and thread_store is not None:
             try:
                 await thread_store.update_status(thread_id, "running")
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.debug("Failed to update thread_meta status for %s (non-fatal)", thread_id)
         mode = ctx.checkpoint_channel_mode
@@ -798,6 +811,8 @@ async def run_agent(
                     user_id=workspace_changes_user_id,
                     extra_excluded_dir_names=workspace_excluded_dir_names,
                 )
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Could not capture pre-run workspace snapshot for run %s", run_id, exc_info=True)
 
@@ -908,6 +923,8 @@ async def run_agent(
             async with _checkpoint_thread_lock(thread_id):
                 try:
                     rollback_point = await _capture_rollback_point(accessor, checkpointer, checkpoint_config)
+                except OwnershipRejected:
+                    await run_manager.mark_execution_ownership_lost(run_id)
                 except Exception:
                     snapshot_capture_failed = True
                     logger.warning("Could not capture pre-run checkpoint snapshot for run %s", run_id, exc_info=True)
@@ -1031,6 +1048,8 @@ async def run_agent(
                     try:
                         for publish_chunk in file_tool_chunk_batcher.finish():
                             await bridge.publish(run_id, "messages", serialize(publish_chunk, mode="messages"))
+                    except OwnershipRejected:
+                        await run_manager.mark_execution_ownership_lost(run_id)
                     except Exception:
                         if stream_error is None:
                             raise
@@ -1122,6 +1141,8 @@ async def run_agent(
     except asyncio.CancelledError:
         await _finish_cancellation(record.abort_action)
 
+    except OwnershipRejected:
+        await run_manager.mark_execution_ownership_lost(run_id)
     except Exception as exc:
         error_msg = f"{exc}"
         logger.exception("Run %s failed: %s", run_id, error_msg)
@@ -1172,13 +1193,18 @@ async def run_agent(
                         thread_id=thread_id,
                     )
                     logger.info("Run %s edit replay restored pre-run checkpoint %s", run_id, pre_run_checkpoint_id)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Run %s edit replay rollback failed", run_id, exc_info=True)
 
         # Persist any subagent step events still buffered (#3779) — including on
         # abort/exception paths, where the stream loop broke before its own flush.
         if not record.ownership_lost and subagent_events is not None:
-            await subagent_events.flush()
+            try:
+                await subagent_events.flush()
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
 
         if not record.ownership_lost and event_store is not None and pre_run_workspace_snapshot is not None:
             try:
@@ -1190,6 +1216,8 @@ async def run_agent(
                     user_id=workspace_changes_user_id,
                     extra_excluded_dir_names=workspace_excluded_dir_names,
                 )
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Failed to record workspace changes for run %s", run_id, exc_info=True)
 
@@ -1201,6 +1229,8 @@ async def run_agent(
         if not record.ownership_lost and journal is not None:
             try:
                 await journal.flush()
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Failed to flush journal for run %s", run_id, exc_info=True)
 
@@ -1213,12 +1243,17 @@ async def run_agent(
                         extra_excluded_dir_names=workspace_excluded_dir_names,
                     )
                 delivery_content = _delivery_content_with_outputs(journal.get_delivery_content(), produced_output_paths)
-            receipt_persisted = await _persist_delivery_receipt(
-                event_store,
-                thread_id=thread_id,
-                run_id=run_id,
-                content=delivery_content,
-            )
+            receipt_persisted = False
+            if not record.ownership_lost:
+                try:
+                    receipt_persisted = await _persist_delivery_receipt(
+                        event_store,
+                        thread_id=thread_id,
+                        run_id=run_id,
+                        content=delivery_content,
+                    )
+                except OwnershipRejected:
+                    await run_manager.mark_execution_ownership_lost(run_id)
             if produced_output_paths and record.status == RunStatus.success and not receipt_persisted:
                 await run_manager.set_status(
                     run_id,
@@ -1234,6 +1269,8 @@ async def run_agent(
                 # fence peer checkpoint writers through the duration write.
                 completion_data = journal.get_completion_data()
                 await run_manager.update_finalizing_progress(run_id, **completion_data)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Failed to persist finalizing run progress for %s (non-fatal)", run_id, exc_info=True)
 
@@ -1255,6 +1292,8 @@ async def run_agent(
                     run_id=run_id,
                     duration_seconds=duration,
                 )
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.debug("Failed to persist run duration for thread %s run %s (non-fatal)", thread_id, run_id)
 
@@ -1263,6 +1302,8 @@ async def run_agent(
                 await run_manager.wait_for_prior_finalizing(thread_id, run_id)
                 if not await run_manager.has_later_started_run(thread_id, run_id):
                     await _ensure_interrupted_title(checkpointer=checkpointer, thread_id=thread_id, app_config=ctx.app_config, graph_input=graph_input)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
 
@@ -1291,9 +1332,13 @@ async def run_agent(
                                 await run_manager.wait_for_prior_finalizing(thread_id, run_id)
                                 if not await run_manager.has_later_started_run(thread_id, run_id):
                                     await _ensure_interrupted_title(checkpointer=checkpointer, thread_id=thread_id, app_config=ctx.app_config, graph_input=graph_input)
+                            except OwnershipRejected:
+                                await run_manager.mark_execution_ownership_lost(run_id)
                             except Exception:
                                 logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
                         await run_manager.persist_current_status(run_id)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Failed to persist terminal status for run %s after delivery receipt attempts", run_id, exc_info=True)
 
@@ -1302,6 +1347,8 @@ async def run_agent(
                 # Persist token usage + convenience fields to RunStore
                 completion_data = completion_data or journal.get_completion_data()
                 await run_manager.update_run_completion(run_id, status=record.status.value, **completion_data)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Failed to persist run completion for %s (non-fatal)", run_id, exc_info=True)
 
@@ -1314,7 +1361,9 @@ async def run_agent(
                     ckpt = getattr(ckpt_tuple, "checkpoint", {}) or {}
                     title = ckpt.get("channel_values", {}).get("title")
                     if title:
-                        await thread_store.update_display_name(thread_id, title)
+                        await getattr(thread_store, "update_checkpoint_display_name", thread_store.update_display_name)(thread_id, title)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.debug("Failed to sync title for thread %s (non-fatal)", thread_id)
 
@@ -1323,12 +1372,16 @@ async def run_agent(
             try:
                 final_status = "idle" if record.status == RunStatus.success else record.status.value
                 await thread_store.update_status(thread_id, final_status)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.debug("Failed to update thread_meta status for %s (non-fatal)", thread_id)
 
         if not record.ownership_lost and ctx.on_run_completed is not None:
             try:
                 await ctx.on_run_completed(record)
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning("Run completion hook failed for %s (non-fatal)", run_id, exc_info=True)
 
@@ -1346,6 +1399,8 @@ async def run_agent(
                     ),
                     timeout=_EXTENSION_TASK_NOTIFY_TIMEOUT_SECONDS,
                 )
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:
                 logger.warning(
                     "Extension task-stop notification failed for run %s (non-fatal)",

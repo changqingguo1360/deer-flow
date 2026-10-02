@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.runtime.events.store.base import RunEventStore
+from deerflow.runtime.execution.mutation_context import MutationTarget, current_remote_mutation_context, reject_remote_operation, validate_mutation
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, get_current_user, resolve_user_id
 from deerflow.utils.time import coerce_iso
 
@@ -24,8 +25,9 @@ logger = logging.getLogger(__name__)
 
 
 class DbRunEventStore(RunEventStore):
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, max_trace_content: int = 10240):
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, max_trace_content: int = 10240, mutation_capability=None):
         self._sf = session_factory
+        self._mutation_capability = mutation_capability
         self._max_trace_content = max_trace_content
         # Per-thread asyncio locks serialize seq assignment for concurrent
         # in-process writers on the same thread. The DB-level FOR UPDATE /
@@ -138,9 +140,12 @@ class DbRunEventStore(RunEventStore):
         content, metadata = self._truncate_trace(category, content, metadata)
         db_content, metadata = self._content_to_db(content, metadata)
         user_id = self._user_id_from_context()
+        if self._mutation_capability is not None and user_id is None:
+            user_id = self._mutation_capability.context.user_id
         async with self._get_write_lock(thread_id):
             async with self._sf() as session:
                 async with session.begin():
+                    await validate_mutation(self._mutation_capability, session, "events.put", thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,))
                     max_seq = await self._max_seq_for_thread(session, thread_id)
                     seq = (max_seq or 0) + 1
                     row = RunEventRow(
@@ -164,11 +169,20 @@ class DbRunEventStore(RunEventStore):
         if len(thread_ids) > 1:
             raise ValueError(f"put_batch requires all events to belong to the same thread; got {thread_ids!r}")
         user_id = self._user_id_from_context()
+        if self._mutation_capability is not None and user_id is None:
+            user_id = self._mutation_capability.context.user_id
         # All events belong to the same thread (validated above).
         thread_id = events[0]["thread_id"]
         async with self._get_write_lock(thread_id):
             async with self._sf() as session:
                 async with session.begin():
+                    if self._mutation_capability is not None:
+                        await self._mutation_capability.validate_async(
+                            session,
+                            context=current_remote_mutation_context(),
+                            operation="events.batch",
+                            targets=tuple(MutationTarget(thread_id=e["thread_id"], run_id=e["run_id"], user_id=e.get("user_id", user_id), event_types=(e["event_type"],)) for e in events),
+                        )
                     max_seq = await self._max_seq_for_thread(session, thread_id)
                     seq = max_seq or 0
                     rows = []
@@ -182,7 +196,7 @@ class DbRunEventStore(RunEventStore):
                         row = RunEventRow(
                             thread_id=e["thread_id"],
                             run_id=e["run_id"],
-                            user_id=e.get("user_id", user_id),
+                            user_id=self._mutation_capability.context.user_id if self._mutation_capability is not None else e.get("user_id", user_id),
                             event_type=e["event_type"],
                             category=category,
                             content=db_content,
@@ -216,9 +230,12 @@ class DbRunEventStore(RunEventStore):
         content, metadata = self._truncate_trace(category, content, metadata)
         db_content, metadata = self._content_to_db(content, metadata)
         user_id = self._user_id_from_context()
+        if self._mutation_capability is not None and user_id is None:
+            user_id = self._mutation_capability.context.user_id
         async with self._get_write_lock(thread_id):
             async with self._sf() as session:
                 async with session.begin():
+                    await validate_mutation(self._mutation_capability, session, "events.singleton", thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,))
                     max_seq = await self._max_seq_for_thread(session, thread_id)
                     stmt = (
                         select(RunEventRow)
@@ -394,6 +411,7 @@ class DbRunEventStore(RunEventStore):
         *,
         user_id: str | None | _AutoSentinel = AUTO,
     ):
+        reject_remote_operation(self._mutation_capability)
         resolved_user_id = resolve_user_id(user_id, method_name="DbRunEventStore.delete_by_thread")
         async with self._sf() as session:
             count_conditions = [RunEventRow.thread_id == thread_id]
@@ -422,7 +440,10 @@ class DbRunEventStore(RunEventStore):
         user_id: str | None | _AutoSentinel = AUTO,
     ):
         resolved_user_id = resolve_user_id(user_id, method_name="DbRunEventStore.delete_by_run")
+        if self._mutation_capability is not None and resolved_user_id is None:
+            resolved_user_id = self._mutation_capability.context.user_id
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "events.delete_run", thread_id=thread_id, run_id=run_id, user_id=resolved_user_id)
             count_conditions = [RunEventRow.thread_id == thread_id, RunEventRow.run_id == run_id]
             if resolved_user_id is not None:
                 count_conditions.append(RunEventRow.user_id == resolved_user_id)

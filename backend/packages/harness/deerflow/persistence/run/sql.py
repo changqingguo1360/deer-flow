@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.run.model import RunRow
 from deerflow.runtime.execution.contracts import RunAdmissionParticipant, RunAdmissionUnitOfWork
+from deerflow.runtime.execution.mutation_context import reject_remote_operation, validate_mutation
 from deerflow.runtime.runs.store.base import (
     LeaseRenewal,
     RunIdempotencyConflict,
@@ -35,8 +36,9 @@ def _lease_expired_or_null(lease_col, cutoff: datetime):
 class RunRepository(RunStore):
     supports_admission_participants = True
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, mutation_capability=None) -> None:
         self._sf = session_factory
+        self._mutation_capability = mutation_capability
         self._local_recovery_predicate = None
 
     def set_local_recovery_predicate(self, predicate):
@@ -133,6 +135,7 @@ class RunRepository(RunStore):
         this operation idempotent prevents a successful-but-unacknowledged first
         commit from turning the retry into a primary-key failure.
         """
+        reject_remote_operation(self._mutation_capability)
         resolved_user_id = resolve_user_id(user_id, method_name="RunRepository.put")
         now = datetime.now(UTC)
         created = datetime.fromisoformat(created_at) if created_at else now
@@ -267,7 +270,12 @@ class RunRepository(RunStore):
         # ``error`` and ``success`` remain locked so a peer's takeover (or a
         # completed run) cannot be overwritten by a late writer.
         async with self._sf() as session:
-            result = await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.status.in_(("pending", "running", "interrupted"))).values(**values))
+            await validate_mutation(self._mutation_capability, session, "run.status", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
+            result = await session.execute(
+                update(RunRow)
+                .where(RunRow.run_id == run_id, RunRow.status.in_(("pending", "running", "interrupted") if self._mutation_capability is None else ("pending", "running", "interrupted", "success", "error", "timeout")))
+                .values(**values)
+            )
             await session.commit()
             return result.rowcount != 0
 
@@ -289,6 +297,7 @@ class RunRepository(RunStore):
         async with self._sf() as session:
             # Acquire the row before evaluating wallclock expiry. A predicate
             # evaluated before a lock wait can authorize an expired executor.
+            await validate_mutation(self._mutation_capability, session, "run.attach", run_id=run_id, user_id=identity.get("user_id"), thread_id=identity.get("thread_id"))
             locked = (await session.execute(select(RunRow.run_id).where(RunRow.run_id == run_id).with_for_update())).scalar_one_or_none()
             if locked is None:
                 return None
@@ -297,6 +306,7 @@ class RunRepository(RunStore):
 
     async def start_owned_run(self, run_id, **identity):
         async with self._sf.begin() as session:
+            await validate_mutation(self._mutation_capability, session, "run.start", run_id=run_id, user_id=identity.get("user_id"), thread_id=identity.get("thread_id"))
             locked = (await session.execute(select(RunRow.run_id).where(RunRow.run_id == run_id).with_for_update())).scalar_one_or_none()
             if locked is None:
                 return False
@@ -305,6 +315,7 @@ class RunRepository(RunStore):
 
     async def start_run(self, run_id: str) -> bool:
         """Start only a still-pending run; cancelled rows must not be resurrected."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             result = await session.execute(
                 update(RunRow)
@@ -319,6 +330,7 @@ class RunRepository(RunStore):
 
     async def update_model_name(self, run_id, model_name):
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "run.model", run_id=run_id)
             await session.execute(update(RunRow).where(RunRow.run_id == run_id).values(model_name=self._normalize_model_name(model_name), updated_at=datetime.now(UTC)))
             await session.commit()
 
@@ -328,6 +340,7 @@ class RunRepository(RunStore):
         *,
         user_id: str | None | _AutoSentinel = AUTO,
     ):
+        reject_remote_operation(self._mutation_capability)
         resolved_user_id = resolve_user_id(user_id, method_name="RunRepository.delete")
         async with self._sf() as session:
             row = await session.get(RunRow, run_id)
@@ -340,6 +353,7 @@ class RunRepository(RunStore):
 
     async def delete_thread_operation(self, run_id: str, *, user_id: str | None) -> None:
         """Release a reservation using its captured owner, not request context."""
+        reject_remote_operation(self._mutation_capability)
         await self.delete(run_id, user_id=user_id)
 
     async def list_pending(self, *, before=None):
@@ -422,6 +436,7 @@ class RunRepository(RunStore):
         if status == "error" and "interrupted" not in allowed_sources:
             allowed_sources.append("interrupted")
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "run.completion", run_id=run_id, status=status, error=error)
             result = await session.execute(
                 update(RunRow)
                 .where(
@@ -471,6 +486,7 @@ class RunRepository(RunStore):
         if first_human_message is not None:
             values["first_human_message"] = first_human_message[:2000]
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "run.progress", run_id=run_id)
             await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.status == "running").values(**values))
             await session.commit()
 
@@ -558,6 +574,7 @@ class RunRepository(RunStore):
         owner_worker_id: str,
         lease_expires_at: str,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         lease_dt = datetime.fromisoformat(lease_expires_at)
         values: dict[str, Any] = {
             "owner_worker_id": owner_worker_id,
@@ -577,6 +594,7 @@ class RunRepository(RunStore):
         lease_expires_at: str,
     ) -> LeaseRenewal:
         """Renew the owner lease and read cancellation intent atomically."""
+        reject_remote_operation(self._mutation_capability)
         lease_dt = datetime.fromisoformat(lease_expires_at)
         async with self._sf() as session:
             result = await session.execute(
@@ -601,6 +619,7 @@ class RunRepository(RunStore):
 
     async def request_cancel(self, run_id: str, *, action: str) -> str | None:
         """Atomically persist the first cancellation action on an active run."""
+        reject_remote_operation(self._mutation_capability)
         if action not in ("interrupt", "rollback"):
             raise ValueError(f"Unsupported cancellation action: {action}")
         now = datetime.now(UTC)
@@ -647,6 +666,7 @@ class RunRepository(RunStore):
             values["stop_reason"] = stop_reason
 
         async with self._sf() as session:
+            await validate_mutation(self._mutation_capability, session, "run.finalize", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             result = await session.execute(
                 update(RunRow)
                 .where(
@@ -677,6 +697,7 @@ class RunRepository(RunStore):
         error: str,
         stop_reason: str | None = None,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         cutoff = datetime.now(UTC) - timedelta(seconds=grace_seconds)
         values: dict[str, Any] = {
             "status": "error",
@@ -758,6 +779,7 @@ class RunRepository(RunStore):
         Returns:
             Tuple of ``(new_run_dict, claimed_run_dicts)``.
         """
+        reject_remote_operation(self._mutation_capability)
         from deerflow.runtime.runs.manager import ConflictError
 
         resolved_user_id = resolve_user_id(user_id or AUTO, method_name="RunRepository.create_thread_operation_atomic")
