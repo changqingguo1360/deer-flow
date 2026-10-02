@@ -1143,3 +1143,10 @@ This is local PG/Linux-container acceptance, not production ECS deployment or
 user-facing activation. C06-C12 and BC remain pending, Gateway agents_enabled
 stays closed, and the full C change is neither IMPLEMENTED nor archived.
 Verified source commit is recorded after committing this slice.
+
+
+C05 verified implementation commit: `cf7b107969ec511423774a572e17feb7704c8997`.
+All eight frozen source hashes match the actual committed blobs. Final make format
+left1417files unchanged. Post-document boundary/thread checks74passed/0skip
+(2.81s), strict OpenSpec3/3 and diffcheck clean; guidance warning paths/codes equal
+parent HEAD. C06-C12 and BC remain pending and remote activation remains closed.
