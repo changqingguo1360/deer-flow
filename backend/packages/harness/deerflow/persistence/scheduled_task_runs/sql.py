@@ -12,6 +12,7 @@ from deerflow.persistence.run import RunRepository
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
 from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, reject_remote_operation
 from deerflow.scheduler.schedules import next_run_at as compute_next_run_at
 from deerflow.utils.time import coerce_iso
 
@@ -59,8 +60,10 @@ class ScheduledTaskRunRepository:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         run_repository: RunRepository | None = None,
+        mutation_capability=None,
     ) -> None:
         self._sf = session_factory
+        self._mutation_capability = mutation_capability
         self._run_repository = run_repository or RunRepository(session_factory)
 
     @staticmethod
@@ -153,6 +156,7 @@ class ScheduledTaskRunRepository:
         expected_task_lease_owner: str | None = None,
         release_task_lease_status: str | None = None,
     ) -> dict[str, Any]:
+        reject_remote_operation(self._mutation_capability)
         row = ScheduledTaskRunRow(
             id=run_record_id,
             task_id=task_id,
@@ -293,6 +297,7 @@ class ScheduledTaskRunRepository:
         global_max_concurrent_runs: int,
     ) -> dict[str, Any] | None:
         """Atomically move one waiting row into the lease-fenced launch phase."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             if session.get_bind().dialect.name == "postgresql":
                 await session.execute(
@@ -345,6 +350,7 @@ class ScheduledTaskRunRepository:
         lease_owner: str,
         error: str | None = None,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             result = await session.execute(
                 update(ScheduledTaskRunRow)
@@ -377,6 +383,7 @@ class ScheduledTaskRunRepository:
         transaction prevents a peer scheduler from taking a stale due-task
         lease between those two writes.
         """
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             candidate_keys = list(
                 (
@@ -451,6 +458,7 @@ class ScheduledTaskRunRepository:
         now: datetime,
     ) -> bool:
         """Fail a claimed launch and update its parent without a release gap."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             task = await self._lock_task(session, task_id)
             row = await session.get(ScheduledTaskRunRow, run_record_id, with_for_update=True)
@@ -505,6 +513,7 @@ class ScheduledTaskRunRepository:
         Parent-first locking restores the active slot before later parent
         bookkeeping can make the task due again.
         """
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             await self._lock_task(session, task_id)
             row = await session.get(ScheduledTaskRunRow, run_record_id, with_for_update=True)
@@ -540,6 +549,7 @@ class ScheduledTaskRunRepository:
 
     async def recover_expired_launch_claims(self, *, error: str, now: datetime) -> int:
         """Recover single-instance claims that outlived their short lease."""
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             select(
                 ScheduledTaskRunRow.id,
@@ -603,9 +613,19 @@ class ScheduledTaskRunRepository:
         finished_at: datetime | None = None,
         protect_terminal: bool = False,
         expected_lease_owner: str | None = None,
+        completion_task_id: str | None = None,
     ) -> bool:
         async with self._sf() as session:
-            row = await session.get(ScheduledTaskRunRow, run_record_id)
+            if self._mutation_capability is not None:
+                await session.begin()
+                from deerflow.persistence.scheduled_completion import lock_completion
+
+                bound = await lock_completion(session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id)
+                _, row, expected_status, expected_error = bound
+                if status != expected_status or error != expected_error or finished_at is None or started_at is not None or protect_terminal or expected_lease_owner is not None:
+                    raise OwnershipRejected("Scheduled completion fields rejected")
+            else:
+                row = await session.get(ScheduledTaskRunRow, run_record_id)
             if row is None:
                 return False
             if protect_terminal and row.status in TERMINAL_RUN_STATUSES:
@@ -639,6 +659,9 @@ class ScheduledTaskRunRepository:
                 row.started_at = started_at
             if finished_at is not None:
                 row.finished_at = finished_at
+            if self._mutation_capability is not None:
+                await session.flush()
+                await lock_completion(session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id)
             await session.commit()
             return True
 
@@ -662,6 +685,7 @@ class ScheduledTaskRunRepository:
         ``launching`` row without a committed live run is safe to retry; a
         ``running`` row belonged to the dead in-process runtime.
         """
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             select(
                 ScheduledTaskRunRow.id,
@@ -718,6 +742,7 @@ class ScheduledTaskRunRepository:
         underlying run, or a queued row whose parent task still has a dispatch
         lease, belongs to another process and must survive this startup.
         """
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             result = await session.execute(
                 select(

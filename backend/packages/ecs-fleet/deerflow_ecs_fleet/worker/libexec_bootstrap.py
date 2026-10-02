@@ -54,9 +54,9 @@ def main():
             arguments = parser.parse_args()
             print(worker_compatibility(arguments.provider).model_dump_json(), flush=True)
             return 0
-        from deerflow_ecs_fleet.worker.agent_runner import bootstrap_main
+        from deerflow_ecs_fleet.worker.agent_runner import isolated_bootstrap_main
 
-        return bootstrap_main(payload, argv=sys.argv[1:])
+        return isolated_bootstrap_main(payload, argv=sys.argv[1:])
     except BaseException:
         print("Agent trusted bootstrap failed", file=sys.stderr)
         return 1

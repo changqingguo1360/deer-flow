@@ -56,3 +56,31 @@ are private; control database, node and attempt credentials cannot be forwarded 
 MCP subprocesses. Existing transport interceptors remain the authentication path.
 This C04 plumbing is locally verified; it does not supply C06 durable mutation
 fencing or activate remote Agent admission.
+
+
+### Remote durable task tracking (C06c)
+
+Durable submit tools resolve `get_mcp_task_submitter`, independently of the
+worker's task projection repository. A private `mcp_task_submitter_scope` binds
+the actual submission service, original capability and task-server snapshot;
+missing/wrong context rejects instead of reusing a Local/Gateway global service.
+The runner uses the normal tool -> McpTaskService -> bound repository path.
+Tracking creation, duplicate-handle ownership and cancellation requests validate
+the original user/thread/run on the actual transaction, including post-SQL/flush
+lease validation before commit after target or unique-conflict waits. Host poll,
+notification and service-start mutations remain unavailable to that repository.
+After unique-conflict rollback, recheck original authority before ordinary error
+handling or compensation.
+
+Propagate nonretryable `OwnershipRejected`; do not present it as degraded tracking
+or retry/compensate it as an ordinary submission error. Local/Gateway behavior
+retains its existing service ownership and compensation rules. External MCP
+effects are not transactionally rolled back or promised exactly-once. C06 acceptance
+evidence belongs to its external plan; activation stays closed.
+
+Dynamic MCP wrappers retain concrete `Runtime` annotations on both coroutine and
+final synchronous bridge: ToolNode prefers `tool.func` when present. Preserve
+injection through the original MCP args schema; optional/postponed annotations or
+an unannotated sync bridge can lose original run/user association. Runtime stays
+absent from the model schema. Test the loaded tool pipeline, not only a standalone
+coroutine wrapper; existing RunnableConfig injection and Local calls remain valid.

@@ -46,3 +46,12 @@ definition stores; missing scopes cannot fall back to Local SQL/files. Default
 global SOUL setup rejects before filesystem writes. OwnershipRejected must
 propagate through tools and middleware to the worker; ordinary tool errors retain
 existing recovery. Database definition guards share the actual writer transaction.
+
+
+`make_sync_tool_wrapper` must preserve concrete ToolRuntime injection metadata for
+coroutines that declare it: ToolNode inspects the sync `func` before `coroutine`.
+Keep explicit Runtime/RunnableConfig wrapper branches, existing config forwarding,
+ordinary user `config` arguments and contextvars across loop/thread execution.
+Do not copy arbitrary user annotations into the injected tool contract. Verify
+actual loaded MCP tools, original user/thread/run identity and both async/sync
+invocation; isolated coroutine tests miss the final bridge.

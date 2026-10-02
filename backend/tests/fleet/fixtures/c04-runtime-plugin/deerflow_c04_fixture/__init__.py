@@ -1,8 +1,4 @@
-"""Installed trusted extension tests actual private resource lifecycle bindings."""
-
-import json
-import os
-from pathlib import Path
+"""Installed trusted PostgreSQL extension exercises real lifecycle resources."""
 
 
 def install(registry, config):
@@ -12,11 +8,15 @@ def install(registry, config):
     model = create_chat_model("model-1", app_config=get_app_config(), attach_tracing=False)
     if model.api_key is None:
         raise ValueError("Plugin load has no approved provider binding")
-    registry.service(Service())
+    service = Service()
+    registry.service(service)
+    registry.task_lifecycle(service)
 
 
 class Service:
-    async def check(self, phase):
+    remote_state_mode = "transactional"
+
+    async def check(self):
         from deerflow.config.app_config import get_app_config
         from deerflow.mcp.cache import get_cached_mcp_tools
         from deerflow.models.factory import create_chat_model
@@ -31,14 +31,34 @@ class Service:
         tool = next(item for item in get_cached_mcp_tools() if item.name == "c04_echo")
         if "plugin-private-resource" not in str(await tool.ainvoke({"value": "plugin-private-resource"})):
             raise ValueError("Plugin lifecycle lost private MCP binding")
-        path = Path(os.environ["DEER_FLOW_HOME"]) / "plugin-lifecycle.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        phases = json.loads(path.read_text()) if path.exists() else []
-        phases.append(phase)
-        path.write_text(json.dumps(phases))
+
+    async def write(self, value):
+        from sqlalchemy import text
+
+        async with self._deps.mutation_transactions.async_transaction() as session:
+            await session.execute(text("INSERT INTO c06_extension(value) VALUES (:v)"), {"v": value})
 
     async def start(self, deps):
-        await self.check("start")
+        self._deps = deps
+        self._lead = None
+        await self.check()
+        await self.write("start")
 
     async def stop(self):
-        await self.check("stop")
+        await self.check()
+        if self._lead is not None:
+            # The only durable stop operation is a host-owned original-task
+            # receipt; no terminal SQL session is available to this plugin.
+            await self._deps.terminal_operations.record_task_stop(task_id=self._lead.task_id, outcome=self._outcome)
+
+    async def on_task_start(self, app_store, task_store, info):
+        if info.kind == "lead":
+            self._lead = info
+        await self.write(info.kind + "-start")
+
+    async def on_task_stop(self, app_store, task_store, info, outcome):
+        if info.kind == "lead":
+            self._outcome = outcome.value
+            await self._deps.terminal_operations.record_task_stop(task_id=info.task_id, outcome=outcome.value)
+        else:
+            await self.write("subagent-stop")

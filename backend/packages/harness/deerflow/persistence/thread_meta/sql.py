@@ -8,13 +8,14 @@ from typing import Any
 
 from sqlalchemy import case, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm.attributes import flag_modified
 
 from deerflow.persistence.json_compat import json_match
 from deerflow.persistence.thread_meta.base import THREAD_PINNED_METADATA_KEY, InvalidMetadataFilterError, ThreadMetaStore
 from deerflow.persistence.thread_meta.model import ThreadMetaRow
-from deerflow.runtime.execution.mutation_context import OwnershipRejected, reject_remote_operation, validate_mutation
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, reject_remote_operation, validate_mutation, validate_mutation_after_sql
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import coerce_iso
 
@@ -65,7 +66,15 @@ class ThreadMetaRepository(ThreadMetaStore):
         async with self._sf() as session:
             await validate_mutation(self._mutation_capability, session, "thread.create", thread_id=thread_id, user_id=resolved_user_id)
             session.add(row)
-            await session.commit()
+            try:
+                await validate_mutation_after_sql(self._mutation_capability, session, "thread.create", thread_id=thread_id, user_id=resolved_user_id)
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                if self._mutation_capability is not None:
+                    async with session.begin():
+                        await validate_mutation(self._mutation_capability, session, "thread.create", thread_id=thread_id, user_id=resolved_user_id)
+                raise
             await session.refresh(row)
             return self._row_to_dict(row)
 
@@ -83,6 +92,7 @@ class ThreadMetaRepository(ThreadMetaStore):
             if row.user_id != self._mutation_capability.context.user_id:
                 raise OwnershipRejected("Executor thread target ownership rejected")
             result = self._row_to_dict(row)
+            await validate_mutation_after_sql(self._mutation_capability, session, "thread.ensure", thread_id=thread_id, user_id=user_id)
             await session.commit()
             return result
 
@@ -224,6 +234,7 @@ class ThreadMetaRepository(ThreadMetaStore):
                 metadata.pop(key, None)
             row.metadata_json = metadata
             row.updated_at = datetime.now(UTC)
+            await validate_mutation_after_sql(self._mutation_capability, session, "thread.checkpoint_title" if checkpoint_title else "thread.display", thread_id=thread_id, user_id=resolved_user_id)
             await session.commit()
 
     async def update_status(
@@ -241,6 +252,7 @@ class ThreadMetaRepository(ThreadMetaStore):
             if not await self._check_ownership(session, thread_id, resolved_user_id):
                 return
             await session.execute(update(ThreadMetaRow).where(ThreadMetaRow.thread_id == thread_id).values(status=status, updated_at=datetime.now(UTC)))
+            await validate_mutation_after_sql(self._mutation_capability, session, "thread.status", thread_id=thread_id, user_id=resolved_user_id, status=status)
             await session.commit()
 
     async def update_metadata(
@@ -292,6 +304,7 @@ class ThreadMetaRepository(ThreadMetaStore):
                 # current value dirty so SQLAlchemy emits it in SET, skips the
                 # hook, and preserves recency ordering.
                 flag_modified(row, "updated_at")
+            await validate_mutation_after_sql(self._mutation_capability, session, "thread.metadata", thread_id=thread_id, user_id=resolved_user_id)
             await session.commit()
 
     async def update_owner(

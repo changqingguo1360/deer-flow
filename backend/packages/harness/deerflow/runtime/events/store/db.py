@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
@@ -17,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.runtime.events.store.base import RunEventStore
-from deerflow.runtime.execution.mutation_context import MutationTarget, current_remote_mutation_context, reject_remote_operation, validate_mutation
+from deerflow.runtime.execution.mutation_context import MutationTarget, current_remote_mutation_context, reject_remote_operation, validate_mutation, validate_mutation_after_sql
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, get_current_user, resolve_user_id
 from deerflow.utils.time import coerce_iso
 
@@ -106,6 +107,13 @@ class DbRunEventStore(RunEventStore):
         user = get_current_user()
         return str(user.id) if user is not None else None
 
+    @asynccontextmanager
+    async def _post_write_fence(self, session, *, operation, targets):
+        yield
+        if self._mutation_capability is not None:
+            await session.flush()
+            await self._mutation_capability.validate_async(session, context=current_remote_mutation_context(), operation=operation, targets=targets)
+
     @staticmethod
     async def _max_seq_for_thread(session: AsyncSession, thread_id: str) -> int | None:
         """Return the current max seq while serializing writers per thread.
@@ -144,7 +152,7 @@ class DbRunEventStore(RunEventStore):
             user_id = self._mutation_capability.context.user_id
         async with self._get_write_lock(thread_id):
             async with self._sf() as session:
-                async with session.begin():
+                async with session.begin(), self._post_write_fence(session, operation="events.put", targets=(MutationTarget(thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,)),)):
                     await validate_mutation(self._mutation_capability, session, "events.put", thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,))
                     max_seq = await self._max_seq_for_thread(session, thread_id)
                     seq = (max_seq or 0) + 1
@@ -175,7 +183,10 @@ class DbRunEventStore(RunEventStore):
         thread_id = events[0]["thread_id"]
         async with self._get_write_lock(thread_id):
             async with self._sf() as session:
-                async with session.begin():
+                async with (
+                    session.begin(),
+                    self._post_write_fence(session, operation="events.batch", targets=tuple(MutationTarget(thread_id=e["thread_id"], run_id=e["run_id"], user_id=e.get("user_id", user_id), event_types=(e["event_type"],)) for e in events)),
+                ):
                     if self._mutation_capability is not None:
                         await self._mutation_capability.validate_async(
                             session,
@@ -234,7 +245,7 @@ class DbRunEventStore(RunEventStore):
             user_id = self._mutation_capability.context.user_id
         async with self._get_write_lock(thread_id):
             async with self._sf() as session:
-                async with session.begin():
+                async with session.begin(), self._post_write_fence(session, operation="events.singleton", targets=(MutationTarget(thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,)),)):
                     await validate_mutation(self._mutation_capability, session, "events.singleton", thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,))
                     max_seq = await self._max_seq_for_thread(session, thread_id)
                     stmt = (
@@ -451,5 +462,37 @@ class DbRunEventStore(RunEventStore):
             count = await session.scalar(count_stmt) or 0
             if count > 0:
                 await session.execute(delete(RunEventRow).where(*count_conditions))
+                await validate_mutation_after_sql(self._mutation_capability, session, "events.delete_run", thread_id=thread_id, run_id=run_id, user_id=resolved_user_id)
                 await session.commit()
             return count
+
+    async def record_extension_task_stop(self, *, task_id, outcome):
+        """Terminal extension receipt for the original lead task only.
+
+        No session, SQL, event name or mutable payload escapes this operation.
+        """
+        from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+        capability = self._mutation_capability
+        if capability is None or task_id != capability.context.run_id or outcome not in {"completed", "failed", "aborted"}:
+            raise OwnershipRejected("Extension terminal task target rejected")
+        context = capability.context
+        async with self._get_write_lock(context.thread_id):
+            async with (
+                self._sf() as session,
+                session.begin(),
+                self._post_write_fence(session, operation="extension.task_stop", targets=(MutationTarget(run_id=task_id, thread_id=context.thread_id, user_id=context.user_id, status=outcome, event_types=("run.extension.task_stop",)),)),
+            ):
+                await validate_mutation(capability, session, "extension.task_stop", run_id=task_id, thread_id=context.thread_id, user_id=context.user_id, status=outcome, event_types=("run.extension.task_stop",))
+                seq = (await self._max_seq_for_thread(session, context.thread_id) or 0) + 1
+                existing = await session.scalar(select(RunEventRow).where(RunEventRow.run_id == task_id, RunEventRow.event_type == "run.extension.task_stop"))
+                content, metadata = self._content_to_db({"task_id": task_id, "outcome": outcome}, None)
+                if existing is not None:
+                    if existing.content != content or existing.user_id != context.user_id or existing.thread_id != context.thread_id:
+                        raise OwnershipRejected("Extension terminal receipt conflicts")
+                    return self._row_to_dict(existing)
+                row = RunEventRow(
+                    thread_id=context.thread_id, run_id=task_id, user_id=context.user_id, event_type="run.extension.task_stop", category="lifecycle", content=content, event_metadata=metadata, seq=seq, created_at=datetime.now(UTC)
+                )
+                session.add(row)
+            return self._row_to_dict(row)

@@ -56,6 +56,8 @@ class AgentEnvironment:
     private_extensions_config: Any = None
     definition_stores: Any = None
     private_mcp_tools: Any = None
+    private_memory_manager: Any = None
+    private_mcp_task_submitter: Any = None
 
 
 def installed_environment_factory(provider: str):

@@ -21,13 +21,16 @@ import logging
 import os
 import threading
 from abc import abstractmethod
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from types import ModuleType
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator, model_validator
 
 from deerflow.config.memory_config import get_memory_config
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +163,9 @@ class MemoryManager(BaseModel):
     # memory_search in tool mode, so a non-search backend is a misconfiguration
     # that fails fast at instantiation rather than silently returning empty
     # results). Default False: a new backend must explicitly opt in to tool mode.
+    remote_mutation_mode: ClassVar[str] = "unsupported"
+    _mutation_capability: Any = PrivateAttr(default=None)
+
     supports_search: ClassVar[bool] = False
     # Backends that rely on conversation-level extraction instead of fact CRUD
     # can retain MemoryMiddleware writes while tool mode supplies query-aware
@@ -713,7 +719,10 @@ class LangfuseMemoryCallbacks(MemoryCallbacks):
                     ),
                 ),
                 SystemOperationKind.MEMORY.value,
+                **({"mutation_context": extensions.mutation_context} if getattr(extensions, "mutation_context", None) is not None else {}),
             )
+        except OwnershipRejected:
+            raise
         except Exception:
             # Only the bridge's own failures are non-fatal. A teardown signal
             # must propagate, matching the boundary the DeerMem-side call
@@ -851,6 +860,18 @@ def get_memory_manager() -> MemoryManager:
     :func:`reset_memory_manager` to force re-resolution (tests / runtime
     backend switching).
     """
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected, current_remote_mutation_context
+
+    scoped = _scoped_memory_manager.get()
+    current = current_remote_mutation_context()
+    if scoped is not None:
+        bound = scoped._mutation_capability
+        if bound is None or current != bound.context:
+            raise OwnershipRejected("Remote memory scope lost original context")
+        return scoped
+    if current is not None:
+        raise OwnershipRejected("Remote memory requires private configured manager")
+
     global _memory_manager
     if _memory_manager is not None:
         return _memory_manager
@@ -910,3 +931,47 @@ def reset_memory_manager() -> None:
     with _manager_lock:
         _memory_manager = None
         _backends_cache = None
+
+
+_scoped_memory_manager: ContextVar[MemoryManager | None] = ContextVar("private_memory_manager", default=None)
+
+
+@contextmanager
+def memory_manager_scope(manager):
+    """Bind a host-created remote manager, never the Local singleton."""
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected, current_remote_mutation_context
+
+    if manager._mutation_capability is None or current_remote_mutation_context() != manager._mutation_capability.context:
+        raise OwnershipRejected("Remote memory scope requires original bound manager")
+    token = _scoped_memory_manager.set(manager)
+    try:
+        yield
+    finally:
+        _scoped_memory_manager.reset(token)
+
+
+def preflight_remote_memory(config):
+    """Resolve support before from_config, warm-up or constructor effects."""
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    cls = _resolve_manager_class(config.manager_class)
+    if cls.remote_mutation_mode not in {"stateless", "transactional"}:
+        raise OwnershipRejected("Configured memory backend does not support remote fenced mutations")
+    return cls
+
+
+def make_remote_memory_manager(config, *, mutation_capability, host_hooks):
+    from deerflow.runtime.execution.mutation_context import current_remote_mutation_context
+
+    if current_remote_mutation_context() != mutation_capability.context:
+        raise OwnershipRejected("Remote memory construction requires original context")
+    from deerflow.runtime.execution.mutation_transactions import BoundMutationTransactions
+
+    cls = preflight_remote_memory(config)
+    hooks = _collect_host_hooks() | dict(host_hooks)
+    # Private connection factories never come from model-visible backend_config.
+    transactions = BoundMutationTransactions(mutation_capability, operation="memory.write", session_factory=hooks.pop("async_session_factory", None), sync_session_factory=hooks.get("session_factory"))
+    hooks["mutation_transactions"] = transactions
+    manager = cls.from_config(dict(config.backend_config), mode=config.mode, **hooks)
+    manager._mutation_capability = mutation_capability
+    return manager

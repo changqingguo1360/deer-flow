@@ -110,3 +110,57 @@ Focused regression coverage for the updater lives in `backend/tests/test_memory_
 - `consolidation_max_groups_per_cycle` - Maximum categories the LLM can merge in one cycle (default: 3; range: 1–10; also controls the LLM's prompt instruction)
 - `consolidation_max_sources` - Maximum source facts per merge group; prevents over-merging (default: 8; range: 2–20)
 - `watermark_max_keys` - Soft cap on the in-memory conversation-watermark cache (one entry per distinct thread/user/agent). A bounded LRU: when over capacity the least-recently-used entry is dropped, and a dropped key re-extracts one batch on that thread's next turn (same as a restart). Bounds memory in long-lived gateways handling many threads (default: 4096; 0 = unbounded)
+
+
+### Remote execution memory boundary (C06c)
+
+The private remote factory resolves backend compatibility before `from_config` or
+warm-up. `MemoryManager.remote_mutation_mode` defaults to `unsupported`; noop is
+stateless, while an operator-trusted adapted backend declares `transactional`.
+A declaration does not fence file storage or an external SDK. Existing DeerMem,
+mem0, Honcho and OpenViking implementations are not atomic remote-write adapters.
+Local backend selection and the Local singleton retain their existing behavior.
+
+`make_remote_memory_manager` supplies private host transaction hooks separately
+from private `backend_config`. Remote public AppConfig exposes only validated
+`failure_policy.read` (`fail_closed`/`fail_open`), preserving prompt behavior;
+constructor options stay private. `memory_manager_scope` selects the bound manager
+before consulting the Local singleton. Missing or different original execution context
+rejects access instead of falling back to an unbound manager. Adapted backends
+use `BoundMutationTransactions` on the actual writer connection/transaction and
+hold original execution locks through commit or rollback. Memory writes are
+active-only; read-only recall does not grant later write authority.
+
+Capture the original context and bound capability at enqueue, retain both per
+item across raw threads and shutdown drain, and separate attempts when coalescing.
+Validate again after extraction, inside the actual write transaction. Memory CRUD
+tools and emergency summarization hooks propagate nonretryable `OwnershipRejected`
+instead of returning an ordinary error string or swallowing it. The configured
+PostgreSQL fixture proves real durable behavior; it is not a new default memory
+product. C06 acceptance evidence belongs to the external plan; activation stays closed.
+
+
+The remote host wires `RunContext.before_terminal_mutations` to drain the private
+manager's original queued work before durable terminal status is committed.
+This preserves the normal `MemoryMiddleware.aafter_agent` -> `manager.aadd`
+queue path; models and tools do not manage the queue's lifecycle. Resource close
+after terminal does not authorize remaining memory writes. Local hosts without
+that optional hook retain their asynchronous policy. Installed verification of
+both middleware and tool modes is required before full C06c acceptance.
+
+
+The host locks the original memory-user domain after six execution locks and
+before fresh clock validation. The same writer transaction revalidates its original
+capability after ORM flush and before commit, so expiry during target-table/row waits
+rolls back the write. Backend callbacks cannot choose advisory keys.
+
+Remote teardown requires positive native-worker quiescence before service stop
+and resource unwind. `shutdown_flush(False)` or an exception does not prove
+worker completion; default `close()` is not a drain. The private host retains
+original resources/phase Tasks and retries within the first monotonic 120s total
+budget, keeping isolated-worker deadline exit armed. Memory extraction and owned
+observers can enqueue each other: drain to joint quiescence using original-scope
+enqueue/actual-Task completion revisions, then repeat after service stop. Only
+then call memory close. Local/Gateway best-effort shutdown is unchanged. Verify
+real configured native queue/SQL barriers, positive completion, round-trip enqueue
+and isolated deadline exit with independent PG rollback/connection/lock checks.

@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.run.model import RunRow
 from deerflow.runtime.execution.contracts import RunAdmissionParticipant, RunAdmissionUnitOfWork
-from deerflow.runtime.execution.mutation_context import reject_remote_operation, validate_mutation
+from deerflow.runtime.execution.mutation_context import reject_remote_operation, validate_mutation, validate_mutation_after_sql
 from deerflow.runtime.runs.store.base import (
     LeaseRenewal,
     RunIdempotencyConflict,
@@ -276,6 +276,7 @@ class RunRepository(RunStore):
                 .where(RunRow.run_id == run_id, RunRow.status.in_(("pending", "running", "interrupted") if self._mutation_capability is None else ("pending", "running", "interrupted", "success", "error", "timeout")))
                 .values(**values)
             )
+            await validate_mutation_after_sql(self._mutation_capability, session, "run.status", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             await session.commit()
             return result.rowcount != 0
 
@@ -311,6 +312,7 @@ class RunRepository(RunStore):
             if locked is None:
                 return False
             result = await session.execute(update(RunRow).where(*self.owned_execution_predicates(run_id, **identity)).values(status="running", updated_at=func.clock_timestamp()))
+            await validate_mutation_after_sql(self._mutation_capability, session, "run.start", run_id=run_id, user_id=identity.get("user_id"), thread_id=identity.get("thread_id"))
             return result.rowcount != 0
 
     async def start_run(self, run_id: str) -> bool:
@@ -332,6 +334,7 @@ class RunRepository(RunStore):
         async with self._sf() as session:
             await validate_mutation(self._mutation_capability, session, "run.model", run_id=run_id)
             await session.execute(update(RunRow).where(RunRow.run_id == run_id).values(model_name=self._normalize_model_name(model_name), updated_at=datetime.now(UTC)))
+            await validate_mutation_after_sql(self._mutation_capability, session, "run.model", run_id=run_id)
             await session.commit()
 
     async def delete(
@@ -445,6 +448,7 @@ class RunRepository(RunStore):
                 )
                 .values(**values)
             )
+            await validate_mutation_after_sql(self._mutation_capability, session, "run.completion", run_id=run_id, status=status, error=error)
             await session.commit()
             return result.rowcount != 0
 
@@ -488,6 +492,7 @@ class RunRepository(RunStore):
         async with self._sf() as session:
             await validate_mutation(self._mutation_capability, session, "run.progress", run_id=run_id)
             await session.execute(update(RunRow).where(RunRow.run_id == run_id, RunRow.status == "running").values(**values))
+            await validate_mutation_after_sql(self._mutation_capability, session, "run.progress", run_id=run_id)
             await session.commit()
 
     async def aggregate_tokens_by_thread(self, thread_id: str, *, include_active: bool = False) -> dict[str, Any]:
@@ -678,11 +683,13 @@ class RunRepository(RunStore):
                 .returning(RunRow.run_id)
             )
             if result.first() is not None:
+                await validate_mutation_after_sql(self._mutation_capability, session, "run.finalize", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
                 await session.commit()
                 return StatusFinalization(finalized=True)
 
             current = await session.execute(select(RunRow.cancel_action).where(RunRow.run_id == run_id))
             cancel_action = current.scalar_one_or_none()
+            await validate_mutation_after_sql(self._mutation_capability, session, "run.finalize", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             await session.commit()
             return StatusFinalization(
                 finalized=False,

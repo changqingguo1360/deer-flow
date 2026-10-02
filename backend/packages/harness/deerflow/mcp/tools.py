@@ -604,6 +604,10 @@ def _make_session_pool_tool(
             changed_files=changed_files,
         )
 
+    # StructuredTool validates the original public MCP schema first. Its
+    # injected-argument recovery inspects concrete signature annotations, so
+    # an optional / postponed Runtime annotation would discard ToolNode input.
+    call_with_persistent_session.__annotations__["runtime"] = Runtime
     return StructuredTool(
         name=tool.name,
         description=tool.description,
@@ -671,6 +675,7 @@ def _make_background_submit_tool(
             "message": "Task is running in the background.",
         }
 
+    submit_in_background.__annotations__["runtime"] = Runtime
     return StructuredTool(
         name=tool.name,
         description=(f"{tool.description}\n\n{background_contract}" if tool.description else background_contract),

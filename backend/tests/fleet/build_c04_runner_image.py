@@ -24,7 +24,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="fleet-c04-image-") as temporary:
         context = Path(temporary)
         shutil.copytree(FIXTURES / "c04-runner", context, dirs_exist_ok=True)
-        run("uv", "export", "--frozen", "--no-dev", "--extra", "postgres", "--no-emit-workspace", "--format", "requirements-txt", "--output-file", str(context / "requirements.txt"))
+        run("uv", "export", "--frozen", "--no-dev", "--extra", "postgres", "--no-emit-workspace", "--no-header", "--format", "requirements-txt", "--output-file", str(context / "requirements.txt"))
         run("docker", "build", "-f", str(context / "Dockerfile.dependencies"), "-t", "deerflow-c04-dependencies:local", str(context))
         for options in (
             (),

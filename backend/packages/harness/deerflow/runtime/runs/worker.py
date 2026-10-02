@@ -50,7 +50,7 @@ from deerflow.runtime.checkpoint_state import (
     graph_writable_channels,
 )
 from deerflow.runtime.context_keys import CURRENT_RUN_PRE_EXISTING_MESSAGE_IDS_KEY
-from deerflow.runtime.execution.mutation_context import OwnershipRejected
+from deerflow.runtime.execution.mutation_context import ExecutionCleanupPending, OwnershipRejected
 from deerflow.runtime.goal import (
     DEFAULT_MAX_GOAL_CONTINUATIONS,
     DEFAULT_MAX_NO_PROGRESS_CONTINUATIONS,
@@ -450,6 +450,10 @@ class RunContext:
     # this process" (embedded/tests) and resolves to the config default.
     checkpoint_snapshot_frequency: int | None = None
     on_run_completed: Any | None = field(default=None)
+    # Trusted remote resource drain before the durable terminal transition.
+    before_terminal_mutations: Any | None = field(default=None)
+    # Private host settlement of an interrupted graph's actual iterator.
+    settle_stream: Any | None = field(default=None)
 
 
 def _install_runtime_context(config: dict, runtime_context: dict[str, Any]) -> None:
@@ -995,6 +999,29 @@ async def run_agent(
                 )
             return goal_evaluator_model
 
+        @asynccontextmanager
+        async def _owned_stream(stream):
+            try:
+                yield stream
+            finally:
+                original_error = sys.exception()
+                close = getattr(stream, "aclose", None)
+                # A naturally exhausted async generator has already settled its
+                # graph executor. It must not start a remote cleanup deadline.
+                if close is not None and getattr(stream, "ag_frame", True) is not None:
+                    try:
+                        if ctx.settle_stream is None:
+                            await close()
+                        else:
+                            await ctx.settle_stream(stream)
+                    except ExecutionCleanupPending as pending:
+                        pending.original_error = original_error
+                        raise
+                    except BaseException as cleanup_error:
+                        if original_error is not None:
+                            raise original_error from cleanup_error
+                        raise
+
         async def _stream_once(input_payload: Any, stream_config: RunnableConfig) -> None:
             nonlocal llm_error_fallback_message
             file_tool_chunk_batcher = _LargeFileToolChunkBatcher() if "values" in requested_modes else None
@@ -1003,45 +1030,49 @@ async def run_agent(
                     if len(lg_modes) == 1 and not stream_subgraphs:
                         # Single mode, no subgraphs: astream yields raw chunks
                         single_mode = lg_modes[0]
-                        async for chunk in agent.astream(input_payload, config=stream_config, stream_mode=single_mode):
+                        async with _owned_stream(agent.astream(input_payload, config=stream_config, stream_mode=single_mode)) as stream:
+                            async for chunk in stream:
+                                if record.abort_event.is_set():
+                                    logger.info("Run %s abort requested — stopping", run_id)
+                                    break
+                                llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                                sse_event = _lg_mode_to_sse_event(single_mode)
+                                await bridge.publish(run_id, sse_event, serialize(chunk, mode=single_mode))
+                                if single_mode == "custom":
+                                    await subagent_events.add(chunk)
+                        return
+                    # Multiple modes or subgraphs: astream yields tuples
+                    async with _owned_stream(
+                        agent.astream(
+                            input_payload,
+                            config=stream_config,
+                            stream_mode=lg_modes,
+                            subgraphs=stream_subgraphs,
+                        )
+                    ) as stream:
+                        async for item in stream:
                             if record.abort_event.is_set():
                                 logger.info("Run %s abort requested — stopping", run_id)
                                 break
-                            llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
-                            sse_event = _lg_mode_to_sse_event(single_mode)
-                            await bridge.publish(run_id, sse_event, serialize(chunk, mode=single_mode))
-                            if single_mode == "custom":
-                                await subagent_events.add(chunk)
-                        return
-                    # Multiple modes or subgraphs: astream yields tuples
-                    async for item in agent.astream(
-                        input_payload,
-                        config=stream_config,
-                        stream_mode=lg_modes,
-                        subgraphs=stream_subgraphs,
-                    ):
-                        if record.abort_event.is_set():
-                            logger.info("Run %s abort requested — stopping", run_id)
-                            break
 
-                        mode, chunk, namespace = _unpack_stream_item(item, lg_modes, stream_subgraphs)
-                        if mode is None:
-                            continue
+                            mode, chunk, namespace = _unpack_stream_item(item, lg_modes, stream_subgraphs)
+                            if mode is None:
+                                continue
 
-                        if not namespace:
-                            # Only root-graph frames may decide the parent run's error
-                            # fallback: a delegated subagent's marked fallback is the
-                            # executor's to map (task_failed), not this run's.
-                            llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
-                        await _publish_stream_item(
-                            bridge=bridge,
-                            run_id=run_id,
-                            mode=mode,
-                            chunk=chunk,
-                            namespace=namespace,
-                            file_tool_chunk_batcher=file_tool_chunk_batcher,
-                            subagent_events=subagent_events,
-                        )
+                            if not namespace:
+                                # Only root-graph frames may decide the parent run's error
+                                # fallback: a delegated subagent's marked fallback is the
+                                # executor's to map (task_failed), not this run's.
+                                llm_error_fallback_message = llm_error_fallback_message or _extract_llm_error_fallback_message(chunk, pre_existing_message_ids)
+                            await _publish_stream_item(
+                                bridge=bridge,
+                                run_id=run_id,
+                                mode=mode,
+                                chunk=chunk,
+                                namespace=namespace,
+                                file_tool_chunk_batcher=file_tool_chunk_batcher,
+                                subagent_events=subagent_events,
+                            )
             finally:
                 stream_error = sys.exception()
                 if file_tool_chunk_batcher is not None:
@@ -1137,6 +1168,14 @@ async def run_agent(
             )
             if cancel_action is not None:
                 await _finish_cancellation(cancel_action)
+
+    except ExecutionCleanupPending as pending:
+        # The host retains the real graph cleanup Task and all bound resources.
+        # Nothing may terminalize while its checkpoint writer is still active.
+        await run_manager.mark_execution_ownership_lost(run_id)
+        if pending.original_error is not None:
+            raise pending.original_error from pending
+        raise
 
     except asyncio.CancelledError:
         await _finish_cancellation(record.abort_action)
@@ -1307,6 +1346,14 @@ async def run_agent(
             except Exception:
                 logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
 
+        if not record.ownership_lost and ctx.before_terminal_mutations is not None:
+            try:
+                await ctx.before_terminal_mutations()
+            except OwnershipRejected:
+                await run_manager.mark_execution_ownership_lost(run_id)
+            except Exception:
+                logger.warning("Remote resource drain failed before completion for %s", run_id, exc_info=True)
+
         if not record.ownership_lost and event_store is not None:
             try:
                 # Even after bounded receipt retries are exhausted, persist the
@@ -1336,7 +1383,10 @@ async def run_agent(
                                 await run_manager.mark_execution_ownership_lost(run_id)
                             except Exception:
                                 logger.debug("Failed to generate interrupted title for thread %s (non-fatal)", thread_id)
-                        await run_manager.persist_current_status(run_id)
+                        if not record.ownership_lost and ctx.before_terminal_mutations is not None:
+                            await ctx.before_terminal_mutations()
+                        if not record.ownership_lost:
+                            await run_manager.persist_current_status(run_id)
             except OwnershipRejected:
                 await run_manager.mark_execution_ownership_lost(run_id)
             except Exception:

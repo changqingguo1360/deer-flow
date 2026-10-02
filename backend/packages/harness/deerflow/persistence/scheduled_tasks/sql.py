@@ -11,6 +11,7 @@ from deerflow.persistence.run import RunRepository
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
 from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, reject_remote_operation
 from deerflow.utils.time import coerce_iso
 
 logger = logging.getLogger(__name__)
@@ -58,8 +59,10 @@ class ScheduledTaskRepository:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         run_repository: RunRepository | None = None,
+        mutation_capability=None,
     ) -> None:
         self._sf = session_factory
+        self._mutation_capability = mutation_capability
         self._run_repository = run_repository or RunRepository(session_factory)
 
     @staticmethod
@@ -99,6 +102,7 @@ class ScheduledTaskRepository:
         timezone: str,
         next_run_at: datetime | None,
     ) -> dict[str, Any]:
+        reject_remote_operation(self._mutation_capability)
         now = datetime.now(UTC)
         row = ScheduledTaskRow(
             id=task_id,
@@ -161,6 +165,7 @@ class ScheduledTaskRepository:
         now: datetime,
     ) -> str:
         """Pause a task and cancel its waiting occurrence in one transaction."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             task = await self._lock_task(session, task_id)
             if task is None or task.user_id != user_id:
@@ -206,6 +211,7 @@ class ScheduledTaskRepository:
         now: datetime,
     ) -> str:
         """Delete a task only before queue execution begins."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             task = await self._lock_task(session, task_id)
             if task is None or task.user_id != user_id:
@@ -246,8 +252,22 @@ class ScheduledTaskRepository:
         user_id: str,
         updates: dict[str, Any],
         require_mutable: bool = False,
+        completion_run_id: str | None = None,
+        completion_occurrence_id: str | None = None,
     ) -> dict[str, Any] | None:
         async with self._sf() as session:
+            if self._mutation_capability is not None:
+                await session.begin()
+                from deerflow.persistence.scheduled_completion import lock_completion
+
+                row, occurrence, status, error = await lock_completion(
+                    session, self._mutation_capability, operation="scheduler.task.complete", task_id=task_id, occurrence_id=completion_occurrence_id, run_id=completion_run_id, user_id=user_id
+                )
+                expected = {"last_error": error}
+                if row.schedule_type == "once":
+                    expected["status"] = {"success": "completed", "interrupted": "cancelled", "failed": "failed"}[status]
+                if require_mutable or updates != expected or occurrence.status != status:
+                    raise OwnershipRejected("Scheduled parent completion fields rejected")
             row = await self._lock_task(session, task_id) if require_mutable else await session.get(ScheduledTaskRow, task_id)
             if row is None or row.user_id != user_id:
                 return None
@@ -270,11 +290,15 @@ class ScheduledTaskRepository:
                 if hasattr(row, key):
                     setattr(row, key, value)
             row.updated_at = datetime.now(UTC)
+            if self._mutation_capability is not None:
+                await session.flush()
+                await lock_completion(session, self._mutation_capability, operation="scheduler.task.complete", task_id=task_id, occurrence_id=completion_occurrence_id, run_id=completion_run_id, user_id=user_id)
             await session.commit()
             await session.refresh(row)
             return self._row_to_dict(row)
 
     async def delete(self, task_id: str, *, user_id: str) -> bool:
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             row = await session.get(ScheduledTaskRow, task_id)
             if row is None or row.user_id != user_id:
@@ -291,6 +315,7 @@ class ScheduledTaskRepository:
         lease_seconds: int,
         limit: int,
     ) -> list[dict[str, Any]]:
+        reject_remote_operation(self._mutation_capability)
         lease_expires_at = now + timedelta(seconds=lease_seconds)
         async with self._sf() as session:
             active_run_for_task = exists(
@@ -347,6 +372,7 @@ class ScheduledTaskRepository:
         status: str,
     ) -> bool:
         """Release the short due-task claim after its occurrence is queued."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             row = await session.get(ScheduledTaskRow, task_id, with_for_update=True)
             if row is None:
@@ -363,6 +389,7 @@ class ScheduledTaskRepository:
 
     async def release_queued_admission_lease(self, task_id: str) -> bool:
         """Recover a crash after queue insert but before parent-lease release."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             task = await session.get(ScheduledTaskRow, task_id, with_for_update=True)
             if task is None or task.status != "running" or task.lease_owner is None:
@@ -398,6 +425,7 @@ class ScheduledTaskRepository:
         protect_terminal: bool = False,
         expected_lease_owner: str | None = None,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             row = await session.get(ScheduledTaskRow, task_id, with_for_update=True)
             if row is None:
@@ -442,6 +470,7 @@ class ScheduledTaskRepository:
         lease_seconds: int,
     ) -> dict[str, Any] | None:
         """Reserve the short pre-launch window for a manual dispatch."""
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             select(ScheduledTaskRow)
             .where(
@@ -487,6 +516,7 @@ class ScheduledTaskRepository:
         Tasks still holding a lease are left alone — they were claimed but not
         launched, and expired-lease reclaim recovers them safely.
         """
+        reject_remote_operation(self._mutation_capability)
         stmt = select(ScheduledTaskRow).where(
             ScheduledTaskRow.schedule_type == "once",
             ScheduledTaskRow.status == "running",
@@ -511,6 +541,7 @@ class ScheduledTaskRepository:
         lease_grace_seconds: int = 10,
     ) -> int:
         """Cancel once tasks only after their underlying run is no longer live."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             result = await session.execute(
                 select(ScheduledTaskRow.id).where(

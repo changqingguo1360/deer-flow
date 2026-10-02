@@ -145,8 +145,9 @@ async def test_agent_stop_requires_matching_physical_proof_before_capacity_relea
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("memory_mode", ["tool", "middleware"])
 @pytest.mark.parametrize("bootstrap_failure,interrupted", [(False, False), (True, False), (False, True)], ids=["parity", "failed-one-shot", "interrupt-before-tools"])
-async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container(tmp_path, bootstrap_failure, interrupted):
+async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container(tmp_path, bootstrap_failure, interrupted, memory_mode):
     import importlib
     import os
     from pathlib import Path
@@ -185,25 +186,39 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
     async with control_database(tmp_path) as db:
         async with db.engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(text("CREATE TABLE c06_extension(value text)"))
+            for table in ("c06_memory", "c06_local_memory"):
+                await conn.execute(text("CREATE TABLE " + table + "(user_id text NOT NULL,agent_name text NOT NULL,fact_id text NOT NULL,content text NOT NULL,PRIMARY KEY(user_id,agent_name,fact_id))"))
         private = {
             "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider", "allow_host_bash": True},
             "database": {"backend": "postgres", "postgres_url": db.runner_url, "postgres_schema": db.schema},
             "run_events": {"backend": "db"},
+            "mcp_tasks": {"enabled": True},
             "agent_storage": {"backend": "db"},
             "plugins": [{"name": "c04-plugin", "package": "deerflow-c04-runtime-fixture", "use": "deerflow_c04_fixture:install", "required": True}],
-            "memory": {"enabled": False},
+            "memory": {"enabled": True, "mode": memory_mode, "manager_class": "deerflow_c04_fixture.memory:PostgresMemory"},
             "title": {"enabled": False},
             "summarization": {"enabled": False},
             "models": [
                 {"name": "model-1", "use": "fleet.c04_worker_fixture:ScriptedModel", "model": "parent", "api_key": "c04-scripted-provider-credential"},
                 {"name": "child", "use": "fleet.c04_worker_fixture:ScriptedModel", "model": "child", "api_key": "c04-scripted-provider-credential"},
             ],
-            "tools": [{"name": "bash", "group": "bash", "use": "deerflow.sandbox.tools:bash_tool"}],
-            "tool_groups": [{"name": "bash", "description": "Bounded container execution"}],
+            "tools": [
+                {"name": "bash", "group": "bash", "use": "deerflow.sandbox.tools:bash_tool"},
+                *([{"name": "memory_add", "group": "memory", "use": "deerflow.agents.memory.tools:memory_add_tool"}] if memory_mode == "tool" else []),
+            ],
+            "tool_groups": [{"name": "bash", "description": "Bounded container execution"}, {"name": "memory", "description": "Configured PostgreSQL memory mutation"}],
             "subagents": {"agents": {"general-purpose": {"model": "child"}}},
             "extensions": {
                 "skills": {"c04-enabled": {"enabled": True}, "c04-disabled": {"enabled": False}},
-                "mcpServers": {"c04": {"command": "/usr/local/bin/python", "args": ["-m", "fleet.c04_mcp_fixture"], "env": {"ERP_AUTH": "c04-target-access"}}},
+                "mcpServers": {
+                    "c04": {
+                        "command": "/usr/local/bin/python",
+                        "args": ["-m", "fleet.c04_mcp_fixture"],
+                        "env": {"ERP_AUTH": "c04-target-access"},
+                        "task_toolsets": [{"name": "c04-job", "submit_tool": "submit_job", "status_tool": "job_status", "cancel_tool": "cancel_job"}],
+                    }
+                },
             },
         }
         # Trusted Gateway setup precedes remote readiness; remote saver never migrates.
@@ -313,14 +328,14 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                         return
                     result = await daemon.execute_one()
                     refs = [ref for ref, _ in await driver.list_managed(node_id)]
+                    diagnostic = Path(f"/private/tmp/c04-runner-{memory_mode}-{bootstrap_failure}-{interrupted}-diagnostic.log")
                     for diagnostic_ref in refs:
                         _, stdout, stderr = await driver.command("logs", diagnostic_ref)
-                        diagnostic = Path("/private/tmp/c04-runner-last-diagnostic.log")
                         diagnostic.write_text((stdout + stderr).replace(db.password, "[control credential redacted]"))
                         diagnostic.chmod(0o600)
                     async with db.engine.connect() as diagnostic_conn:
                         diagnostics = (await diagnostic_conn.execute(text("SELECT status,error FROM runs"))).all()
-                        with Path("/private/tmp/c04-runner-last-diagnostic.log").open("a") as sink:
+                        with diagnostic.open("a") as sink:
                             sink.write(str(diagnostics).replace(db.password, "[control credential redacted]"))
                     assert result["state"] == "succeeded" and not result["report_pending"]
                     assert len(refs) == 1
@@ -340,8 +355,20 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                             assert not any(message.type == "tool" for message in messages)
                         assert not list(nas.nas_root.rglob("parent.txt")) and not list(nas.nas_root.rglob("child.txt"))
                         return
-                    lifecycle = list(nas.nas_root.rglob("plugin-lifecycle.json"))
-                    assert len(lifecycle) == 1 and __import__("json").loads(lifecycle[0].read_text()) == ["start", "stop"]
+                    async with db.engine.connect() as conn:
+                        lifecycle = list((await conn.execute(text("SELECT value FROM c06_extension ORDER BY value"))).scalars())
+                        assert lifecycle == ["lead-start", "start", "subagent-start", "subagent-stop"]
+                        receipt = (await conn.execute(text("SELECT content FROM run_events WHERE event_type='run.extension.task_stop'"))).scalar_one()
+                        assert __import__("json").loads(receipt) == {"task_id": record.run_id, "outcome": "completed"}
+                        memories = list((await conn.execute(text("SELECT content FROM c06_memory ORDER BY content"))).scalars())
+                        tracked = (await conn.execute(text("SELECT user_id,thread_id,run_id,remote_task_id FROM mcp_tasks"))).one()
+                        assert tracked.user_id == user.id and tracked.thread_id == record.thread_id and tracked.run_id == record.run_id
+                        assert __import__("re").fullmatch(r"c04-external-job-c04-job-input-[0-9a-f]{32}", tracked.remote_task_id)
+                        if memory_mode == "tool":
+                            assert "c04-parent-memory" in memories and "c04-child-memory" in memories
+                        else:
+                            assert memories and any("c04-result" in fact for fact in memories)
+                    assert not list(nas.nas_root.rglob("plugin-lifecycle.json"))
                     outputs = list(nas.nas_root.rglob("parent.txt"))
                     assert len(outputs) == 1 and outputs[0].read_bytes() == b"c04-artifact\n"
                     children = list(nas.nas_root.rglob("child.txt"))
@@ -520,6 +547,37 @@ async def test_actual_authenticated_stdio_mcp_tool_requires_private_target_crede
         await get_session_pool().close_all()
 
 
+@pytest.mark.asyncio
+async def test_actual_stdio_task_fixture_returns_structured_driver_payloads():
+    import os
+    import sys
+    from pathlib import Path
+
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=[str(Path(__file__).with_name("c04_mcp_fixture.py"))],
+        env={**os.environ, "ERP_AUTH": "c04-target-access"},
+    )
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            submitted = await session.call_tool("submit_job", {"value": "structured-proof"})
+            assert submitted.structuredContent is not None
+            remote_id = submitted.structuredContent["task_id"]
+            assert __import__("re").fullmatch(r"c04-external-job-structured-proof-[0-9a-f]{32}", remote_id)
+            assert submitted.structuredContent == {"task_id": remote_id, "status": "running"}
+            repeated = await session.call_tool("submit_job", {"value": "structured-proof"})
+            assert repeated.structuredContent is not None
+            assert repeated.structuredContent["task_id"] != remote_id
+            status = await session.call_tool("job_status", {"task_id": remote_id})
+            assert status.structuredContent == {"task_id": remote_id, "status": "completed", "result": "finished"}
+            cancelled = await session.call_tool("cancel_job", {"task_id": remote_id})
+            assert cancelled.structuredContent == {"task_id": remote_id, "status": "cancelled"}
+
+
 @pytest.mark.parametrize("extra", [{"token": "fake-raw-auth"}, {"authorization": "fake-raw-auth"}, {"base_url": "https://credential@example.invalid/v1"}, {"api_base": "https://example.invalid/v1?token=fake-raw-auth"}])
 def test_execution_view_rejects_raw_model_authentication_shapes(extra):
     from app.fleet.runner_context import execution_configuration
@@ -563,7 +621,7 @@ def test_actual_assembly_rejects_effective_model_drift(selection, tmp_path, monk
     cfg = AppConfig.model_validate(
         {
             "sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"},
-            "memory": {"enabled": False},
+            "memory": {"enabled": False, "manager_class": "noop"},
             "models": [{"name": "first", "use": "fleet.c04_worker_fixture:ScriptedModel", "model": "parent"}, {"name": "second", "use": "fleet.c04_worker_fixture:ScriptedModel", "model": "child"}],
         }
     )

@@ -38,7 +38,11 @@ class ScriptedModel(BaseChatModel):
             raise ValueError("Actual bundled skill state was not preserved")
         names = {message.name for message in tools}
         calls = []
-        if "bash" not in names:
+        config = get_app_config()
+        memory_enabled = config.memory.enabled and config.memory.manager_class == "deerflow_c04_fixture.memory:PostgresMemory"
+        if memory_enabled and config.memory.mode == "tool" and not any(message.tool_call_id == "c04-" + self.model + "-memory" for message in tools):
+            calls = [{"id": "c04-" + self.model + "-memory", "type": "tool_call", "name": "memory_add", "args": {"content": "c04-" + self.model + "-memory"}}]
+        elif "bash" not in names:
             output = "child.txt" if self.model == "child" else "parent.txt"
             import re
 
@@ -51,6 +55,8 @@ class ScriptedModel(BaseChatModel):
             calls = [{"id": "c04-" + self.model + "-bash", "type": "tool_call", "name": "bash", "args": {"description": "Write deterministic artifact", "command": command}}]
         elif "c04_echo" not in names and self.model != "child":
             calls = [{"id": "c04-parent-mcp", "type": "tool_call", "name": "c04_echo", "args": {"value": "c04-mcp-result"}}]
+        elif "c04_submit_job" not in names and self.model != "child":
+            calls = [{"id": "c04-parent-durable-mcp", "type": "tool_call", "name": "c04_submit_job", "args": {"value": "c04-job-input"}}]
         elif "task" not in names and self.model != "child":
             calls = [
                 {

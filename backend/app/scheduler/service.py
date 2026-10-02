@@ -526,6 +526,7 @@ class ScheduledTaskService:
             run_id=record.run_id,
             error=error,
             finished_at=datetime.now(UTC),
+            **({"completion_task_id": task_id} if getattr(self._task_run_repo, "_mutation_capability", None) is not None else {}),
         )
 
         task = await self._task_repo.get(task_id, user_id=user_id)
@@ -543,7 +544,7 @@ class ScheduledTaskService:
                 updates["status"] = "cancelled"
             else:
                 updates["status"] = "failed"
-        await self._task_repo.update(task_id, user_id=user_id, updates=updates)
+        await self._task_repo.update(task_id, user_id=user_id, updates=updates, **({"completion_run_id": record.run_id, "completion_occurrence_id": task_run_id} if getattr(self._task_repo, "_mutation_capability", None) is not None else {}))
 
     async def start(self) -> None:
         if self._task is not None:

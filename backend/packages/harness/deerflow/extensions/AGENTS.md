@@ -351,3 +351,34 @@ that the current host silently ignores.
 `test_extension_manager.py` creates temporary Git repositories for local extension sources.
 Temporary commits use an empty repository-local hook directory. They must not run developer or CI Git hooks.
 Tests for hook behavior must create and invoke their own hook fixtures.
+
+
+### Remote state contributions (C06c)
+
+Preflight activated buckets before service start. `remote_state_mode`
+(`RemoteStateMode`) defaults unsupported; stateless is operator-trusted,
+transactional needs adapted writers. Declarations cannot fence files/SDKs.
+Local behavior stays. Remote deps give active `mutation_transactions`, no raw
+`session_factory`. Keep original capability/context across lifecycle and loops.
+Six execution locks precede the fixed domain advisory and fresh clock.
+Flush ORM, then revalidate before commit in that TX; expired target waits roll back.
+No caller lock key or terminal SQL.
+Propagate `OwnershipRejected`; drain owned nested callbacks before terminal.
+Keep failures until original cleanup reports/releases them. Foreign drains
+cannot consume them; Local reset clears Local history. Retain actual Task ownership
+through rollback; Future cancellation grants no release/reset. Bound work/cleanup.
+Remote memory and observers reach joint quiescence before service stop and again
+before resource unwind. Original-scope dispatch revisions track enqueue and real
+Task completion; observer completion can require another positive memory drain.
+False/exception never proves native-thread settlement.
+Remote host gates the whole resource stack before unwind. Pending actual Tasks
+retain original scope, services and diagnostics; retry shares the first monotonic
+120s total cleanup deadline. Settled errors still permit safe cleanup and report
+original loss. Only the dedicated isolated Agent entry arms physical self-exit
+at that deadline; ordinary host/embedded close reports pending and never exits.
+C06 plan owns acceptance; activation stays closed.
+
+`terminal_operations.record_task_stop` permits only the original lead/run's
+consistent outcome: one idempotent `run.extension.task_stop` receipt. Execution
+locks precede event/target locks. No caller SQL/event/payload/other target or active
+SQL after terminal.

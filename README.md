@@ -1619,8 +1619,12 @@ bootstrap, one-shot launch and physical-stop capacity release are covered. C05
 adds transactional checkpoint protection: expired or replaced execution identities
 cannot change checkpoints, blobs or pending writes. Remote startup verifies existing
 checkpoint schema without running migrations; Local initialization stays unchanged.
-Gateway still rejects agents_enabled until the remaining durable write protection, recovery and
-routing slices pass. Remote Agent runs are not available
+C06 now fences supported remote Run/ThreadMeta/event, Store/SQL-definition, memory,
+extension, scheduler and MCP tracking writes. Original graph/checkpoint tasks and
+queued callbacks settle before resources close, within one cumulative 120-second
+cleanup budget. See the [C06 acceptance report](docs/ecs-fleet-c06-acceptance.md).
+Gateway still rejects agents_enabled until C07-C12 event delivery, recovery,
+cancellation and routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

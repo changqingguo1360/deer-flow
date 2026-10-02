@@ -131,6 +131,13 @@ class FencedAsyncPostgresStore(AsyncPostgresStore):
                         targets=(MutationTarget(run_id=self._mutation_capability.context.run_id, thread_id=self._mutation_capability.context.thread_id, user_id=self._mutation_capability.context.user_id),),
                     )
                 yield cur
+                if operation is not None and operation[0]:
+                    await self._mutation_capability.validate_cursor(
+                        cur,
+                        context=operation[1],
+                        operation="store.write",
+                        targets=(MutationTarget(run_id=self._mutation_capability.context.run_id, thread_id=self._mutation_capability.context.thread_id, user_id=self._mutation_capability.context.user_id),),
+                    )
 
     async def setup(self):
         required = {"store_migrations": {"v"}, "store": {"prefix", "key", "value", "created_at", "updated_at", "expires_at", "ttl_minutes"}}

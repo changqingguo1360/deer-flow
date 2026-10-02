@@ -69,6 +69,14 @@ class AgentRunner:
                     scopes.enter_context(extensions_config_scope(environment.private_extensions_config))
                 if environment.definition_stores is not None:
                     scopes.enter_context(agent_definition_store_scope(*environment.definition_stores))
+                if environment.private_mcp_task_submitter is not None:
+                    from deerflow.mcp.tasks.runtime import mcp_task_submitter_scope
+
+                    scopes.enter_context(mcp_task_submitter_scope(environment.private_mcp_task_submitter, environment.private_extensions_config))
+                if environment.private_memory_manager is not None:
+                    from deerflow.agents.memory.manager import memory_manager_scope
+
+                    scopes.enter_context(memory_manager_scope(environment.private_memory_manager))
                 if environment.private_mcp_tools is not None:
                     scopes.enter_context(mcp_tools_scope(environment.private_mcp_tools))
                 await run_agent(
@@ -89,18 +97,61 @@ class AgentRunner:
         return record
 
 
+async def _settle_pending_cleanup(pending, original_error=None):
+    from .agent_cleanup import PendingAgentCleanup, abort_isolated_cleanup
+
+    original = pending
+    while isinstance(pending, PendingAgentCleanup):
+        if pending.remaining_seconds <= 0:
+            # Ordinary embedded callers retain and report pending. Only the
+            # dedicated entry installs a physical self-exit callback.
+            abort_isolated_cleanup()
+            raise pending
+        with pending.cleanup_scope():
+            try:
+                await pending.wait_for_cleanup()
+                await pending.retry_cleanup()
+            except PendingAgentCleanup as next_pending:
+                pending = next_pending
+                continue
+            except BaseException as cleanup_error:
+                if original_error is not None:
+                    raise original_error from cleanup_error
+                raise
+        if original_error is not None:
+            raise original_error
+        raise original
+
+
 async def _bootstrap(payload, provider):
     if not isinstance(payload, dict) or set(payload) != {"bootstrap", "grant"}:
         raise ValueError("Invalid private Agent invocation")
     bootstrap = BootstrapV1.from_private_payload(payload["bootstrap"])
     grant = payload["grant"]
     spec = LaunchSpec.model_validate(grant["launch_spec"])
-    environment = await build_environment(provider, bootstrap=bootstrap, spec=spec, grant=grant)
+    from .agent_cleanup import PendingAgentCleanup
+
+    try:
+        environment = await build_environment(provider, bootstrap=bootstrap, spec=spec, grant=grant)
+    except PendingAgentCleanup as pending:
+        await _settle_pending_cleanup(pending, getattr(pending, "_original_error", None))
+        raise
+    original_error = None
     try:
         print(json.dumps({"ready": True, "pid": os.getpid(), "host": socket.gethostname(), "attempt_id": bootstrap.identity.attempt_id, "uid": os.getuid(), "pid_namespace": os.readlink("/proc/self/ns/pid")}), flush=True)
         await AgentRunner().run(spec, grant=grant, environment=environment)
+    except BaseException as error:
+        original_error = error
+        raise
     finally:
-        await environment.close()
+        try:
+            await environment.close()
+        except PendingAgentCleanup as pending:
+            await _settle_pending_cleanup(pending, original_error)
+        except BaseException as cleanup_error:
+            if original_error is not None:
+                raise original_error from cleanup_error
+            raise
 
 
 def bootstrap_main(payload, *, argv):
@@ -109,3 +160,65 @@ def bootstrap_main(payload, *, argv):
     args = parser.parse_args(argv)
     asyncio.run(_bootstrap(payload, args.provider))
     return 0
+
+
+class _IsolatedCleanupWatchdog:
+    """Physical bound only for the dedicated Agent process entry."""
+
+    def __init__(self):
+        import threading
+
+        self._condition = threading.Condition()
+        self._deadline = None
+        self._finished = False
+
+    def observe(self, deadline):
+        import threading
+
+        with self._condition:
+            if self._deadline is None:
+                self._deadline = deadline
+                threading.Thread(target=self._run, name="agent-cleanup-deadline", daemon=True).start()
+            else:
+                # An additional phase or provider can never extend the first
+                # physical deadline observed in this private process.
+                self._deadline = min(self._deadline, deadline)
+                self._condition.notify_all()
+
+    def _run(self):
+        import time
+
+        with self._condition:
+            while not self._finished:
+                remaining = self._deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self._condition.wait(remaining)
+            if self._finished:
+                return
+        self.abort()
+
+    @staticmethod
+    def abort():
+        from .agent_cleanup import CLEANUP_DEADLINE_EXIT_CODE
+
+        # No successful finalization, stack unwind, or implicit asyncio.run
+        # cancel-all can occur after the dedicated worker exceeds its budget.
+        os._exit(CLEANUP_DEADLINE_EXIT_CODE)
+
+    def finish(self):
+        with self._condition:
+            self._finished = True
+            self._condition.notify_all()
+
+
+def isolated_bootstrap_main(payload, *, argv):
+    """Called only by the hardened standalone Agent entry, never the host."""
+    from .agent_cleanup import isolated_cleanup_policy
+
+    watchdog = _IsolatedCleanupWatchdog()
+    with isolated_cleanup_policy(watchdog.observe, watchdog.abort):
+        try:
+            return bootstrap_main(payload, argv=argv)
+        finally:
+            watchdog.finish()

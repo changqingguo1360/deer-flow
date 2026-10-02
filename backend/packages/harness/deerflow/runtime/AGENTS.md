@@ -222,11 +222,11 @@ Remote Gateway activation remains closed until all required C slices are verifie
 `execution/mutation_context.py` supplies immutable private attempt context and
 nonretryable `OwnershipRejected`. Host-bound optional `mutation_capability` on
 RunRepository, ThreadMetaRepository and DbRunEventStore validates the original
-identity on the actual writer session/transaction, before target or event advisory
-locks, and holds execution locks through commit/rollback. Harness never imports
-app/Fleet. Missing/wrong callback context rejects; Local unbound resources retain
-existing behavior. Context scopes span executor attachment and host lifecycle;
-identity/token stamp never belongs in model-visible config.
+identity on the writer transaction before target/advisory locks, retaining execution
+locks through commit/rollback. Recheck the DB clock after target SQL/ORM flush,
+before commit on that same transaction: target waits can outlive leases. Harness
+imports no app/Fleet. Missing/wrong callback context rejects; unbound Local keeps
+its behavior. Scopes span attachment/lifecycle; no identity/token stamp in model config.
 
 Trusted runner initialization atomically creates missing original-owned thread
 metadata and preserves existing rows; never adopt another owner.
@@ -245,7 +245,51 @@ callback; it must not rebuffer it for retry. Delivery receipt persistence stops 
 this rejection. Preserve ordinary transient retries and cleanup notifications.
 C06b adds direct caller-context Store operations, same-cursor explicit TX,
 embeddings before locks, pure SELECT for TTL-disabled GET and read-only setup.
-Bound sync definitions revalidate after rollback/retry and reject file cleanup.
+Bound sync definitions reject file cleanup; after unique-conflict rollback/retry,
+recheck original authority before ordinary error handling.
 See [Store/tool boundaries](../../../../../docs/ecs-fleet-development.md).
-C06 acceptance, C06c memory/extensions/scheduler/MCP and later C/BC remain
-pending. Remote activation stays closed.
+C06 acceptance evidence belongs to its external plan. Later C/BC remain pending;
+remote activation stays closed.
+
+
+C06c `BoundMutationTransactions` fences actual memory/extension writer transactions
+through commit/rollback and grants no terminal SQL authority.
+
+Remote `RunContext.before_terminal_mutations` drains original memory, then owned
+nested extension callbacks, before durable terminal status within a shared budget.
+`OwnershipRejected` marks execution lost and stops completion writes. Postterminal
+cleanup grants no active write authority. Local contexts without the hook retain
+their policy.
+
+Remote teardown retains its entire original resource stack until actual owned
+Task rollback/finally settles, including native memory workers and failed
+construction. Positive memory drain and owned observers must jointly settle
+before service stop and again before resource unwind; actual enqueue/completion
+revisions detect work queued across both directions. False/exception retains
+resources, first error and deadline; memory close alone proves no settlement.
+Create the original
+cleanup controller before the first resource; early construction failure must
+use the same retained phases and budget, never a raw stack.aclose bypass. First cleanup fixes
+one monotonic 120s deadline across phases and retries. The isolated Agent entry
+keeps the original loop for bounded settlement. If rollback remains unsettled,
+deadline self-exit precedes resource unwind and implicit loop shutdown. Host/Gateway/embedded callers only
+receive private pending cleanup, never process exit. Physical exit is not success
+or reservation release; the daemon retains its original stop-proof responsibility.
+Verify real subprocess termination and PG rollback/lock release, plus normal
+settlement cleanup. Actual /opt/deerflow/libexec_bootstrap.py must match frozen
+source as well as its installed wheel copy.
+
+Remote host `RunContext.settle_stream` is a private optional lifecycle hook. The
+worker explicitly closes the original astream in single/multiple modes and
+awaits actual graph/checkpoint cleanup. A naturally exhausted generator starts
+no cleanup timer, preserving normal goal continuation. Closing a live original
+stream starts the same first monotonic 120s budget; retain its real graph-stream
+phase Task, context and resources across caller cancellation and retries.
+`ExecutionCleanupPending` is a neutral control exception carrying only the
+original error, never authority/host handles. It bypasses ordinary recovery and
+durable finalization while preserving typed/cancellation identity. Bootstrap
+joins the retained graph phase before memory/observers, services and resources;
+only the isolated worker retains physical deadline exit. Local hosts close the
+stream explicitly without this hook or process exit. Verify actual checkpoint
+SQL rollback barriers, no premature service/resource unwind and independent PG
+rollback/connection/lock checks. Journal drain alone does not settle astream.

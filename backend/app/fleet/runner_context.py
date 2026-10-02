@@ -7,9 +7,164 @@ from importlib import metadata
 from pathlib import Path
 
 from deerflow_ecs_fleet.launch_spec import Snapshot, WorkerCompatibility, thaw
+from deerflow_ecs_fleet.worker.agent_cleanup import CleanupBudget, PendingAgentCleanup
 from deerflow_ecs_fleet.worker.agent_environment import AgentEnvironment
 
 from app.fleet.mutation import FleetCheckpointFence, FleetMutationCapability
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+# A failed bounded close keeps the complete original host resource owner alive.
+# Neither this registry nor its retry callbacks enter graph configuration.
+_pending_agent_teardowns = {}
+
+
+class AgentCleanupPending(OwnershipRejected, PendingAgentCleanup):
+    def __init__(self, teardown):
+        super().__init__("Owned Agent cleanup is pending; original host resources retained")
+        self._teardown = teardown
+
+    @property
+    def remaining_seconds(self):
+        return self._teardown.budget.remaining()
+
+    def cleanup_scope(self):
+        return self._teardown.private_scope()
+
+    def _check_original_scope(self):
+        from deerflow.runtime.execution.mutation_context import current_remote_mutation_context
+
+        if current_remote_mutation_context() != self._teardown.context:
+            raise OwnershipRejected("Host cleanup retry requires its original private scope")
+
+    async def wait_for_cleanup(self):
+        from deerflow.extensions.notify import wait_extension_dispatch_cleanup
+
+        self._check_original_scope()
+        await self._teardown.settle_graph_stream()
+        await self._teardown.phase("settlement", wait_extension_dispatch_cleanup)
+
+    async def retry_cleanup(self):
+        self._check_original_scope()
+        await self._teardown.close()
+
+
+class _AgentResourceTeardown:
+    def __init__(self, stack, private_scope, context):
+        self.stack, self.private_scope, self.context = stack, private_scope, context
+        self.budget = CleanupBudget()
+        self.stop_plugins = None
+        self.settle_memory = None
+        self.memory_quiescent = False
+        self.plugins_stopped = False
+        self.failure = None
+        self.closed = False
+        self._phases = {}
+
+    def retain_pending(self, error):
+        if self.failure is None:
+            self.failure = error
+        _pending_agent_teardowns[self.context] = self
+        raise AgentCleanupPending(self) from error
+
+    async def phase(self, name, operation):
+        import asyncio
+
+        task = self._phases.get(name)
+        if task is None:
+            if self.budget.remaining() <= 0:
+                self.retain_pending(OwnershipRejected("Agent total cleanup deadline exceeded"))
+            task = asyncio.create_task(operation())
+            self._phases[name] = task
+        try:
+            completed, _ = await asyncio.wait({task}, timeout=self.budget.remaining())
+        except asyncio.CancelledError as exc:
+            # Retain the real phase Task; cancellation never grants unwind.
+            self.retain_pending(exc)
+        if not completed:
+            self.retain_pending(OwnershipRejected("Agent total cleanup deadline exceeded"))
+        self._phases.pop(name)
+        return task.result()
+
+    async def settle_graph_stream(self):
+        if "graph-stream" not in self._phases:
+            return
+        try:
+            await self.phase("graph-stream", None)
+        except PendingAgentCleanup:
+            raise
+        except BaseException as error:
+            # The real Task is settled. Retain its failure until the same stack
+            # has safely unwound; bootstrap must not escape at the wait phase.
+            if self.failure is None:
+                self.failure = error
+
+    async def quiesce_memory_and_observers(self):
+        from deerflow.extensions.notify import drain_extension_dispatches, extension_dispatch_revision, extension_dispatches_pending
+
+        self.memory_quiescent = False
+        while True:
+            revision = extension_dispatch_revision()
+            await self.settle_memory()
+            try:
+                await drain_extension_dispatches(deadline=self.budget.deadline)
+            except BaseException as error:
+                if extension_dispatches_pending():
+                    self.retain_pending(error)
+                if self.failure is None:
+                    self.failure = error
+            # A callback that completed during the drain may have queued native
+            # memory even though no observer is currently pending.
+            if revision == extension_dispatch_revision():
+                self.memory_quiescent = True
+                return
+
+    async def close(self):
+        from deerflow.extensions.notify import drain_extension_dispatches, extension_dispatches_pending, release_extension_dispatch_failures
+
+        if self.closed:
+            return
+        self.budget.start()
+        with self.private_scope():
+            await self.settle_graph_stream()
+            if self.settle_memory is not None:
+                await self.phase("quiescence-before-services", self.quiesce_memory_and_observers)
+            else:
+                try:
+                    await self.phase("drain", lambda: drain_extension_dispatches(deadline=self.budget.deadline))
+                except PendingAgentCleanup:
+                    raise
+                except BaseException as exc:
+                    if extension_dispatches_pending():
+                        self.retain_pending(exc)
+                    if self.failure is None:
+                        self.failure = exc
+                if extension_dispatches_pending():
+                    self.retain_pending(OwnershipRejected("Owned extension writer has not settled"))
+            if self.stop_plugins is not None and not self.plugins_stopped:
+                try:
+                    await self.phase("plugins", self.stop_plugins)
+                except PendingAgentCleanup:
+                    raise
+                except BaseException as exc:
+                    if extension_dispatches_pending():
+                        self.retain_pending(exc)
+                    if self.failure is None:
+                        self.failure = exc
+                self.plugins_stopped = True
+            if self.settle_memory is not None:
+                await self.phase("quiescence-before-resources", self.quiesce_memory_and_observers)
+            try:
+                await self.phase("resources", self.stack.aclose)
+            except PendingAgentCleanup:
+                raise
+            except BaseException as exc:
+                if self.failure is None:
+                    self.failure = exc
+            self.closed = True
+            release_extension_dispatch_failures()
+            _pending_agent_teardowns.pop(self.context, None)
+            if self.failure is not None:
+                raise self.failure
 
 
 def _distribution_files(name):
@@ -224,6 +379,12 @@ def execution_configuration(private):
         payload["sandbox"]["ownership"]["redis_url"] = None
     for plugin in payload["plugins"]:
         plugin["config"] = {}
+    # Backend construction uses the private snapshot. Only the prompt's known
+    # read-failure enum belongs in model/tool-visible configuration.
+    memory_policy = private.memory.backend_config.get("failure_policy", {})
+    read_policy = memory_policy.get("read") if isinstance(memory_policy, dict) else None
+    payload["memory"]["backend_config"] = {"failure_policy": {"read": read_policy}} if read_policy in ("fail_closed", "fail_open") else {}
+
     # MCP endpoints/auth/client setup live in the private scoped snapshot.
     payload["extensions"] = {"middlewares": private.extensions.middlewares, "skills": {name: state.model_dump() for name, state in private.extensions.skills.items()}}
     if private.acp_agents:
@@ -310,6 +471,9 @@ async def build_agent_environment(*, bootstrap, spec, grant):
     if private.agent_storage.backend != "db":
         raise ValueError("Remote Agent definitions require a fenced database backend")
     validate_remote_agent_shared_storage(private)
+    from deerflow.agents.memory.manager import make_remote_memory_manager, memory_manager_scope, preflight_remote_memory
+
+    preflight_remote_memory(private.memory)
     if private.database.backend != "postgres" or not private.database.postgres_url or private.run_events.backend != "db":
         raise ValueError("Agent infrastructure requires shared Postgres and durable events")
     bindings = json.loads(Path("/opt/deerflow/model-bindings.json").read_bytes())
@@ -328,7 +492,22 @@ async def build_agent_environment(*, bootstrap, spec, grant):
     compatibility = installed_compatibility()
     if (spec.runtime_digest, spec.skill_snapshot, spec.plugin_snapshot) != (compatibility.runtime_digest, compatibility.skill_snapshot, compatibility.plugin_snapshot):
         raise ValueError("Installed Agent runtime is incompatible")
+    from deerflow.config.app_config import pop_current_app_config, push_current_app_config
+    from deerflow.runtime.execution.mutation_context import remote_mutation_scope
+
+    mutation_capability = FleetMutationCapability(bootstrap.identity, spec)
+
+    @contextmanager
+    def bootstrap_cleanup_scope():
+        with remote_mutation_scope(mutation_capability.context), model_credential_scope(resolver):
+            push_current_app_config(execution)
+            try:
+                yield
+            finally:
+                pop_current_app_config()
+
     stack = AsyncExitStack()
+    teardown = _AgentResourceTeardown(stack, bootstrap_cleanup_scope, mutation_capability.context)
     try:
         engine = create_async_engine(private.database.postgres_url, connect_args={"server_settings": {"search_path": private.database.postgres_schema}})
         stack.push_async_callback(engine.dispose)
@@ -336,7 +515,6 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         checkpointer = await stack.enter_async_context(make_checkpointer(private, write_fence=FleetCheckpointFence(bootstrap.identity, spec)))
         from deerflow.runtime.execution.mutation_context import remote_mutation_scope
 
-        mutation_capability = FleetMutationCapability(bootstrap.identity, spec)
         store = await stack.enter_async_context(make_store(private, mutation_capability=mutation_capability))
         repository = RunRepository(sf, mutation_capability=mutation_capability)
         manager = RunManager(store=repository, worker_id=bootstrap.identity.owner_worker_id)
@@ -357,11 +535,23 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             from deerflow.persistence.managed_subagents import make_managed_subagent_store
 
             definitions = (make_agent_store(private), make_managed_subagent_store(private))
+        from app.mcp_tasks import McpTaskService
         from deerflow.config.extensions_config import extensions_config_scope
         from deerflow.mcp.cache import mcp_tools_scope
+        from deerflow.mcp.task_tool_caller import McpTaskToolCaller
+        from deerflow.mcp.tasks import ORDINARY_MCP_TASK_DRIVER, McpTaskDriverRegistry, OrdinaryMcpTaskDriver
+        from deerflow.mcp.tasks.runtime import mcp_task_submitter_scope, validate_mcp_task_runtime_configuration
         from deerflow.mcp.tools import get_mcp_tools
 
+        mcp_repository = McpTaskRepository(sf, mutation_capability=mutation_capability)
+        validate_mcp_task_runtime_configuration(mcp_tasks_config=private.mcp_tasks, extensions_config=private.extensions, repository_available=True)
+        drivers = McpTaskDriverRegistry()
+        drivers.register(ORDINARY_MCP_TASK_DRIVER, OrdinaryMcpTaskDriver(McpTaskToolCaller(private.extensions)))
+        private_submitter = McpTaskService(
+            repository=mcp_repository, drivers=drivers, poll_interval_seconds=private.mcp_tasks.poll_interval_seconds, lease_seconds=private.mcp_tasks.lease_seconds, max_concurrent_polls=private.mcp_tasks.max_concurrent_polls
+        )
         private_tools = None
+        private_memory = None
         from deerflow.persistence.agent_definition_context import agent_definition_store_scope
 
         @contextmanager
@@ -372,11 +562,16 @@ async def build_agent_environment(*, bootstrap, spec, grant):
                 scoped.enter_context(remote_mutation_scope(mutation_capability.context))
                 scoped.enter_context(model_credential_scope(resolver))
                 scoped.enter_context(extensions_config_scope(private.extensions))
+                scoped.enter_context(mcp_task_submitter_scope(private_submitter, private.extensions))
                 scoped.enter_context(agent_definition_store_scope(*definitions))
+                if private_memory is not None:
+                    scoped.enter_context(memory_manager_scope(private_memory))
                 if private_tools is not None:
                     scoped.enter_context(mcp_tools_scope(private_tools))
                 yield
 
+        # Same fixed owner, stack and budget; complete private resources now exist.
+        teardown.private_scope = private_scope
         set_app_config(execution)
         stack.callback(reset_app_config)
         from deerflow.mcp.session_pool import get_session_pool
@@ -387,6 +582,46 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             extensions, diagnostics = load_extensions(private.plugins)
         if any(item.level == "error" for item in diagnostics):
             raise ValueError("Approved runtime plugin failed to initialize")
+        from deerflow.extensions.gateway import bind_remote_extensions
+
+        extensions = bind_remote_extensions(extensions, mutation_capability)
+        with private_scope():
+            private_memory = make_remote_memory_manager(private.memory, mutation_capability=mutation_capability, host_hooks={"session_factory": sync_sf, "async_session_factory": sf})
+
+        async def settle_memory():
+            import asyncio
+
+            with private_scope():
+                while True:
+                    remaining = teardown.budget.remaining()
+                    if remaining <= 0:
+                        teardown.retain_pending(OwnershipRejected("Agent total memory cleanup deadline exceeded"))
+                    try:
+                        complete = await asyncio.to_thread(private_memory.shutdown_flush, min(30, remaining))
+                    except BaseException as error:
+                        if teardown.failure is None:
+                            teardown.failure = error
+                    else:
+                        if complete is True:
+                            return
+                        if teardown.failure is None:
+                            teardown.failure = OwnershipRejected("Owned memory worker drain is incomplete")
+                    # Some backends return False/raise immediately. Preserve the
+                    # same phase and deadline without spinning the owner loop.
+                    await asyncio.sleep(min(0.05, teardown.budget.remaining()))
+
+        # Attach immediately: construction/start failure can already enqueue.
+        teardown.settle_memory = settle_memory
+
+        async def close_memory():
+            import asyncio
+
+            with private_scope():
+                if not teardown.memory_quiescent:
+                    raise OwnershipRejected("Memory resources require positive joint quiescence")
+                await asyncio.to_thread(private_memory.close)
+
+        stack.push_async_callback(close_memory)
         set_loaded_extensions(extensions)
         stack.callback(reset_loaded_extensions)
         import asyncio
@@ -394,14 +629,45 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         set_extension_notify_loop(asyncio.get_running_loop())
         stack.callback(reset_extension_notify_loop)
         attempted_services = []
+        services_stopped = False
 
         async def stop_plugins():
-            with private_scope():
-                await stop_services(extensions, service_entries=attempted_services)
+            from deerflow.extensions.notify import extension_dispatches_pending
 
-        stack.push_async_callback(stop_plugins)
+            nonlocal services_stopped
+
+            async def drain():
+                await teardown.quiesce_memory_and_observers()
+
+            async def stop_once():
+                nonlocal services_stopped
+                if not services_stopped:
+                    try:
+                        await stop_services(extensions, service_entries=attempted_services, deadline=teardown.budget.deadline)
+                    except OwnershipRejected:
+                        # Typed stop loss reports after all services were attempted.
+                        services_stopped = True
+                        raise
+                    services_stopped = True
+
+            with private_scope():
+                failure = None
+                for cleanup in (drain, stop_once, drain):
+                    try:
+                        await cleanup()
+                    except BaseException as exc:
+                        if extension_dispatches_pending():
+                            raise
+                        if failure is None:
+                            failure = exc
+                if failure is not None:
+                    raise failure
+
+        # Plugin settlement must precede ExitStack unwind: a failing callback
+        # cannot stop AsyncExitStack from closing its remaining resources.
+        teardown.stop_plugins = stop_plugins
         with private_scope():
-            service_diagnostics = await start_services(extensions, private, sf, attempted_services=attempted_services)
+            service_diagnostics = await start_services(extensions, private, sf, attempted_services=attempted_services, mutation_capability=mutation_capability, sync_session_factory=sync_sf)
         if any(item.level == "error" for item in service_diagnostics):
             raise ValueError("Approved runtime plugin service failed to initialize")
 
@@ -409,33 +675,48 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             raise RuntimeError("Agent runner cannot admit another scheduled run")
 
         scheduled = ScheduledTaskService(
-            task_repo=ScheduledTaskRepository(sf, run_repository=repository),
-            task_run_repo=ScheduledTaskRunRepository(sf, run_repository=repository),
+            task_repo=ScheduledTaskRepository(sf, run_repository=repository, mutation_capability=mutation_capability),
+            task_run_repo=ScheduledTaskRunRepository(sf, run_repository=repository, mutation_capability=mutation_capability),
             launch_run=no_new_admission,
             poll_interval_seconds=private.scheduler.poll_interval_seconds,
             lease_seconds=private.scheduler.lease_seconds,
             max_concurrent_runs=private.scheduler.max_concurrent_runs,
             queue_timeout_seconds=private.scheduler.queue_timeout_seconds,
         )
+
+        async def drain_active_memory():
+            with private_scope():
+                await drain_remote_mutations(private_memory)
+
+        async def settle_owned_stream(stream):
+            from deerflow.runtime.execution.mutation_context import ExecutionCleanupPending, current_remote_mutation_context
+
+            if current_remote_mutation_context() != teardown.context:
+                raise OwnershipRejected("Graph cleanup requires its original private scope")
+            with private_scope():
+                try:
+                    await teardown.phase("graph-stream", stream.aclose)
+                except AgentCleanupPending as pending:
+                    raise ExecutionCleanupPending() from pending
+
         context = RunContext(
             checkpointer=checkpointer,
             store=store,
             event_store=DbRunEventStore(sf, max_trace_content=private.run_events.max_trace_content, mutation_capability=mutation_capability),
             run_events_config=private.run_events,
             thread_store=ThreadMetaRepository(sf, mutation_capability=mutation_capability),
-            mcp_task_repo=McpTaskRepository(sf),
+            mcp_task_repo=mcp_repository,
             app_config=execution,
             extensions=extensions,
             checkpoint_channel_mode=freeze_checkpoint_channel_mode(private.database.checkpoint_channel_mode),
             checkpoint_snapshot_frequency=freeze_checkpoint_snapshot_frequency(private.database.checkpoint_delta.snapshot_frequency),
             on_run_completed=scheduled.handle_run_completion,
+            before_terminal_mutations=drain_active_memory,
+            settle_stream=settle_owned_stream,
         )
 
         async def close():
-            try:
-                await stack.aclose()
-            finally:
-                reset_app_config()
+            await teardown.close()
 
         return AgentEnvironment(
             identity=bootstrap.identity,
@@ -451,12 +732,37 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             private_extensions_config=private.extensions,
             definition_stores=definitions,
             private_mcp_tools=private_tools,
+            private_memory_manager=private_memory,
+            private_mcp_task_submitter=private_submitter,
         )
-    except BaseException:
-        await stack.aclose()
+    except BaseException as original_error:
+        try:
+            await teardown.close()
+        except AgentCleanupPending as pending:
+            pending._original_error = original_error
+            raise
+        except BaseException as cleanup_error:
+            raise original_error from cleanup_error
         raise
 
 
 # The same installed factory supplies preflight and private runtime construction.
 # Optional Fleet discovers this attribute through metadata, never a host import.
 build_agent_environment.worker_compatibility = installed_compatibility
+
+
+async def drain_remote_mutations(memory, *, timeout=30):
+    """Finish this attempt's queued active writes before durable completion."""
+    import asyncio
+
+    from deerflow.extensions.notify import drain_extension_dispatches
+
+    try:
+        async with asyncio.timeout(timeout):
+            if not await asyncio.to_thread(memory.shutdown_flush, timeout):
+                raise OwnershipRejected("Remote memory drain exceeded its completion budget")
+            # Extraction itself can enqueue model observations. Drain callbacks
+            # including nested dispatches while active writes remain authorized.
+            await drain_extension_dispatches()
+    except TimeoutError as exc:
+        raise OwnershipRejected("Remote mutation drain exceeded its completion budget") from exc

@@ -389,13 +389,13 @@ one SQL transaction through trusted harness execution contracts; default Local s
 compatible and remote admission creates no local task. C03 ownership
 checks joined run/attempt leases, shared capacity and SQL local-recovery exclusion.
 Explicit Agent node profiles require positive agent_limit; defaults remain job-only.
-C04 locally verifies the installed runner bridge, existing run_agent loop, private
-model/MCP/definition scopes, initial workspace snapshot and physical container lifecycle.
-Owned attachment/start checks the database wall clock after locking the actual run;
-private control credentials use actual PG/Redis parsing before MCP argv/env checks.
-C05 fences AsyncPostgresSaver 3.1.1 mutations and sync aliases in the writer's
-ownership transaction. Remote setup verifies schema read-only; Local retains
-migrations. Cache/delta retain CheckpointStateAccessor. Duration and title writes,
-including late cancellation, precede terminal persistence.
-Gateway agents_enabled remains closed until C06-C12 durable writes, recovery and routing
-pass. User-facing remote activation and continuations remain pending.
+C04 verifies installed run_agent, private model/MCP/definition scopes, initial snapshots
+and physical container lifecycle. Attachment/start rechecks DB time after locking the
+run; credential checks parse PG/Redis before MCP argv/env validation.
+C05 fences AsyncPostgresSaver 3.1.1 mutations/sync aliases in the writer ownership
+transaction. Remote schema checks are read-only; Local still migrates. Cache/delta
+use CheckpointStateAccessor; duration/title (including late cancel) precede terminal writes.
+C06 fences supported durable writes and retains original graph/callback cleanup under
+one 120-second budget; see [acceptance](../docs/ecs-fleet-c06-acceptance.md) and module guides.
+Remote activation is closed until C07-C12 event delivery, recovery, cancellation
+and routing pass; continuations remain pending.

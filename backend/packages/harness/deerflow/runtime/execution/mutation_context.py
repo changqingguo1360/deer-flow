@@ -12,6 +12,14 @@ class OwnershipRejected(RuntimeError):
     retryable = False
 
 
+class ExecutionCleanupPending(BaseException):
+    """Private lifecycle control; never ordinary recovery or public config."""
+
+    def __init__(self):
+        super().__init__("Execution resource cleanup remains pending")
+        self.original_error = None
+
+
 @dataclass(frozen=True, repr=False)
 class RemoteMutationContext:
     user_id: str
@@ -95,3 +103,17 @@ def require_definition_mutation_scope(runtime):
     if any(not isinstance(getattr(getattr(store, "_mutation_capability", None), "context", None), RemoteMutationContext) for store in stores):
         raise OwnershipRejected("Remote definitions require bound database stores")
     return True
+
+
+async def validate_mutation_after_sql(capability, session, operation, **target):
+    """Flush actual ORM writes and recheck on their transaction before commit."""
+    if capability is not None:
+        await session.flush()
+        await validate_mutation(capability, session, operation, **target)
+
+
+def validate_mutation_after_sql_sync(capability, session, operation, **target):
+    """Local keeps its original flush and commit behavior."""
+    if capability is not None:
+        session.flush()
+        validate_mutation_sync(capability, session, operation, **target)

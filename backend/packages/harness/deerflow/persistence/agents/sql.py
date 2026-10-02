@@ -34,7 +34,7 @@ from deerflow.persistence.agents.base import (
     parse_agent_config,
 )
 from deerflow.persistence.agents.model import AgentRow
-from deerflow.runtime.execution.mutation_context import OwnershipRejected, validate_mutation_sync
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, validate_mutation_after_sql_sync, validate_mutation_sync
 from deerflow.runtime.user_context import get_current_user, get_effective_user_id
 
 logger = logging.getLogger(__name__)
@@ -164,8 +164,12 @@ class SqlAgentStore(AgentStore):
             with self._Session() as session:
                 validate_mutation_sync(self._mutation_capability, session, "definition.agent.create", user_id=effective_user)
                 session.add(row)
+                validate_mutation_after_sql_sync(self._mutation_capability, session, "definition.agent.create", user_id=effective_user)
                 session.commit()
         except IntegrityError as e:
+            if self._mutation_capability is not None:
+                with self._Session() as session, session.begin():
+                    validate_mutation_sync(self._mutation_capability, session, "definition.agent.create", user_id=effective_user)
             # UNIQUE(user_id, name) turns the check-then-write race into a clean conflict.
             raise AgentExistsError(f"Agent '{name}' already exists for user '{effective_user}'") from e
 
@@ -176,6 +180,7 @@ class SqlAgentStore(AgentStore):
             row = self._row(session, name, effective_user, **({"lock": True} if self._mutation_capability is not None else {}))
             if row is not None:
                 self._apply_update(row, config, soul)
+                validate_mutation_after_sql_sync(self._mutation_capability, session, "definition.agent.update", user_id=effective_user)
                 session.commit()
                 return
             # Upsert: setup_agent and any first-time write land here. Two
@@ -193,6 +198,7 @@ class SqlAgentStore(AgentStore):
             )
             session.add(row)
             try:
+                validate_mutation_after_sql_sync(self._mutation_capability, session, "definition.agent.update", user_id=effective_user)
                 session.commit()
             except IntegrityError:
                 session.rollback()
@@ -201,6 +207,7 @@ class SqlAgentStore(AgentStore):
                 if existing is None:
                     raise
                 self._apply_update(existing, config, soul)
+                validate_mutation_after_sql_sync(self._mutation_capability, session, "definition.agent.update", user_id=effective_user)
                 session.commit()
 
     @staticmethod
@@ -217,6 +224,7 @@ class SqlAgentStore(AgentStore):
             if self._mutation_capability is not None and get_paths().user_agent_dir(effective_user, name).exists():
                 raise OwnershipRejected("Remote agent deletion cannot delete file-backed memory")
             result = session.execute(delete(AgentRow).where(AgentRow.user_id == effective_user, AgentRow.name == name.lower()))
+            validate_mutation_after_sql_sync(self._mutation_capability, session, "definition.agent.delete", user_id=effective_user)
             session.commit()
             row_deleted = result.rowcount > 0
         if self._mutation_capability is not None:

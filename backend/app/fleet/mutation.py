@@ -40,6 +40,11 @@ class _FleetExecutionGuard:
                 reject()
             rows.append(row)
         task, run, placement, node, reservation, attempt = rows
+        # Only the host selects these domains; adapted contributors cannot
+        # choose a lock key. Keep this on the writer TX before the fresh clock.
+        if operation in {"memory.write", "extension.write"}:
+            domain = "deerflow:memory:" + spec.user_id if operation == "memory.write" else "deerflow:extension"
+            await cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (domain,))
         await cursor.execute("SELECT clock_timestamp() AS now")
         now = (await cursor.fetchone())["now"]
         owner = (spec.user_id, spec.thread_id)
@@ -115,6 +120,13 @@ class _SessionCursor:
 _ACTIVE = frozenset(
     {
         "store.write",
+        "memory.write",
+        "extension.write",
+        "extension.task_stop",
+        "scheduler.occurrence.complete",
+        "scheduler.task.complete",
+        "mcp.create",
+        "mcp.cancel",
         "definition.agent.create",
         "definition.agent.update",
         "definition.agent.delete",
@@ -140,7 +152,7 @@ _ACTIVE = frozenset(
         "events.delete_run",
     }
 )
-_TERMINAL = frozenset({"run.status", "run.finalize", "run.completion", "thread.status", "thread.checkpoint_title"})
+_TERMINAL = frozenset({"run.status", "run.finalize", "run.completion", "thread.status", "thread.checkpoint_title", "extension.task_stop", "scheduler.occurrence.complete", "scheduler.task.complete", "mcp.cancel"})
 
 
 class FleetMutationCapability:
@@ -176,6 +188,11 @@ class FleetMutationCapability:
             target_row = await cursor.fetchone()
             if (target_row is None and operation not in {"thread.create", "thread.ensure"}) or (target_row is not None and target_row["user_id"] != self.context.user_id):
                 raise OwnershipRejected("Remote mutation thread target ownership rejected")
+            row = await self._guard.validate(cursor, thread_id=self.context.thread_id, operation=operation, allow_terminal=operation in _TERMINAL)
+        if operation == "extension.task_stop":
+            expected = {"success": "completed", "error": "failed", "timeout": "failed", "interrupted": "aborted"}.get(row["status"])
+            if expected is None or any(target.status != expected or target.event_types != ("run.extension.task_stop",) for target in targets):
+                raise OwnershipRejected("Extension terminal outcome rejected")
         if row["status"] not in {"pending", "running"}:
             if operation in {"run.status", "run.finalize", "run.completion"} and any(target.status != row["status"] for target in targets):
                 raise OwnershipRejected("Remote mutation cannot change terminal result")

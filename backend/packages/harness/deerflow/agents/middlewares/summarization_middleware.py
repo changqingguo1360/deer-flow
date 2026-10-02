@@ -20,6 +20,7 @@ from deerflow.agents.middlewares.dynamic_context_middleware import is_dynamic_co
 from deerflow.config.app_config import get_app_config
 from deerflow.extensions.notify import notify_context_compacted
 from deerflow.models import create_chat_model
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
 from deerflow.utils.messages import is_real_user_message
 
 logger = logging.getLogger(__name__)
@@ -769,6 +770,8 @@ class DeerFlowSummarizationMiddleware(SummarizationMiddleware):
         for hook in self._before_summarization_hooks:
             try:
                 hook(event)
+            except OwnershipRejected:
+                raise
             except Exception:
                 hook_name = getattr(hook, "__name__", None) or type(hook).__name__
                 logger.exception("before_summarization hook %s failed", hook_name)

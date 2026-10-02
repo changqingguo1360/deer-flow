@@ -350,8 +350,11 @@ async def test_independent_transaction_negative_control_permits_untracked_owner_
             await require_takeover_blocked(item.engine, pid, changing)
         await changing
     release.set()
-    await writing
-    assert (await durable_rows(item.engine))["run_events"] != before["run_events"]
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    with pytest.raises(OwnershipRejected):
+        await writing
+    assert await durable_rows(item.engine) == before
 
 
 @pytest.mark.asyncio
@@ -367,7 +370,8 @@ async def test_owned_attach_and_start_obtain_task_before_core_run(mutations):
         pid_future = asyncio.get_running_loop().create_future()
 
         async def seen(session, **kwargs):
-            pid_future.set_result((await session.execute(text("SELECT pg_backend_pid()"))).scalar_one())
+            if not pid_future.done():
+                pid_future.set_result((await session.execute(text("SELECT pg_backend_pid()"))).scalar_one())
             await original(session, **kwargs)
 
         cap.validate_async = seen
@@ -718,7 +722,8 @@ async def test_bound_subagent_batch_rejection_propagates_without_rebuffer(mutati
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("trigger", ["threshold", "end", "pending"])
-async def test_actual_worker_subagent_rejection_fences_and_completes_cleanup(mutations, trigger, monkeypatch):
+@pytest.mark.parametrize("multiple_modes", [False, True])
+async def test_actual_worker_subagent_rejection_fences_and_completes_cleanup(mutations, trigger, multiple_modes, monkeypatch):
     from unittest.mock import AsyncMock
 
     from langchain_core.messages import AIMessage, HumanMessage
@@ -794,6 +799,25 @@ async def test_actual_worker_subagent_rejection_fences_and_completes_cleanup(mut
     graph.set_entry_point("answer")
     graph.set_finish_point("answer")
     compiled = graph.compile(checkpointer=item.writer)
+    streams, checkpoint_tasks = [], set()
+    run_task = asyncio.current_task()
+    original_astream = compiled.astream
+    for method in ("aput", "aput_writes"):
+        original = getattr(item.writer, method)
+
+        async def remember_checkpoint_task(*args, _original=original, **kwargs):
+            if asyncio.current_task() is not run_task:
+                checkpoint_tasks.add(asyncio.current_task())
+            return await _original(*args, **kwargs)
+
+        monkeypatch.setattr(item.writer, method, remember_checkpoint_task)
+
+    def remember_owned_stream(*args, **kwargs):
+        stream = original_astream(*args, **kwargs)
+        streams.append(stream)
+        return stream
+
+    monkeypatch.setattr(compiled, "astream", remember_owned_stream)
     bridge = SimpleNamespace(publish=AsyncMock(), publish_end=AsyncMock(), cleanup=AsyncMock())
     await run_agent(
         bridge,
@@ -803,8 +827,16 @@ async def test_actual_worker_subagent_rejection_fences_and_completes_cleanup(mut
         agent_factory=lambda *, config: compiled,
         graph_input={"messages": [HumanMessage(content="subagent stream")]},
         config={"configurable": {"thread_id": item.spec.thread_id}},
-        stream_modes=["custom"],
+        stream_modes=["custom", "updates"] if multiple_modes else ["custom"],
     )
+    # The worker must settle the actual graph generator and its checkpoint
+    # executor before reporting completion. Keep a reference so GC timing cannot
+    # make this race disappear; fixture cleanup closes only these owned streams.
+    try:
+        assert len(streams) == 1 and streams[0].ag_frame is None
+        assert checkpoint_tasks and all(task.done() for task in checkpoint_tasks)
+    finally:
+        await asyncio.gather(*(stream.aclose() for stream in streams), return_exceptions=True)
     # Settle only callbacks owned by this actual run before its schema teardown.
     # Loss prevents normal finalization/flush; await existing tasks without
     # re-flushing, re-buffering, retrying writes or masking their rejection.
@@ -1313,6 +1345,8 @@ async def test_store_guard_and_actual_stock_sql_same_pid_txid_block_takeover(sec
                 with pytest.raises((TimeoutError, AssertionError)):
                     await actual_same_transaction_criterion()
                 assert identities[0] != identities[1]
+                await changing
+                await takeover.rollback()
             else:
                 await actual_same_transaction_criterion()
         finally:
@@ -1601,3 +1635,69 @@ async def test_remote_pool_constructor_preserves_original_context_and_explicit_t
     with pytest.raises(OwnershipRejected):
         async with FencedAsyncPostgresStore.from_conn_string(dsn, mutation_capability=item.runs._mutation_capability, pipeline=True):
             pass
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_kind", ["ownership", "cancelled"])
+async def test_actual_worker_stream_pending_preserves_original_error_and_blocks_recovery(mutations, error_kind):
+    from unittest.mock import AsyncMock
+
+    from langchain_core.messages import HumanMessage
+    from langgraph.config import get_stream_writer
+    from langgraph.graph import StateGraph
+
+    from deerflow.agents.thread_state import ThreadState
+    from deerflow.runtime.execution.mutation_context import ExecutionCleanupPending, OwnershipRejected
+    from deerflow.runtime.runs.manager import RunManager
+    from deerflow.runtime.runs.worker import RunContext, run_agent
+
+    item = mutations
+    await item.writer.adelete_thread(item.spec.thread_id)
+    async with item.engine.begin() as conn:
+        await conn.execute(text("UPDATE runs SET status='pending'"))
+    manager = RunManager(store=item.runs, worker_id=item.identity.owner_worker_id)
+    record = await manager.attach_existing_executor(item.spec.run_id, user_id=item.spec.user_id, thread_id=item.spec.thread_id, owner_worker_id=item.identity.owner_worker_id, execution_backend="fleet")
+    original = OwnershipRejected("original stream rejection") if error_kind == "ownership" else asyncio.CancelledError("original stream cancellation")
+    marker = ExecutionCleanupPending()
+    streams = []
+
+    async def answer(state):
+        get_stream_writer()({"owned-step": True})
+        await asyncio.Event().wait()
+
+    async def publish(run_id, event, payload):
+        if event == "custom":
+            raise original
+
+    async def settle(stream):
+        streams.append(stream)
+        # Only test the neutral marker handoff here; genuine retained SQL Task
+        # and physical deadline behavior are exercised by the host/process cases.
+        await stream.aclose()
+        raise marker
+
+    graph = StateGraph(ThreadState)
+    graph.add_node("answer", answer)
+    graph.set_entry_point("answer")
+    graph.set_finish_point("answer")
+    compiled = graph.compile()
+    bridge = SimpleNamespace(publish=publish, publish_end=AsyncMock(), cleanup=AsyncMock())
+    with pytest.raises(type(original)) as caught:
+        await run_agent(
+            bridge,
+            manager,
+            record,
+            ctx=RunContext(checkpointer=None, app_config=item.private, settle_stream=settle),
+            agent_factory=lambda *, config: compiled,
+            graph_input={"messages": [HumanMessage(content="stream identity")]},
+            config={"configurable": {"thread_id": item.spec.thread_id}},
+            stream_modes=["custom"],
+        )
+    assert caught.value is original and caught.value.__cause__ is marker
+    assert marker.original_error is original
+    assert len(streams) == 1 and streams[0].ag_frame is None
+    assert record.ownership_lost and not record.finalizing
+    async with item.engine.connect() as conn:
+        assert (await conn.execute(text("SELECT status FROM runs"))).scalar_one() == "running"
+    bridge.publish_end.assert_awaited_once_with(record.run_id)
+    bridge.cleanup.assert_awaited_once_with(record.run_id, delay=60)

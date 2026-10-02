@@ -469,12 +469,12 @@ git commit -m "feat(fleet): c05 实现 checkpoint 事务内 fencing"
 
 实际入口审计发现原文件清单漏掉 Run/ThreadMeta/event repositories、Store TTL、同步定义、scheduler 与 MCP tracking，以及 extension.start/stop。此前 `fleet_probe` 和 raw token 示例不再作为实施依据。使用已锁定的[详细 C06 计划](2026-10-02-ecs-fleet-c06-durable-mutations.md)，按 C06a → C06b → C06c 顺序执行；子步骤不代表整个 C06 完成。
 
-- [ ] **Step 1 — 真实行为 RED。** 实际 PostgreSQL 延迟写、原 attempt 替换、回调线程与不安全插件启动场景；不统计夹具错误或 skip。
-- [ ] **Step 2 — C06a。** 中性实例绑定 capability；Run/ThreadMeta/events 同事务 fence 与限定终态 bookkeeping，完成双阶段审查。
-- [ ] **Step 3 — C06b。** 真实 Store put/delete/vector/TTL 和同步 Agent definitions 同事务 fence；remote setup 只读。
-- [ ] **Step 4 — C06c。** 实际 adapted memory、extension 生命周期/线程传播、scheduler 两个事务及 runner MCP tracking；不支持的有状态后端启动拒绝。
-- [ ] **Step 5 — 完整 GREEN 与回归。** 全部实际 PG/container 场景零跳过、完整 runner 正常终态、本地兼容、原 B 镜像回归及 backend 检查。
-- [ ] **Step 6 — 审查、证据、提交。** 完整 spec/quality 批准后记录 source/image 绑定、实际日志与 commit；再勾选 OpenSpec 6.1–6.4。对外开关继续关闭。
+- [x] **Step 1 — 真实行为 RED。** 实际 PostgreSQL 延迟写、原 attempt 替换、回调线程与不安全插件启动场景；不统计夹具错误或 skip。
+- [x] **Step 2 — C06a。** 中性实例绑定 capability；Run/ThreadMeta/events 同事务 fence 与限定终态 bookkeeping，完成双阶段审查。
+- [x] **Step 3 — C06b。** 真实 Store put/delete/vector/TTL 和同步 Agent definitions 同事务 fence；remote setup 只读。
+- [x] **Step 4 — C06c。** 实际 adapted memory、extension 生命周期/线程传播、scheduler 两个事务及 runner MCP tracking；不支持的有状态后端启动拒绝。
+- [x] **Step 5 — 完整 GREEN 与回归。** 全部实际 PG/container 场景零跳过、完整 runner 正常终态、本地兼容、原 B 镜像回归及 backend 检查。
+- [x] **Step 6 — 审查、证据、提交。** 完整 spec/quality 批准后记录 source/image 绑定、实际日志与 commit；再勾选 OpenSpec 6.1–6.4。对外开关继续关闭。
 
 ### Task C07: 持久事件 outbox 与可恢复 SSE
 

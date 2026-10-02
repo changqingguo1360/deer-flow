@@ -169,7 +169,26 @@ async def local_parity_run(db, private_payload, body, user, directory):
             sync_engine = create_engine(private.database.app_sync_sqlalchemy_url, connect_args={"options": "-csearch_path=" + db.schema})
             resources.callback(sync_engine.dispose)
             sync_sf = sessionmaker(sync_engine, expire_on_commit=False)
+            from deerflow_c04_fixture.memory import PostgresMemory
+
+            from deerflow.agents.memory import manager as memory_factory
+
+            memory_factory._memory_manager = PostgresMemory.from_config({}, mode="tool", session_factory=sync_sf, memory_table="c06_local_memory")
+            resources.callback(memory_factory.reset_memory_manager)
             definitions = (SqlAgentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf), SqlManagedSubagentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf))
+            from app.mcp_tasks.service import McpTaskService
+            from deerflow.mcp.task_tool_caller import McpTaskToolCaller
+            from deerflow.mcp.tasks import ORDINARY_MCP_TASK_DRIVER, McpTaskDriverRegistry, OrdinaryMcpTaskDriver
+            from deerflow.mcp.tasks.runtime import set_mcp_task_config_snapshot, set_mcp_task_submitter
+            from deerflow.persistence.mcp_tasks import McpTaskRepository
+
+            drivers = McpTaskDriverRegistry()
+            drivers.register(ORDINARY_MCP_TASK_DRIVER, OrdinaryMcpTaskDriver(McpTaskToolCaller(private.extensions)))
+            submitter = McpTaskService(repository=McpTaskRepository(db.session_factory), drivers=drivers, poll_interval_seconds=1, lease_seconds=30, max_concurrent_polls=1)
+            set_mcp_task_submitter(submitter)
+            set_mcp_task_config_snapshot(private.extensions)
+            resources.callback(set_mcp_task_submitter, None)
+            resources.callback(set_mcp_task_config_snapshot, None)
             resources.push_async_callback(get_session_pool().close_all)
             with ExitStack() as scopes:
                 scopes.enter_context(model_credential_scope(resolver))
@@ -217,6 +236,7 @@ def semantic_messages(checkpoint):
         if isinstance(value, str):
             value = re.sub(r"<current_date>[^<]+</current_date>", "<current_date><execution-date></current_date>", value)
             value = value.replace("python /mnt/c04-runtime/c04_tool_probe.py", "python -m fleet.c04_tool_probe")
+            value = re.sub(r"mcp-task-[0-9a-f]{32}", "<generated-mcp-task>", value)
             value = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<generated-id>", value)
             return value
         return value
@@ -231,7 +251,14 @@ async def local_parity_subprocess(db, private, body, user, directory):
 
     payload = {"host_url": db.host_url, "schema": db.schema, "private": private, "body": body.model_dump(mode="json"), "user_id": user.id, "directory": str(directory)}
     runtime_root = Path(__file__).parents[2]
-    paths = [str(Path(__file__).parents[1]), str(runtime_root), str(runtime_root / "packages/harness"), str(runtime_root / "packages/extension-api"), str(runtime_root / "packages/ecs-fleet")]
+    paths = [
+        str(Path(__file__).parents[1]),
+        str(runtime_root),
+        str(runtime_root / "packages/harness"),
+        str(runtime_root / "packages/extension-api"),
+        str(runtime_root / "packages/ecs-fleet"),
+        str(Path(__file__).parent / "fixtures/c04-runtime-plugin"),
+    ]
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([*paths, env.get("PYTHONPATH", "")])
     process = await asyncio.create_subprocess_exec(sys.executable, "-m", "fleet.c04_local_parity_worker", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env)

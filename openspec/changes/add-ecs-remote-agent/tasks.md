@@ -40,10 +40,10 @@
 
 ## 6. C06 覆盖 memory、扩展和最终状态写入
 
-- [ ] 6.1 写并运行 backend/tests/fleet/test_c06_remote_agent_runtime.py，确认 C06 行为测试 RED。
-- [ ] 6.2 完成计划列出的接口、事务和部署接线；满足 `All remote durable mutations respect ownership`。
-- [ ] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 6.1 写并运行 backend/tests/fleet/test_c06_remote_agent_runtime.py，确认 C06 行为测试 RED。
+- [x] 6.2 完成计划列出的接口、事务和部署接线；满足 `All remote durable mutations respect ownership`。
+- [x] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 7. C07 持久事件 outbox 与可恢复 SSE
 
@@ -221,3 +221,10 @@ All eight frozen source hashes match the actual committed blobs. Final make form
 left1417files unchanged. Post-document boundary/thread checks74passed/0skip
 (2.81s), strict OpenSpec3/3 and diffcheck clean; guidance warning paths/codes equal
 parent HEAD. C06-C12 and BC remain pending and remote activation remains closed.
+
+
+## C06 accepted evidence — 2026-10-03
+
+See [C06 acceptance](../../../docs/ecs-fleet-c06-acceptance.md). Final-v12 whole SOURCE+RUNTIME SPEC and QUALITY C0/I0/M0; immutable source/input/wheels and installed50/7 bytes match. Daemon6/full1916 zero; independentroot C/Local/PG1920 and unchanged B259 zero skipped. Fullbackend13302pass/826default-suite skip/1deselected, blocking75, boundaries74, Ruff/format1428clean, guidance24/0error/3soft warnings, strictOpenSpec3/0, diff0. Root92763 naturallyexit0. C06a/b historical substeps plus final C06c cover the whole requirement; C07-C12/BC/activation remain pending. Slice commit ID is recorded after the explicit accepted commit.
+
+Final nonpackaged acceptance documentation: guidance24/0errors/6soft chain warnings (all below hard limits), OpenSpec3/0 and diff0; frozen technical60/18 and wheels unchanged.
