@@ -505,6 +505,12 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
             from app.fleet.ownership import install_fleet_ownership
 
             install_fleet_ownership(app, sf)
+            from app.fleet.events import install_fleet_events
+
+            fleet_events = install_fleet_events(app, sf)
+            if fleet_events is not None:
+                stack.push_async_callback(fleet_events.close)
+                await fleet_events.start()
 
         from deerflow.persistence.thread_meta import make_thread_store
 

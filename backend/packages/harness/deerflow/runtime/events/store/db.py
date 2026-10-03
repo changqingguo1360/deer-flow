@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from deerflow.persistence.models.run_event import RunEventRow
 from deerflow.runtime.events.store.base import RunEventStore
+from deerflow.runtime.events.transactions import RunEventTransactionParticipant
 from deerflow.runtime.execution.mutation_context import MutationTarget, current_remote_mutation_context, reject_remote_operation, validate_mutation, validate_mutation_after_sql
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, get_current_user, resolve_user_id
 from deerflow.utils.time import coerce_iso
@@ -26,9 +27,10 @@ logger = logging.getLogger(__name__)
 
 
 class DbRunEventStore(RunEventStore):
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, max_trace_content: int = 10240, mutation_capability=None):
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, max_trace_content: int = 10240, mutation_capability=None, transaction_participant: RunEventTransactionParticipant | None = None):
         self._sf = session_factory
         self._mutation_capability = mutation_capability
+        self._transaction_participant = transaction_participant
         self._max_trace_content = max_trace_content
         # Per-thread asyncio locks serialize seq assignment for concurrent
         # in-process writers on the same thread. The DB-level FOR UPDATE /
@@ -89,6 +91,15 @@ class DbRunEventStore(RunEventStore):
             metadata["content_is_dict"] = True
         return db_content, metadata
 
+    @property
+    def max_trace_content(self) -> int:
+        return self._max_trace_content
+
+    @classmethod
+    def serialized_content_size(cls, content: Any) -> int:
+        """The exact UTF-8 byte count used by structured-content persistence."""
+        return len(cls._content_to_db(content, None)[0].encode("utf-8"))
+
     @staticmethod
     def _user_id_from_context() -> str | None:
         """Soft read of user_id from contextvar for write paths.
@@ -106,6 +117,13 @@ class DbRunEventStore(RunEventStore):
         """
         user = get_current_user()
         return str(user.id) if user is not None else None
+
+    async def _participate(self, session: AsyncSession, rows: list[RunEventRow]) -> None:
+        if self._transaction_participant is None:
+            return
+        await session.flush()
+        for row in rows:
+            await self._transaction_participant.insert(session, event_id=row.id, record=self._row_to_dict(row))
 
     @asynccontextmanager
     async def _post_write_fence(self, session, *, operation, targets):
@@ -136,6 +154,12 @@ class DbRunEventStore(RunEventStore):
 
         return await session.scalar(stmt.with_for_update())
 
+    async def _sequence_base(self, session: AsyncSession, thread_id: str) -> int:
+        retained = await self._max_seq_for_thread(session, thread_id)
+        floor = getattr(self._transaction_participant, "sequence_floor", None)
+        private = await floor(session, thread_id=thread_id) if floor is not None else 0
+        return max(retained or 0, private or 0)
+
     async def put(self, *, thread_id, run_id, event_type, category, content="", metadata=None, created_at=None):  # noqa: D401
         """Write a single event — low-frequency path only.
 
@@ -154,7 +178,7 @@ class DbRunEventStore(RunEventStore):
             async with self._sf() as session:
                 async with session.begin(), self._post_write_fence(session, operation="events.put", targets=(MutationTarget(thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,)),)):
                     await validate_mutation(self._mutation_capability, session, "events.put", thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,))
-                    max_seq = await self._max_seq_for_thread(session, thread_id)
+                    max_seq = await self._sequence_base(session, thread_id)
                     seq = (max_seq or 0) + 1
                     row = RunEventRow(
                         thread_id=thread_id,
@@ -168,6 +192,7 @@ class DbRunEventStore(RunEventStore):
                         created_at=datetime.fromisoformat(created_at) if created_at else datetime.now(UTC),
                     )
                     session.add(row)
+                    await self._participate(session, [row])
                 return self._row_to_dict(row)
 
     async def put_batch(self, events):
@@ -194,7 +219,7 @@ class DbRunEventStore(RunEventStore):
                             operation="events.batch",
                             targets=tuple(MutationTarget(thread_id=e["thread_id"], run_id=e["run_id"], user_id=e.get("user_id", user_id), event_types=(e["event_type"],)) for e in events),
                         )
-                    max_seq = await self._max_seq_for_thread(session, thread_id)
+                    max_seq = await self._sequence_base(session, thread_id)
                     seq = max_seq or 0
                     rows = []
                     for e in events:
@@ -217,6 +242,7 @@ class DbRunEventStore(RunEventStore):
                         )
                         session.add(row)
                         rows.append(row)
+                    await self._participate(session, rows)
                 return [self._row_to_dict(r) for r in rows]
 
     async def put_if_absent(
@@ -247,7 +273,7 @@ class DbRunEventStore(RunEventStore):
             async with self._sf() as session:
                 async with session.begin(), self._post_write_fence(session, operation="events.singleton", targets=(MutationTarget(thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,)),)):
                     await validate_mutation(self._mutation_capability, session, "events.singleton", thread_id=thread_id, run_id=run_id, user_id=user_id, event_types=(event_type,))
-                    max_seq = await self._max_seq_for_thread(session, thread_id)
+                    max_seq = await self._sequence_base(session, thread_id)
                     stmt = (
                         select(RunEventRow)
                         .where(
@@ -273,6 +299,7 @@ class DbRunEventStore(RunEventStore):
                         created_at=datetime.fromisoformat(created_at) if created_at else datetime.now(UTC),
                     )
                     session.add(row)
+                    await self._participate(session, [row])
                 return self._row_to_dict(row), True
 
     async def list_messages(

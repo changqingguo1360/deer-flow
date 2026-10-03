@@ -181,6 +181,9 @@ class FleetRunOwnership:
                 attempt.state = placement.state = task.state = "unknown"
             await release_stopped(session, attempt)
             await session.flush()
+            from app.fleet.events import FleetStreamSeals
+
+            await FleetStreamSeals(self.sf).recover_locked(session, run=run, placement=placement, attempt=attempt, reservation=reservation)
             return {"state": placement.state, "stopped": True}
 
     async def renew(self, *, running=False, **identity):

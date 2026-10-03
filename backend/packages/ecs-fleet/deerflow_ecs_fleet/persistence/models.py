@@ -1,6 +1,6 @@
 """Shared identities and budgets for job and Agent execution attempts."""
 
-from sqlalchemy import JSON, CheckConstraint, Column, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Table, Text, UniqueConstraint, text
+from sqlalchemy import JSON, BigInteger, CheckConstraint, Column, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .base import FleetBase
@@ -280,4 +280,44 @@ class RunPlacementRow(FleetBase):
         CheckConstraint("generation > 0", name="ck_fleet_placement_generation"),
         CheckConstraint("requested_backend IN ('remote','auto')", name="ck_fleet_placement_backend"),
         CheckConstraint("state IN ('queued','claimed','running','unknown','succeeded','failed','cancelled','timed_out')", name="ck_fleet_placement_state"),
+    )
+
+
+class EventOutboxRow(FleetBase):
+    __table__ = Table(
+        "fleet_event_outbox",
+        metadata,
+        Column("run_id", String(64), ForeignKey("fleet_run_placements.run_id"), primary_key=True),
+        Column("attempt_id", String(64), ForeignKey("fleet_attempts.id"), primary_key=True),
+        Column("seq", BigInteger, primary_key=True),
+        Column("generation", Integer, nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("launch_spec_digest", String(71), nullable=False),
+        Column("event_id", BigInteger, nullable=False, unique=True),
+        timestamp("published_at", nullable=True),
+        timestamp("created_at"),
+        UniqueConstraint("thread_id", "seq", name="uq_fleet_event_outbox_thread_seq"),
+        CheckConstraint("generation > 0 AND seq > 0", name="ck_fleet_event_outbox_sequence"),
+        Index("ix_fleet_event_outbox_pending", "run_id", "attempt_id", "seq", postgresql_where=text("published_at IS NULL")),
+    )
+
+
+class StreamSealRow(FleetBase):
+    __table__ = Table(
+        "fleet_stream_seals",
+        metadata,
+        Column("run_id", String(64), ForeignKey("fleet_run_placements.run_id"), primary_key=True),
+        Column("attempt_id", String(64), ForeignKey("fleet_attempts.id"), primary_key=True),
+        Column("generation", Integer, nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("launch_spec_digest", String(71), nullable=False),
+        Column("last_seq", BigInteger, nullable=False),
+        Column("core_status", String(16), nullable=False),
+        Column("source", String(16), nullable=False),
+        timestamp("created_at"),
+        CheckConstraint("generation > 0 AND last_seq >= 0", name="ck_fleet_stream_seal_sequence"),
+        CheckConstraint("core_status IN ('success','error','interrupted','timeout')", name="ck_fleet_stream_seal_status"),
+        CheckConstraint("source IN ('writer','physical_stop')", name="ck_fleet_stream_seal_source"),
     )

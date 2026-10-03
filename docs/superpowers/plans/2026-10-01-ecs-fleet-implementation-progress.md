@@ -1933,3 +1933,240 @@ Final nonpackaged acceptance documentation: guidance24/0errors/6soft chain warni
 
 
 C06 accepted implementation commit: `5e936510964222d0f9e556fbe18c9f6e60cdd2f9` (`feat(fleet): fence remote durable writes and settle owned cleanup`), 59 explicitly staged files. Postcommit all frozen technical60/18 SHA values still match; worktree was clean. OpenSpec6.1-6.4 and all detailed C06 steps are complete. C07-C12 and B/C continuations remain pending; remote activation stays closed. This receipt changes documentation only.
+
+
+## C07 source audit and plan refinement — 2026-10-03
+
+Current clean baseline independently inspected: HEAD `a78c7c96`, implementation `5e936510`. C06 remains accepted with the original cumulative 120-second cleanup deadline. C07 read-only audit `/private/tmp/c07-source-audit.md` confirms raw StreamBridge frames are separate from semantic RunJournal records; durable event/outbox writes require a neutral same-session participant and the original pre/post fence. Terminal `run.end` alone cannot prove SSE tail closure. The refined plan uses a narrow END seal after finalizing completes, DB-authoritative replay with stable run/attempt-scoped cursors, committed Redis delivery, and immutable historical accepted placement identity. It must preserve Local replay/disconnect behavior and trace limits without truncating structured SSE JSON.
+
+Trusted physical-stop recovery is limited to accepted terminal mappings; `stopped_at` on unknown/quarantined attempts cannot authorize END. C07 needs actual Redis-outage/lost-response/reconnect tests, not a nonexistent outbox-table assertion as initial RED. Migration is appended as `f0008_event_outbox` after `f0007_agents`. No C07 production code, tests, image build or runtime acceptance has run at this point. OpenSpec 7.1–7.4, C08–C12 and BC remain pending; remote activation stays closed.
+
+
+## C07 detailed plan reviewed; actual baseline RED authorized — 2026-10-03
+
+Root read and reviewed [the detailed C07 plan](2026-10-03-ecs-fleet-c07-events.md), SHA256 `3ceb1938f0dfc5f7485d082969e0af5b66d38b787fe367b324055eb1a9866e44`. Review corrections are included: live END checks the actual original RunRecord, while accepted physical-stop recovery never queries a nonexistent SQL finalizing column; trace/debug limits measure the full serialized persisted envelope; Redis delivery has bounded I/O and owned-task shutdown; cursor rejection precedes HTTP headers; new GREEN requires frozen C07 source/wheels/images and actual installed entry bytes, sequential SPEC/QUALITY and independent root gates.
+
+Sole C07 implementer is authorized for Task1 test/fixture-only baseline behavior RED and owns the dedicated PG/Docker/Redis window. Root will not run concurrent runtime tests. It must collect actual SQL/HTTP/process evidence through the original executor with real Redis outage, preserve original failure logs, and report genuine behavior assertions rather than missing imports, schema, setup errors or skips. Production implementation, accepted commit, C07 checkboxes and activation remain unauthorized until root reviews that RED. No RED or GREEN result is claimed by this planning receipt.
+
+
+## C07 first actual baseline behavior RED — 2026-10-03
+
+Root independently inspected `/private/tmp/c07-baseline-5kv_ab_f/pytest.log`, `result.xml`, `observed.json`, process receipts and collector source. Actual result: one committed-tail replay assertion failure, zero errors/skips. The native original remote host/AgentRunner/lead/tool path committed `llm.tool.result` seq4 containing the deterministic tool tail; the actual process started once (PID4856), exited0 after original cleanup, and trusted node stop accepted placement failed. Actual HTTP first metadata cursor was received before outage. After Redis connection loss and owned key deletion, reconnect returned200 with14 observed heartbeats and zero frames within the bounded observation, so the business replay assertion failed. This is genuine RED; it is not an installed Linux hard-entry proof. Original Redis shutdown and runner-exit logs are retained. Root review artifact: `/private/tmp/c07-root-baseline-v5-review.json`.
+
+The first three dependency/fixture preflight failures and the fourth unclassified reconnect TimeoutError are retained but are not accepted RED. The earlier fourth-run evidence review is `/private/tmp/c07-root-baseline-v4-review.json`. A hydrated Gateway reader baseline case is being added to cover terminal missing-stream behavior separately from cached pending state. Production implementation/commit and all OpenSpec7 checkboxes remain pending; no GREEN or remote activation is claimed.
+
+
+## C07 two-reader RED accepted; production implementation authorized — 2026-10-03
+
+Final baseline `/private/tmp/c07-baseline-wkapjxeb/result.xml`: two genuine missing-tail assertion failures, zero errors/skips. Root independently verified cached and hydrated reader receipts, actual committed tool row seq4, one original execution per case, accepted physical stop and unchanged original source/wheel bytes. Cached reader returned200 with15 observed heartbeats/no frames; fresh SQL-hydrated RunManager returned200 with only END/null. Complete baseline handoff: `/private/tmp/c07-task1-red-handoff.md` and `handoff.json`; all recorded source/fixture/evidence hashes plus47 raw wheel modules match and original owned Redis/runner PIDs are absent. Initial metadata relocation/native dependency supplementation is explicitly a native baseline fixture, not installed Linux proof.
+
+Root accepted this behavior RED and authorized sole C07 implementer for production Task2–6 plus actual native targeted/neighbor gates. It retains exclusive PG/Docker/Redis ownership while root performs read-only checks. Fresh source/build-input freeze and sequential SOURCE SPEC/QUALITY are required before replacement images and installed GREEN; final runtime review and independent root gates remain required before commit/checkmarks. Old native baseline Fleet wheel must not be reused to execute new optional-package code. C07 is not accepted, all OpenSpec7 checkboxes remain unchecked, and C08–C12/BC/activation remain pending.
+
+## C07 partial transaction evidence audited — 2026-10-03
+
+Root independently inspected `/private/tmp/c07-outbox-native-w94_dpj8/pytest.log` and `result.xml`: 37 cases, zero failures/errors/skips. Exactly three C07 cases in this report cover actual event/private-pointer commits for put, two-row put_batch, and new/existing put_if_absent; the remaining cases are neighbors, not 34 additional C07 delivery cases. The current source now also includes actual second-pointer failure and post-SQL lease expiry rollback tests, plus narrow writer-seal tests; this older report does not prove those later additions. Machine-readable scope and evidence hashes are recorded in `/private/tmp/c07-root-partial-transactions-review.json`.
+
+Root reviewed the live producer/seal integration and requested complete original-record user/thread/owner checks and refusal tests, plus full immutable physical-stop recovery identity validation. Implementation remains in progress under the same sole implementer runtime window. No SOURCE freeze, formal SPEC/QUALITY acceptance, replacement image, C07 commit, OpenSpec completion checkbox, or activation is claimed.
+
+## C07 native producer, rollback and seal evidence audited — 2026-10-03
+
+Root independently read `/private/tmp/c07-producer-native-pwmde6xy/pytest.log`, `result.xml`, and the matching tests: 16 passed, zero failures/errors/skips. These include actual second-pointer whole-batch rollback, post-SQL expiry rollback, five narrow terminal writer-seal states, and six producer cases with actual 128-byte Unicode envelope boundary checks, namespace preservation, and non-trace payload preservation above that test-configured boundary. Current source also explicitly validates original-record user/thread/owner and store-only flags. Evidence hashes and precise outstanding scope are recorded in `/private/tmp/c07-root-partial-producer-review.json`.
+
+This report does not establish wrong-identity refusal cases or preservation of non-trace payloads larger than the default10240-byte threshold. Actual child-source provenance, Gateway replay, Redis response-loss recovery, publisher lifecycle, fresh image acceptance and full root gates remain pending. No C07 completion is claimed; the sole implementation agent continues the authorized integration.
+
+## C07 reader protocol gaps identified before runtime acceptance — 2026-10-03
+
+Root read the live FleetStreamReader implementation against Task6 of the detailed C07 plan. Three concrete gaps were sent to the sole implementer: cursor preparation currently validates only the private pointer rather than the matching retained host event and full immutable identity; readability currently excludes unknown/quarantined instead of allowing their matching committed frames without END; and mapping validation is performed in a separate transaction from page/seal reads, requiring actual query-time mapping constraints and switch behavior proof. Inspection source hashes and precise requested corrections are recorded in `/private/tmp/c07-root-reader-in-progress-review.json`. These are in-progress implementation findings, not a formal SOURCE SPEC review or runtime failure claim.
+
+Requested runtime evidence includes retained pointer with deleted event rejected before SSE headers, unknown history replay without terminal END, and bound attempt change closing without END followed by old-cursor HTTP400. Gateway/publisher integration, complete native behavior GREEN, source freeze and sequential source reviews remain pending; C07/OpenSpec status stays incomplete.
+
+## C07 first actual native durable replay GREEN — 2026-10-03
+
+`/private/tmp/c07-baseline-6jvafei0/result.xml` and `pytest.log` show two passed cases, zero failures/errors/skips: cached Gateway record and newly SQL-hydrated RunManager. Root independently read both raw observed.json/process.jsonl/runner.log receipts and current source origins. Each case has47 HTTP frames including final END, committed tool tail in SQL and replayed HTTP data, unique strictly ordered frame cursors with seq2..50 (semantic event gaps are expected), one actual original runner start, success exit0 and accepted physical stop. Original PIDs14570/14599 are absent. Executed runner_context/outbox __file__ and SHA match current worktree source; the native metadata dependency supplement remains explicitly native, not a new installed-image proof. Evidence hashes and independently calculated facts are preserved in `/private/tmp/c07-root-native-replay-green-review.json`.
+
+This proves the initial actual producer + DB-authoritative replay path against the earlier two-reader behavior RED. It does not prove Redis committed publisher response-loss/duplicate ACK behavior, trusted startup/periodic seal recovery, strict HTTP cursor/unknown-state edge cases, fresh SOURCE SPEC/QUALITY, installed new image bytes, or whole root regression gates. The sole implementer retains runtime ownership and continues those already-authorized tasks. OpenSpec7 remains incomplete pending whole acceptance; no activation or C07 commit.
+
+## C07 native publisher and HTTP cursor matrix — 2026-10-03
+
+Root independently inspected `/private/tmp/c07-publisher-http-native-lofi4ahd`:30 passed, zero errors/failures/skips. Actual RESP receipts for lost reply and SQL-trigger ACK failure each show Redis responses1→0→1 and exactly stream IDs1-0,2-0; SQL assertions establish no committed ACK after the injected fault. Eight actual HTTP400 receipts include valid-CSRF malformed cancel against an active barrier, with independent cancel_actionNone/original process still running assertions, plus a deleted core event with retained private pointer. Three actual runner source-origin receipts match all six executed worktree module hashes. Owned Redis PIDs in delivery receipts are absent. Root calculations/evidence hashes: `/private/tmp/c07-root-native-publisher-http30-review.json`.
+
+Earlier `/private/tmp/c07-http400-native-c942mo8q` had26pass/1setupERROR due per-reader evidence directory collision; `/private/tmp/c07-http400-native-mduck953` had26pass/1failure because POST lacked valid CSRF. These are preserved fixture failures, not business RED or whole GREEN. Production authentication was not weakened.
+
+This matrix proves manual committed publisher retry after lost reply/ACK and current cursor behavior. Publisher object reconstruction is not yet an owned background-task/process restart proof. Real writer-seal failure/physical-stop recovery, startup/periodic scanner, unknown/mapping/queued and Local lifecycle neighbors, source freeze/reviews, fresh installed images and root whole gates remain pending. C07 stays incomplete and remote activation remains closed.
+
+## C07 native physical-stop and owned scanner recovery — 2026-10-03
+
+Root independently inspected `/private/tmp/c07-stop-scanner-native-z2r6551j`:3 passed, zero failures/errors/skips,7 other tests explicitly deselected. Both cached/hydrated physical-stop cases install an actual writer-seal INSERT fault, observe terminal success with no seal/stopped_at before the real node stop acknowledgement, then recover physical_stop seal(last_seq50,success) and47 ordered unique HTTP frames including END, with one original Agent start. The third case restarts a real owned publisher background Task against the original accepted stop receipt and a deliberately missing historical seal; scanning recovers closure and close settles the original Task. Root independently verifies original runner PIDs absent. Evidence hashes/facts: `/private/tmp/c07-root-native-stop-scanner3-review.json`.
+
+The native fixture records DBAPIError from the original runner, catches it, closes the environment and exits0. This is actual native caller cleanup/physical-stop recovery, not installed hard-entry exit-code evidence. An exact deliberately injected fault-marker receipt was requested; no raw SQL or credentials are needed. This startup scenario is a real component-owned Task restart, not a claimed whole Gateway process restart. Remaining protocol/lifecycle neighbors, source reviews, fresh installed images and root whole gates are still pending. C07 is not complete.
+
+
+## C07 retention sequence floor, remote wait and historical replay — 2026-10-03
+
+Root independently read the actual retention RED and GREEN XML: the original writer failed with a PostgreSQL private outbox primary-key conflict after host event deletion reused seq1; the corrected same-transaction sequence floor passed21 cases with zero failures/errors/skips. DbRunEventStore keeps the original thread lock and mutation fences and optionally reads a neutral participant sequence floor, assigning from max(retained host seq, private pointer seq). Local writers without that participant keep their existing behavior; Local regression gates remain required.
+
+The actual HTTP creator /wait RED returned before the original remote barrier was released and before a durable seal existed. The corrected /private/tmp/c07-wait-history-green-o2_49o7e report has9 passed, zero failures/errors/skips,10 explicitly deselected. Actual HTTP waits while task=None and seal count0, then returns checkpoint c07-final-tail after writer seal(last_seq50), with one original runner start. The route admission boundary deliberately returns the already trusted original RunRecord; this does not prove or enable public Fleet admission. Accepted original-run replay also retains its tail and END after a controlled later generation2 placement, and a separately seeded replacement attempt mapping rejects the old cursor and exposes no old frames/seal. These later-placement/attempt fixtures do not execute continuation or takeover.
+
+All10 recorded Gateway module origins match current source, and both owned Redis PIDs26488/26529 are absent. Evidence hashes and scope are recorded in /private/tmp/c07-root-retention-wait-history-review.json. Native results do not establish installed Linux hardened-entry behavior. Remaining publisher candidate/head cases, Local neighbors, coherent source/input freeze, sequential SOURCE SPEC/QUALITY, new immutable image proof and full root gates remain pending. C07/OpenSpec7 stays incomplete; no activation or C07 commit.
+
+
+## C07 recovery after system restart — 2026-10-03
+
+User explicitly resumed after interruption and system restart. Root inspected the actual feature checkout: HEAD remains a78c7c962ad0cc0a9cefb6823c1e8f21d907457b (accepted C06 receipt), with C07 production/tests/documentation still uncommitted. Earlier /private/tmp C07 reports, dependency supplements and runtime handles are no longer available; no surviving implementer agent was present. Historical test observations above remain historical records and do not substitute for fresh source/runtime acceptance. The interrupted coherent native matrix cannot be reported as passed without its final output.
+
+Root saved33 actual changed/untracked source files, their SHA256 manifest, tracked patch and ZIP into the Git-ignored persistent .local/fleet-evidence/c07-restart-recovery-20261003 directory. This is a recovery backup, not a formal source freeze. A fresh sole C07 recovery implementer owns the isolated PG/Docker/Redis test window and will inspect/recover prerequisites, rerun coherent native and Local regressions, and save all new evidence in persistent ignored directories. No unrelated containers/data may be modified. Sequential fresh SOURCE SPEC then QUALITY remain prerequisites for new six-wheel/image builds; installed proof, final reviews and independent whole gates remain prerequisites for C07 commit/OpenSpec7 completion. C08–C12 and B/C continuations remain outstanding; remote activation remains closed.
+
+
+## C07 fresh native recovery and SOURCE SPEC corrections — 2026-10-03
+
+Fresh persistent evidence is stored in `.local/fleet-evidence/c07-restart-2e1633848e2b`. Root independently inspected `native-c07-closure-final.xml` and logs:271 passed, zero failures/errors/skips, comprising54 C07,3 B02,34 event contract,71 Local bridge (including all7 real Redis integration cases),1 harness boundary,18 worker delivery and90 worker rollback. Eight executed-module receipts match the frozen source. Locked PostgreSQL dependencies use psycopg/psycopg-binary3.3.3, psycopg-pool3.3.0 and langgraph-checkpoint-postgres3.1.1. The earlier locked-PG663 report remains662 passed plus one newly introduced fixture ImportError, repaired in the targeted final report; it is not relabeled whole GREEN. Earlier missing dependency, immutable-trigger fixture failures and seven required Redis skips remain explicitly classified, preserved reports.
+
+The fresh SOURCE freeze covered1596 source/build-input files, SHA256 `a0c9740157f40309a83aa86aac0bfa70fc0a8bc26e09345df4e2aa066b8d25b9`, independently checked with zero differences. Fresh SOURCE SPEC review found C0/I2/M0: remote `wait_for_run_completion` bypasses original-record preparation, losing queued owner/thread binding; its disconnect/incomplete-EOF cleanup can cancel remote store_only observations. Root authorized the sole implementer to demonstrate these two behavior failures, repair them with Local semantics preserved, run targeted regressions, and issue a new coherent freeze for SPEC re-review. Root audit: `root-source-spec-audit-v1.json`. QUALITY may begin only after SPEC passes.
+
+No formal C07 wheels/images, installed acceptance, whole root gates, C07 commit or OpenSpec7 checkmarks are claimed. The owned PostgreSQL and daemonized Redis resource handles are persisted; unrelated resources remain untouched. C08–C12, B/C continuations and remote activation remain pending.
+
+
+## C07 remote wait corrections verified before source re-review — 2026-10-03
+
+Root independently read persistent `source-spec-wait-red-v3.xml`: five valid behavior failures demonstrate missing actual-record preparation for queued creator waits, lack of preflight rejection for two controlled wrong-owner records, and duplicate actual requested cancellation after mapping EOF on both explicit cancel-and-wait surfaces. Two TCP observation timeouts are preserved separately and are not behavior RED. Earlier nonexistent-column, missing thread metadata, missing ownership config and independent host model registration failures remain fixture/prerequisite reports, not acceptance.
+
+The repair prepares remote waits from the originating record before entering cancellation cleanup, binds queued user/thread until the accepted attempt exists, and excludes remote store_only observations from automatic disconnect/incomplete-EOF cancellation. Local behavior stays on its original subscription and cancellation branch. Root read `source-spec-wait-closure-final.xml` and log:269 passed, zero failures/errors/skips, comprising61 C07 and208 Local wait/cancel/router/service neighbors. Actual queued HTTP receipt contains the returned final checkpoint, writer seal(last_seq50,success), one original runner start and accepted natural stop. Controlled wrong-owner trusted-admission records receive400 before any Agent starts. Both mapping-EOF observation receipts contain exactly one explicit interrupt/requested cancellation and the unchanged SQL action.
+
+Two additional cases use an explicitly controlled test transport adapter: an actual raw TCP close produces a recorded ASGI http.disconnect, which cancels the original route helper Task. Both preserve exactly one explicit cancellation, settle the helper and leave SQL cancel_action=interrupt. This proves the helper cancellation-finally boundary; it does not claim automatic TCP disconnect recognition by the default middleware. No production ASGI middleware change was made. Root audits and all raw reports remain in `.local/fleet-evidence/c07-restart-2e1633848e2b`.
+
+A new coherent source/input freeze and SOURCE SPEC re-review are next; fresh QUALITY may follow only after SPEC passes. New wheels/images, actual installed hard-entry/module-byte proof, whole independent gates, C07 acceptance commit and OpenSpec7 checkmarks remain pending. The full B→C→continuations objective is unchanged.
+
+
+## C07 retained-history quality correction verified — 2026-10-03
+
+SOURCE v2 (`source-freeze-v2.json`, SHA256 `0cef992aac2a6a26d4265735a12fcb8d986f0393b7ec8ea54bb48a5a8e12f049`) passed independent SPEC with C0/I0/M0. Subsequent independent QUALITY found C0/I1/M0: supported host event deletion could leave private pointers and a positive terminal seal, causing cursorless replay to wait indefinitely; missing middle history could also be silently skipped. Root authorized a narrow availability correction, preserving immutable private history, cursor400 priority and Local behavior. Semantic sequence gaps are legitimate; only missing matching public frames referenced by remaining private pointers make history unavailable.
+
+Root independently read persistent `quality-retention-red-v2.xml`:13 genuine behavior failures plus4 passing controls, zero errors/skips. After repair, `quality-retention-green.xml` has17 passed, zero failures/errors/skips. Preflight missing history returns JSON410, while a deleted/invalid cursor remains400; deletion during subscription closes without END. The two actual original-Agent HTTP cases cover cached and hydrated readers:54 public rows deleted,47 private pointers and writer seal(last_seq50,success) unchanged, one actual Runner start and accepted natural stop. No history resurrection or Agent restart occurred.
+
+Root independently read `quality-retention-closure-final.xml` and log:392 passed, zero failures/errors/skips in85.63 seconds, comprising79 C07,208 Local wait/router/service neighbors,34 event contract and71 Local bridge cases (including7 real Redis integrations). Final Ruff lint, format check and git diff check exit0; current executed-module origin audit is retained alongside the reports in `.local/fleet-evidence/c07-restart-2e1633848e2b`. A new coherent SOURCE v3 freeze and sequential SPEC then QUALITY re-reviews are required before formal new wheels/images. Installed hard-entry/byte proof, final runtime reviews and independent whole gates remain required before C07 acceptance, commit or OpenSpec7 checkmarks. C08–C12 and B/C continuations remain outstanding; activation remains closed.
+
+
+## C07 bounded replay and prefetched mapping corrections verified — 2026-10-03
+
+SOURCE v3 (`source-freeze-v3.json`, SHA256 `d7bdadf98360ea37ccf254bde2ab42796c8252297888545b6b06f9bb7cbb9149`) passed independent SPEC C0/I0/M0. Independent QUALITY closed the prior unavailable-history correctness finding, but found C0/I1/M0: every yielded frame rechecked all remaining healthy pointers, producing quadratic validation work. Root authorized a bounded runtime correction while preserving complete preheader validation once. No latency estimate or benchmark was claimed.
+
+Root independently inspected `quality-bounded-runtime-red-v2.xml` and actual PostgreSQL EXPLAIN receipts: one genuine query-range failure and two passing boundary controls, zero errors/skips. With384 actual committed frames, runtime matching-pointer candidates were384,384,384,383,382. The initial helper collected only128 frames; that fixture failure is preserved and excluded from behavior RED. Pointer-first runtime pages now select at most128 matching original pointers before joining host frames, so missing rows retain their slots. Pre-yield availability checks use only the remaining prefetched page; future pages are checked when fetched. Missing history still rejects before headers, cursor400 priority remains, and no missing slot permits END.
+
+Root also identified an actual prefetched authority gap: after the accepted mapping was abandoned or replaced, a cached old frame could still be emitted. `quality-prefetched-mapping-red-v2.xml` records two genuine DID NOT RAISE failures, zero errors/skips; the first replacement fixture violated the unique active-attempt constraint and is excluded from RED. The correction checks the single original pointer for the immediately upcoming frame against the accepted mapping/core authority. Missing authority closes with EOF without END. These mapping fixtures do not execute takeover or start a replacement Agent.
+
+Root read full-reader `quality-bounded-mapping-green.xml`:28 passed, zero failures/errors/skips. Actual384-frame runtime query candidates are128,1,128,1,127,1,126 (bounded page and single-frame authority checks). Deleting pointer129's host frame after preparation delivers128 healthy frames then EOF; deleting pointer300's host frame delivers256 healthy frames then EOF. The whole missing page is rejected, without skipping the missing slot or synthesizing completion. Consumed-prefix deletion, semantic gaps, zero-frame seals, retained cursor/error priority and prefetched deletion controls remain covered.
+
+Root independently read `quality-bounded-closure-final.xml` and log:397 passed, zero failures/errors/skips in79.43 seconds, comprising84 C07,208 Local wait/router/service neighbors,34 event contract and71 Local stream bridge cases. Actual query/plan receipts and root audits are retained in `.local/fleet-evidence/c07-restart-2e1633848e2b`. Final checks/origin audit and a coherent SOURCE v4 freeze are being completed. Fresh sequential SPEC then QUALITY remain required before formal new wheels/images. Installed byte/hard-entry proof, final runtime reviews and independent whole gates remain required before C07 acceptance, commit or OpenSpec7 checkmarks. C08–C12 and B/C continuations remain outstanding; activation remains closed.
+
+
+## C07 first formal build and installed prerequisite correction — 2026-10-03
+
+SOURCE v4 (`source-freeze-v4.json`, SHA256 `56ab43ff8dd100b94d57b37c37b488cd43bc346b319ec349ed4f829aa26d4cd7`) passed independent SPEC and QUALITY C0/I0/M0 with1596 source files and18 build inputs matching. The original formal build session72147 exited0, produced six fresh wheels and new immutable Runner `sha256:6663b330401e811a71e737116eee3586653acabac9f4af600f123d8b8a8273de`, Provider `sha256:fbed2448c57d6f02a0b18d4346b050f304f093e5f0443b956500e9eec8423de2`, and dependency image `sha256:11755a906045c733c89f9a097efec53a66accb4107186f5b978b212ef4a0ddea`. Original B remains unchanged. Root independently compared all752 fresh wheel non-dist-info payloads to frozen/current source: zero mismatches. Complete catalog and unstarted image proofs report779 Runner and63 Provider byte comparisons matching; these are installation proofs, not successful execution.
+
+The first installed C07 matrix (`formal-preparation/installed-c07.xml`) has four readiness failures, zero errors/skips. All four actual started containers exited1; their779 byte comparisons match. None reached successful original-Agent readiness, so this report is not behavior GREEN or whole acceptance. The first audit-script invocation used host Python3.9 without tomllib; the preserved prerequisite error was corrected by running the unchanged frozen script with the existing Python3.12 environment.
+
+Original container stderr contains only the hardened bootstrap's sanitized failure message. A separately authorized diagnostic invocation used the actual original /opt main and real capsule with exception type/location tracing. Root independently read ValueError at `validate_model_bindings` line434 and its propagation through original environment/bootstrap. This explicitly instrumented invocation is not hardened-entry acceptance proof. The image appended c07-model but the C07 private configuration omitted the original model-1/child bindings; the unchanged C04 neighbors would also mismatch the extra image binding. A separate literal plugin diagnostic proves a missing model-1 prerequisite, not the original traceback. Diagnostic commands, hashes and raw outputs remain preserved.
+
+Root authorized a minimal test-only correction: keep the original strict two-model bundle; use the original model-1/child targets, three secret references, real C04 MCP and plugin lifecycle in the installed C07 fixture; add an explicit defaultFalse c07_gate to the deterministic ScriptedModel after its original credential, trusted-context, privacy and skill checks, reusing the existing C07 provider answer only for that test mode. Production model validation and C07 runtime code are unchanged. Root independently compared all production Python modules to SOURCE v4 and found zero changes.
+
+`installed-config-prerequisite-green-final.xml` and log:6 passed, zero failures/errors/skips in1.45 seconds. One test runs original model/runtime/secret validators against the actual builder-prepared configuration; four controls preserve credential/trusted-scope refusal with gateFalse/True; one existing concurrent-context neighbor passes. The source validator rejection is prerequisite evidence; the initial missing-option attribute assertion and the later dummy-password substring collision are preserved fixture failures, not original-Agent behavior RED. Final lint, format check and diff check exit0. These source checks do not substitute for actual installed C07 execution. The stable397 native runtime report remains scoped to unchanged production modules and is not relabeled fresh corrected-image proof.
+
+SOURCE v5 freeze and fresh SPEC then QUALITY are next, followed by new wheels and a new Runner with corrected copied fixture bytes, actual four-case installed execution, required C01–C06 neighbors, final runtime review and independent whole gates. An unchanged dependency/Provider digest may legitimately recur from exact cache input; no different digest will be invented. The failed v4 Runner must not substitute for the corrected Runner. All older builds, proofs, failures and diagnostics remain historical evidence. C07 commit/OpenSpec7 checkmarks, C08–C12, B/C continuations and activation remain pending.
+
+
+## C07 corrected installed execution and migration regression — 2026-10-03
+
+SOURCE v5 passed sequential SPEC and QUALITY C0/I0/M0. The formal v5 build exited0 with six freshly built wheels; Runner is `sha256:5589f7f3fff182d33b240c099c3d61afc9bf67d6605467d550dedca14b3d3d65`, Provider `sha256:3e9edf2b44c13c65c5f826c46c9301d7d656c8d52b7e47ec24179da3d1592294`. Original B remains unchanged. Root independently verified1597 source files and18 build inputs with zero drift.
+
+Root read `formal-v5/installed-c07.xml`: four passed, zero failures/errors/skips. Cached/hydrated readers with writer/omitted seals all executed the original hardened bootstrap, with read-only roots, one Agent start, natural exit0 and no restart. Writer or trusted physical-stop seal records last_seq50 and success. All four stopped container proofs compare779 installed bytes across six distributions with zero mismatches. Diagnostic entry overrides were absent. These are actual installed C07 results, not whole acceptance.
+
+The full neighboring report `formal-v5/installed-c01-c06.xml` contains742 cases:741 passed, one failure, zero errors/skips. Root confirmed the only failure is the C01 upgrade test's old literal expected head `f0007_agents`; actual head is the new `f0008_event_outbox`. The original failed report is retained. The authorized minimal test change updates this head and verifies the new outbox/seal tables are empty, preserving the f0006 starting point and all original B row comparisons. Targeted real PostgreSQL and configuration controls report7 passed, zero failures/errors/skips; lint, format and diff checks exit0.
+
+A coherent SOURCE v6 freeze and sequential SPEC then QUALITY re-review are required. This test-only change does not alter wheel payloads or image inputs. Root independent gates will rerun four installed cases and the complete neighboring matrix against the same immutable v5 images, using a new catalog bound to v6 and collecting new actual stopped-container proofs before removal. Old v5 receipts will not be relabeled against the new catalog. Final manifest, runtime reviews, root whole gates and C07 acceptance remain pending. C08–C12, B/C continuations and activation remain pending; the accepted120-second cumulative cleanup deadline is unchanged.
+
+
+## C07 independent gates and B migration expectations — 2026-10-03
+
+SOURCE v6 passed sequential SPEC and QUALITY C0/I0/M0. Root executed independent gates under the exclusive runtime window:89 C07 native/configuration tests, four fresh installed C07 cases,742 C01–C06 cases, and422 required Local cases all passed with zero failures/errors/skips. The four new installed receipts again show one original Agent start, natural exit0, no restart, read-only root and writer/physical-stop seal(last_seq50,success); each new stopped proof compares779 installed bytes matching the v6-bound catalog. Reports and receipts are retained under `formal-v6/root-gates`.
+
+The original B gate then stopped the driver:257 passed and two failures. Its complete raw log is retained as `formal-v6/root-gates/b-gate.log`; the existing gate copies JUnit only on success, so no retained failed B JUnit is claimed. Both failures are outdated test expectations: the real ExtensionManager installation test expects seven migration files although the newly installed current snapshot contains eight; the B03 f0005 upgrade test expects f0007 although current head is f0008. The B01 installation test installs current source into a new isolated checkout and imports site-packages; it does not execute the original B Worker image. An earlier read-only attribution to that image was incorrect and has been corrected.
+
+The authorized minimal change updates only B01 migration count/head/evidence expectations and B03 head expectation. Actual installation, disabled-package non-import, restart persistence, required-missing-package refusal, old-row preservation and legacy scheduling behavior remain intact. Root read `b01-b03-c07-head-green.xml` and its log: two real PostgreSQL/installation tests passed, zero failures/errors/skips in28.86 seconds. Original accepted B image remains unchanged.
+
+SOURCE v7 freeze and sequential SPEC then QUALITY will precede resumed Root gates. The v6 native89, neighboring742 and Local422 reports remain evidence for their unchanged source/test modules, with the exact delta documented; these are not relabeled v7 executions. The complete B gate and remaining backend checks will run afresh. Four installed C07 cases will run again to collect actual stopped proofs against the new catalog required by the unchanged manifest assembler. Final whole gates, runtime reviews, manifest and C07 acceptance remain pending. C08–C12 and B/C continuations remain pending; remote activation remains closed.
+
+
+## C07 B09 wait-helper settlement correction — 2026-10-03
+
+SOURCE v7 passed sequential SPEC and QUALITY C0/I0/M0. Root reran the four installed C07 cases against the v7-bound catalog: all passed with matching stopped-container bytes. The complete B gate then reported258 passed and one failure, preserved in `formal-v7/root-gates/b-gate.log`. The migration expectation fixes passed; the remaining B09 failure is an actual external HTTP409 after its helper observed success too early. No whole B GREEN or failed JUnit retention is claimed.
+
+Diagnosis compares the original memory record, owned task and durable RunStore. An ordinary diagnostic run passed but recorded one helper return with memory success, finalizingFalse, owned task pending and durable running; its checkpoint-busy conflict is the existing expected control, not the external failure. A separately classified controlled pause at the original terminal-persist boundary reproduced external HTTP409 at B09 line370. Its ConflictError→IntegrityError chain originates at manager line1693's durable uniqueness guard, rather than the local finalizing check. Observation adds SQL awaits and controlled pausing changes timing, so neither is presented as proof that default timing always fails. Original manager/worker execution code is unchanged.
+
+Root authorized only a B09 test-helper correction: within a cumulative15-second deadline, shield and await the original owned task, then check success and non-finalizing state. No extra execution, admission relaxation, retry-on409 or arbitrary additional delay was introduced. Two real-worker regressions hold the original durable-terminal boundary: the helper must not return while the original task is pending and RunStore remains running; a timeout must leave that owned task uncancelled so release can complete it. These control cases use the original isolated app's SQLite RunStore, not PostgreSQL. Fleet data in the original B09 cases uses PostgreSQL.
+
+Root read the actual RED report: two behavior failures, zero errors/skips. After the helper correction, `b09-settlement-green.xml` contains four passes, zero failures/errors/skips in28.16 seconds: both original PostgreSQL/Fleet/Docker cases and the two SQLite/original-worker controls. Full lint, format and diff checks pass. SOURCE v8 freeze and sequential reviews precede resumed independent verification; new B collected count is expected261 and will be taken from actual XML. Production wheel payloads and18 build inputs remain unchanged. Previously executed-v6 native89, neighboring742 and Local422 evidence retains its original scope; no B09 helper is imported by those gates. Final whole gates, runtime reviews, manifest, C07 acceptance and later stages remain pending.
+
+
+## C07 whole-backend documentation and observer wiring corrections — 2026-10-03
+
+SOURCE v8 passed sequential SPEC and QUALITY C0/I0/M0. Root reran the four installed cases and the entire B gate:4 and261 passed respectively, zero failures/errors/skips. Actual new stopped proofs again match all779 compared bytes and the original single-start/natural-stop contract. The whole backend command was the normal `make test`, without no-sync/offline bypass:13308 passed,913 skipped,1 deselected and2 failed in303.13 seconds. These default-suite skips are distinct from required native/container/B gates, which passed without skips. This report is preserved under `formal-v8/root-gates/full-backend.log`; it is not relabeled whole GREEN.
+
+The two failures concern documentation size and a brittle source-text test. Gateway guidance was44190 bytes against40960's unchanged soft budget; HEAD already used40959 bytes. The observer wiring test counted old literal sse_consumer calls and failed after the required prepared_subscription keyword was added, although both observer handlers retained apply_on_disconnectFalse and both creator handlers retained their default policy.
+
+The minimal correction removes the duplicated C07 appendix, compresses only the existing Local Memory/Redis explanations without dropping their contracts, and adds a concise remote-boundary/depth reference. Gateway guidance is now40771 bytes, all24 guides fit their original soft budgets, and the relative RUN_EVENT_STREAM link resolves. Budgets, checker and CLAUDE.md remain unchanged. The route wiring test now checks AST calls for all four handlers, preserving observerFalse and creator-default policies while allowing the prepared keyword and refusing dynamic keyword overrides. Both original actual creator/observer generator-close tests remain unchanged.
+
+Root read `guidance-observer-targeted-final.xml`:223 passed, zero failures/errors/skips in2.17 seconds, covering guidance, observer behavior and related wait/cancel/service/query/regenerate controls. Lint, format and diff checks pass. All production Python and18 frozen build inputs remain unchanged. Gateway AGENTS.md is nevertheless an installed wheel resource, so new wheels/images are required to match the corrected package contents; old v5 images will not substitute. SOURCE v9 freeze, sequential reviews, actual new build, new-image container/C01–C06 Linux validation, resumed whole backend and remaining gates precede final manifest/runtime reviews and C07 acceptance. All prior successful reports retain their original execution scope. Later C stages and B/C continuations remain pending; activation remains closed.
+
+
+## C07 final v9 acceptance — 2026-10-03
+
+C07 is accepted locally after sequential SOURCE v9 and final runtime SPEC →
+QUALITY C0/I0/M0 and independent Root whole gates. Pre-slice HEAD a78c7c962ad0cc0a9cefb6823c1e8f21d907457b.
+See [C07 acceptance](../../../docs/ecs-fleet-c07-acceptance.md). E is
+`.local/fleet-evidence/c07-restart-2e1633848e2b/`; F is `E/formal-v9/`.
+
+SOURCE1597/18 SHA f8ec819c05ec8525ebf32e16a8a459c4f985974559a33a420b3a70082dc498c0;
+actual six-wheel build session86444 exit0; immutable Runner
+sha256:3ec2730fef8d751f0e37187251a6c038cc9ef49e26fbb9239f4c288bd90d69ae,
+Provider sha256:a30f2da9421be72d2de70e06b76aa220bc2ecb75d2dd8fe0ad5283dda7ed0115.
+Fresh full wheel catalog SHA04190b80734ed21e25dfd5e028ee491665499559edf199dd1317567693f95c8a.
+Original accepted B image c307f97d272054ed15a08476208d03311e10c3f893ab1f1ee8d3eae8376d2ea8
+was retained and not rebuilt. Failed earlier v4/v5 and guide/observer failures
+remain historical records and were not overwritten or counted as final success.
+
+Implementation actual gate session59929 exit0: installed4/0problem/59.78s,
+new-image neighbors15/0problem/108.05s, current-source B01 managerinstall1/0problem/28.57s.
+Root session65245 exit0: independently installed4/0problem/48.32s, normalmake
+backend13310pass/913defaultskip/1deselect/19warnings/284.06s, blocking75/3.91s,
+boundaries74/0skip, lint clean, format1441 unchanged, guidance24/0error/2existing
+AG002 effective-chain soft warnings, strictOpenSpec3/0, diff0. Every gate's
+pre/post1597/18 source/input check matches. Native89/C01-C06742/Local422 are
+original v6 zero-problem reports with unchanged covered source; original B261
+is v8 with unchanged B Worker. The15 v9 image-dependent C01-C06 cases and actual
+B01 install1 cover the newly packaged guide. Historical reports are not relabeled
+v9 executions. Required native/installed/Local/Fleet reports have zero skips.
+
+Frozen original assembler exit0. F/final-manifest-v9.json SHA
+35a84b8d84afcb7cfe235f5f5063b76ebca0a25efed437576ad10efcf1097ea1;
+F/final-wholegate-sidecar-v9.json SHA
+1b25d536cbdf89990052f100ae53a160419306cd8ed9fb895f17dfcb7c082867;
+F/final-handoff-actual-v9.json SHA
+a4c52620153f1d2da657aecd4a1641cec912b4329adaaf2a4b92309d1e3cd447.
+Manifest retains6wheels/16fullproofs/10requiredrawXMLs. Root independently
+rehashed all files/wheel payloads/proofs/rawXMLs and original command logs;
+14138hashcomparisons PASS (F/root-final-audit-v9.json). Each final reviewer
+independently checked752wheel-source mappings/11748installedpayload comparisons
+with zero mismatch. Four Root original PID1 hardened-entry runs were read-only,
+single-start/zero-restart/naturalexit0; each accepted writer or physical-stop
+seal has last_seq50/success, orderedunique events and terminalEND. Omitted-seal
+proof is safe natural exit, not arbitrary SIGKILL recovery. Source/preparation
+metadata remains historical; actual build/runtime reports supply execution facts.
+Final review messages are transcribed as Root receipt F/final-review-root-receipt-v9.json.
+
+All24 individualguide budgets fit. Effective Gateway83993/runtime85226 chains
+retain existing soft81920 warnings, both below hard98304; no strict-warnings
+claim. Recorded PG/Redis handles are not fresh liveness probes. Acceptance
+bookkeeping changes only nonpackaged docs and OpenSpec7 state, leaving
+production/tests/packagedresources/buildinputs/wheels identical to the reviewed
+freeze. One explicit accepted C07 commit follows; C08-C12/BC and remote activation
+remain outstanding.

@@ -74,7 +74,7 @@ entry = list(m.distribution('deerflow-ecs-fleet').entry_points)
 assert len(entry) == 1 and entry[0].value == 'deerflow_ecs_fleet:install'
 path = Path(fleet.__file__).resolve()
 assert 'site-packages' in str(path), path
-assert len(list((path.parent / 'migrations' / 'versions').glob('*.py'))) == 7
+assert len(list((path.parent / 'migrations' / 'versions').glob('*.py'))) == 8
 for name in list(sys.modules):
     if name.startswith('deerflow_ecs_fleet'):
         del sys.modules[name]
@@ -111,7 +111,7 @@ async def migrate_installed_artifact():
                 assert 'submit_fleet_job' not in {tool.name for tool in get_available_tools(include_mcp=False, app_config=get_app_config(), subagent_enabled=delegated)}
             async with fleet.session_factory() as session:
                 assert (await session.execute(text('SELECT current_schema()'))).scalar_one() == os.environ['FLEET_INSTALL_TEST_SCHEMA']
-                assert (await session.execute(text('SELECT version_num FROM fleet_alembic_version'))).scalar_one() == 'f0007_agents'
+                assert (await session.execute(text('SELECT version_num FROM fleet_alembic_version'))).scalar_one() == 'f0008_event_outbox'
                 assert (await session.execute(text("SELECT to_regclass('mcp_tasks')"))).scalar_one() == 'mcp_tasks'
                 if cycle == 0:
                     await session.execute(text("INSERT INTO fleet_nodes (id,name,cpu_millis,memory_mib) VALUES ('installed-node','installed-node',1000,512)"))
@@ -120,13 +120,13 @@ async def migrate_installed_artifact():
                     assert (await session.execute(text("SELECT name FROM fleet_nodes WHERE id='installed-node'"))).scalar_one() == 'installed-node'
         assert not fleet.ready and fleet.jobs is None
 asyncio.run(migrate_installed_artifact())
-print(json.dumps({'distribution': m.version('deerflow-ecs-fleet'), 'path': str(path), 'migration': 'f0007_agents', 'restart': True}))
+print(json.dumps({'distribution': m.version('deerflow-ecs-fleet'), 'path': str(path), 'migration': 'f0008_event_outbox', 'restart': True}))
 """
     result = subprocess.run([str(backend / ".venv" / "bin" / "python"), "-c", probe], cwd=backend, env=env, capture_output=True, text=True, timeout=120)
     assert result.returncode == 0, result.stderr
     evidence = json.loads(result.stdout.splitlines()[-1])
     assert evidence["distribution"] == "0.1.0"
-    assert evidence["migration"] == "f0007_agents"
+    assert evidence["migration"] == "f0008_event_outbox"
     assert evidence["restart"] is True
     # Remove only this test's installed package. Required missing-package boot
     # must fail through the real loader; the managed source snapshot must not

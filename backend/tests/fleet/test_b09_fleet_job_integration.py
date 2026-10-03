@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import uuid
+from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
@@ -28,13 +29,19 @@ pytestmark = [pytest.mark.no_auto_user, pytest.mark.integration, pytest.mark.asy
 
 
 async def wait_run(manager, run_id, owner):
-    for _ in range(300):
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 15
+    while loop.time() < deadline:
         record = await manager.get(run_id, user_id=owner)
         if record.status.value in {"success", "error", "timeout", "interrupted"}:
+            # Local success can precede the original worker's durable terminal write.
+            assert record.task is not None, "Expected the original locally owned task"
+            await asyncio.wait_for(asyncio.shield(record.task), timeout=max(0, deadline - loop.time()))
             assert record.status.value == "success", record.error
+            assert not record.finalizing
             return record
-        await asyncio.sleep(0.05)
-    raise AssertionError("Real Agent run did not finish")
+        await asyncio.sleep(min(0.05, max(0, deadline - loop.time())))
+    raise TimeoutError("Real Agent run did not settle within 15 seconds")
 
 
 async def test_real_agent_job_busy_restart_notification_once(fleet_database, isolated_app, tmp_path):
@@ -493,3 +500,88 @@ async def test_real_scheduled_slots_http_boundary_and_one_docker_execution(fleet
                 await docker("rm", "-f", ref)
         finally:
             await fleet.stop()
+
+
+@asynccontextmanager
+async def held_real_terminal_persist(app, monkeypatch):
+    """Pause the original worker before durable success, without changing state."""
+    from deerflow.config.app_config import get_app_config
+
+    get_app_config().run_events.backend = "db"
+    model = FakeToolCallingModel(responses=[AIMessage(content="Settlement control complete.")])
+    release = asyncio.Event()
+    entered = asyncio.Event()
+    terminal_observed = asyncio.Event()
+    record = None
+    waiter = None
+    with patch("deerflow.agents.lead_agent.agent.create_chat_model", return_value=model):
+        async with app.router.lifespan_context(app):
+            manager = app.state.run_manager
+            original_status = manager.set_status_if_not_cancelled
+            original_get = manager.get
+
+            async def hold_terminal(run_id, *args, **kwargs):
+                current = manager._runs.get(run_id)
+                if kwargs.get("persist", True) and current is not None and current.status.value == "success":
+                    entered.set()
+                    await release.wait()
+                return await original_status(run_id, *args, **kwargs)
+
+            async def observe_terminal(run_id, **kwargs):
+                current = await original_get(run_id, **kwargs)
+                if current.status.value == "success":
+                    terminal_observed.set()
+                return current
+
+            monkeypatch.setattr(manager, "set_status_if_not_cancelled", hold_terminal)
+            monkeypatch.setattr(manager, "get", observe_terminal)
+            try:
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as http:
+                    response = await http.post("/api/v1/auth/register", json={"email": "settlement@example.com", "password": "StrongPass123!", "name": "Settlement"})
+                    assert response.status_code == 201, response.text
+                    owner = (await http.get("/api/v1/auth/me")).json()["id"]
+                    csrf = {"X-CSRF-Token": http.cookies.get("csrf_token")}
+                    thread = str(uuid.uuid4())
+                    response = await http.post("/api/threads", json={"thread_id": thread}, headers=csrf)
+                    assert response.status_code == 200, response.text
+                    response = await http.post(f"/api/threads/{thread}/runs", headers=csrf, json={"assistant_id": "lead_agent", "input": {"messages": [{"role": "user", "content": "Finish this run"}]}})
+                    assert response.status_code == 200, response.text
+                    await asyncio.wait_for(entered.wait(), 5)
+                    record = manager._runs[response.json()["run_id"]]
+                    assert record.task is not None and not record.task.done()
+                    assert record.status.value == "success"
+                    assert (await manager._store.get(record.run_id, user_id=owner))["status"] == "running"
+                    waiter = asyncio.create_task(wait_run(manager, record.run_id, owner))
+                    yield manager, record, waiter, release, terminal_observed
+            finally:
+                release.set()
+                if record is not None and record.task is not None:
+                    await asyncio.wait_for(asyncio.shield(record.task), 5)
+                if waiter is not None:
+                    await asyncio.gather(waiter, return_exceptions=True)
+
+
+async def test_wait_run_waits_for_original_task_and_durable_success(isolated_app, monkeypatch):
+    async with held_real_terminal_persist(isolated_app, monkeypatch) as (manager, record, waiter, release, terminal_observed):
+        await asyncio.wait_for(terminal_observed.wait(), 5)
+        # A scheduler turn exposes an early return; the persist boundary stays held.
+        await asyncio.sleep(0)
+        assert not waiter.done(), "Terminal memory status is not owned-task settlement"
+        assert not record.task.done()
+        assert (await manager._store.get(record.run_id, user_id=record.user_id))["status"] == "running"
+        release.set()
+        assert await asyncio.wait_for(waiter, 5) is record
+        assert record.task.done() and not record.finalizing
+        assert (await manager._store.get(record.run_id, user_id=record.user_id))["status"] == "success"
+
+
+async def test_wait_run_timeout_preserves_original_owned_task(isolated_app, monkeypatch):
+    async with held_real_terminal_persist(isolated_app, monkeypatch) as (manager, record, waiter, release, terminal_observed):
+        with pytest.raises(TimeoutError):
+            await waiter
+        assert not record.task.done() and not record.task.cancelled()
+        assert (await manager._store.get(record.run_id, user_id=record.user_id))["status"] == "running"
+        release.set()
+        await asyncio.wait_for(asyncio.shield(record.task), 5)
+        assert record.status.value == "success" and not record.finalizing
+        assert (await manager._store.get(record.run_id, user_id=record.user_id))["status"] == "success"

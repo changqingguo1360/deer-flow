@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06 已完成完整持久写隔离、120 秒累计清理期限、双阶段审查与独立验收，提交 `5e936510`；C07 已完成同事务 outbox、终态封口、持久 SSE 回放、双阶段审查及独立本地验收；C08–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -481,7 +481,7 @@ git commit -m "feat(fleet): c05 实现 checkpoint 事务内 fencing"
 **Files:**
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/outbox.py`
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/event_bridge.py`
-- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/migrations/versions/f0003_event_outbox.py`
+- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/migrations/versions/f0008_event_outbox.py`
 - Modify: `backend/packages/harness/deerflow/runtime/events/store/db.py`
 - Modify: `backend/app/gateway/deps.py`
 - Test: `backend/tests/fleet/test_c07_remote_agent_runtime.py`
@@ -489,7 +489,11 @@ git commit -m "feat(fleet): c05 实现 checkpoint 事务内 fencing"
 
 **OpenSpec:** `remote-agent-runtime` / `Committed ordered remote events`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 阻断 Redis，产生事件和终态；恢复后重放 cursor；重复 outbox ack，检查事件顺序/ID/终态和 runner 启动数。
+当前源审计确认 RunJournal 与实际 SSE 帧分离；C07 必须持久保存实际帧并在尾部结束后窄封存 END。迁移追加于现有 `f0007_agents`，不得覆盖 B 的历史 `f0003`。下面 `fleet_probe` 示例仅为原始判据，实际实施使用真实 DB/HTTP/进程观察，不以该占位夹具充当测试证据。OpenSpec 7.1–7.4 已完成；实际证据见 C07 acceptance。
+
+实际源审计后的文件职责、事务接口、窄 END 封存、cursor 校验和真实故障测试见[详细 C07 计划](2026-10-03-ecs-fleet-c07-events.md)。详细计划取代下方原始 `fleet_probe` 测试示例作为实施依据；所有 C07 步骤已通过本地验收，后继 C08–C12 保持未完成。
+
+- [x] **Step 1 — 场景搭建与失败测试。** 阻断 Redis，产生事件和终态；恢复后重放 cursor；重复 outbox ack，检查事件顺序/ID/终态和 runner 启动数。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -505,7 +509,7 @@ async def test_c07_contract(fleet_probe):
     assert observed['terminal_end_recovered'] == True
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c07_remote_agent_runtime.py::test_c07_contract -vv
@@ -513,7 +517,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c07_remote_agent_runtime.py::test_c0
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # Persist event + fleet outbox pointer in the same fenced transaction.
@@ -523,7 +527,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c07_remote_agent_runtime.py::test_c0
 
 不把尚未提交原始 token 直接写 Redis；namespace/subgraph 帧保持现有协议。持久事件限额沿用 run events 规则。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c07_remote_agent_runtime.py -vv
@@ -532,13 +536,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): c07 持久事件 outbox 与可恢复 SSE"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `7.1` 至 `7.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `7.1` 至 `7.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task C08: 实现 C workspace 和 checkpoint 联合恢复点
 
@@ -894,3 +898,18 @@ C02 verification: root C01+C02 PG41/0; B retained-image gate259/0; default
 backend13211 pass/212 optional skips; blocking-I/O75/0; guidance92/0; Ruff1395clean.
 Initial entry RED and separate atomic rollback negative control are distinguished
 in OpenSpec tasks. C02 does not activate remote execution or claims.
+
+
+## C07 accepted evidence — 2026-10-03
+
+See [C07 acceptance](../../../docs/ecs-fleet-c07-acceptance.md). Sequential final
+SOURCE and runtime SPEC/QUALITY C0/I0/M0; frozen1597/18, six wheel inventories
+and16 full installed proofs match. Independent Root cached/hydrated × writer/
+physical-stop seal four cases use original PID1 hardened entry, one start, zero
+restart, naturalexit0 and ordered tail/END. Normalbackend13310pass/913defaultskip/
+1deselect; blocking75/boundaries74; lint/format1441/guidance24/0errors/2existing
+softwarnings/strictOpenSpec3/diff pass. Native89/C01-C06742/Local422 executed v6
+and original B261 executed v8 retain their original scope; image-dependent15
+and current-source managerinstall1 reran on v9. Exact identities and original
+failed intermediate reports are in implementation progress. C08-C12/BC and
+remote activation remain pending. Slice commit ID is recorded after committing.

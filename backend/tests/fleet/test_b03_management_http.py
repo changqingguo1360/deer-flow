@@ -343,7 +343,7 @@ async def test_f0005_upgrade_retains_nodes_claims_credentials_and_legacy_profile
     await fleet.start(ExtensionRuntimeDeps(session_factory=sf))
     try:
         async with engine.connect() as conn:
-            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0007_agents"
+            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0008_event_outbox"
             for table, rows in before.items():
                 assert [dict(row) for row in (await conn.execute(text("SELECT * FROM " + table))).mappings()] == rows
             assert (await conn.execute(text("SELECT profile_allowlist FROM fleet_nodes WHERE id='legacy'"))).scalar_one() is None

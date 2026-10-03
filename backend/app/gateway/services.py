@@ -202,6 +202,9 @@ async def _ensure_thread_metadata(
 
 async def _terminal_record_stream_missing(bridge: StreamBridge, record: RunRecord) -> bool:
     """True when a terminal run has no retained stream on bridges that can tell."""
+    remote = getattr(bridge, "is_remote", None)
+    if remote is not None and await remote(record.run_id):
+        return False
     if not _run_is_terminal(record):
         return False
     stream_exists = getattr(bridge, "stream_exists", None)
@@ -221,6 +224,7 @@ async def _terminal_record_stream_missing(bridge: StreamBridge, record: RunRecor
 async def _orphan_recovery_observed_after_heartbeat(
     record: RunRecord,
     run_mgr: RunManager,
+    bridge: StreamBridge | None = None,
 ) -> bool:
     """Return whether durable orphan recovery is the consumer's liveness edge.
 
@@ -230,6 +234,9 @@ async def _orphan_recovery_observed_after_heartbeat(
     ``stop_reason`` is written atomically with the terminal status. Only that
     explicit signal may synthesize END after a heartbeat.
     """
+    remote = getattr(bridge, "is_remote", None)
+    if remote is not None and await remote(record.run_id):
+        return False
     if not record.store_only:
         return False
     refreshed = await run_mgr.get(record.run_id, user_id=record.user_id)
@@ -1646,6 +1653,19 @@ async def launch_mcp_task_notification_run(
     return {"run_id": record.run_id, "thread_id": record.thread_id}
 
 
+async def should_wait_for_run_stream(bridge, record):
+    if record.task is not None:
+        return True
+    remote = getattr(bridge, "is_remote", None)
+    return remote is not None and await remote(record.run_id)
+
+
+async def prepare_sse_subscription(bridge, record, request):
+    """Run optional bridge cursor validation before HTTP streaming headers."""
+    prepare = getattr(bridge, "prepare", None)
+    return await prepare(record, request.headers.get("Last-Event-ID")) if prepare is not None else None
+
+
 async def sse_consumer(
     bridge: StreamBridge,
     record: RunRecord,
@@ -1653,6 +1673,7 @@ async def sse_consumer(
     run_mgr: RunManager,
     *,
     apply_on_disconnect: bool = True,
+    prepared_subscription=None,
 ):
     """Async generator that yields SSE frames from the bridge.
 
@@ -1675,7 +1696,8 @@ async def sse_consumer(
 
     gap_emitted = False
     try:
-        async for entry in bridge.subscribe(record.run_id, last_event_id=last_event_id):
+        subscription = bridge.subscribe_prepared(record.run_id, prepared_subscription) if prepared_subscription is not None else bridge.subscribe(record.run_id, last_event_id=last_event_id)
+        async for entry in subscription:
             if await request.is_disconnected():
                 break
 
@@ -1695,7 +1717,7 @@ async def sse_consumer(
                 return
 
             if entry is HEARTBEAT_SENTINEL:
-                if await _orphan_recovery_observed_after_heartbeat(record, run_mgr):
+                if await _orphan_recovery_observed_after_heartbeat(record, run_mgr, bridge):
                     yield format_sse("end", None)
                     return
                 yield ": heartbeat\n\n"
@@ -1729,8 +1751,10 @@ async def wait_for_run_completion(
     Creator-side only, unlike ``sse_consumer``'s observer joins: every caller
     must be the endpoint that created the run or a path reached only after an
     explicit, permission-gated cancel. This helper intentionally keeps
-    applying the record's ``on_disconnect`` policy on disconnect — do not
-    wire it to observer surfaces.
+    applying the Local creator's ``on_disconnect`` policy on disconnect — do
+    not wire it to observer surfaces. Remote store-only records observe an
+    already authorized cancel request and never add cancellation on disconnect
+    or unsealed EOF.
 
     The non-streaming ``/wait`` endpoints used to ``await record.task``
     directly with no disconnect handling.  When the client (or an
@@ -1754,6 +1778,12 @@ async def wait_for_run_completion(
         response.
     """
     completed = False
+    remote = getattr(bridge, "is_remote", None)
+    is_remote = remote is not None and await remote(record.run_id)
+    # Bind the actual caller record before entering disconnect cleanup. A
+    # queued remote wait must retain its original user/thread while it awaits
+    # the first accepted attempt; invalid ownership cannot request cancellation.
+    prepared = await bridge.prepare(record, None) if is_remote else None
     if await _terminal_record_stream_missing(bridge, record):
         return True
 
@@ -1761,7 +1791,8 @@ async def wait_for_run_completion(
     try:
         while True:
             gap_seen = False
-            async for entry in bridge.subscribe(record.run_id, last_event_id=resume_from_event_id):
+            subscription = bridge.subscribe_prepared(record.run_id, prepared) if is_remote else bridge.subscribe(record.run_id, last_event_id=resume_from_event_id)
+            async for entry in subscription:
                 # END_SENTINEL means the run reached a terminal state; honour it
                 # even if the client just disconnected so the caller still serializes
                 # the real final checkpoint.
@@ -1775,7 +1806,7 @@ async def wait_for_run_completion(
                     resume_from_event_id = entry.latest_available_event_id
                     gap_seen = True
                     break
-                if entry is HEARTBEAT_SENTINEL and await _orphan_recovery_observed_after_heartbeat(record, run_mgr):
+                if entry is HEARTBEAT_SENTINEL and await _orphan_recovery_observed_after_heartbeat(record, run_mgr, bridge):
                     completed = True
                     return True
                 if await request.is_disconnected():
@@ -1784,6 +1815,6 @@ async def wait_for_run_completion(
             if not gap_seen:
                 return completed
     finally:
-        if not completed and record.status in (RunStatus.pending, RunStatus.running):
+        if not completed and not (is_remote and record.store_only) and record.status in (RunStatus.pending, RunStatus.running):
             if record.on_disconnect == DisconnectMode.cancel:
                 await run_mgr.cancel(record.run_id)

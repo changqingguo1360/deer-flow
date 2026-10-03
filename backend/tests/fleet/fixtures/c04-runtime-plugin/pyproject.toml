@@ -10,3 +10,5 @@ packages = ["deerflow_c04_fixture"]
 
 [project.entry-points."deerflow.fleet.agent_environment"]
 ambiguous = "deerflow_c04_alternate:factory"
+
+c07-omit-seal = "fleet.c07_integration_fixture:installed_omitting_seal_environment"

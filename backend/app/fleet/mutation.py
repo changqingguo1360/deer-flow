@@ -146,13 +146,14 @@ _ACTIVE = frozenset(
         "thread.checkpoint_title",
         "thread.status",
         "thread.metadata",
+        "stream.seal",
         "events.put",
         "events.batch",
         "events.singleton",
         "events.delete_run",
     }
 )
-_TERMINAL = frozenset({"run.status", "run.finalize", "run.completion", "thread.status", "thread.checkpoint_title", "extension.task_stop", "scheduler.occurrence.complete", "scheduler.task.complete", "mcp.cancel"})
+_TERMINAL = frozenset({"stream.seal", "run.status", "run.finalize", "run.completion", "thread.status", "thread.checkpoint_title", "extension.task_stop", "scheduler.occurrence.complete", "scheduler.task.complete", "mcp.cancel"})
 
 
 class FleetMutationCapability:
@@ -189,6 +190,8 @@ class FleetMutationCapability:
             if (target_row is None and operation not in {"thread.create", "thread.ensure"}) or (target_row is not None and target_row["user_id"] != self.context.user_id):
                 raise OwnershipRejected("Remote mutation thread target ownership rejected")
             row = await self._guard.validate(cursor, thread_id=self.context.thread_id, operation=operation, allow_terminal=operation in _TERMINAL)
+        if operation == "stream.seal" and (row["status"] not in {"success", "error", "interrupted", "timeout"} or any(target.status != row["status"] or target.event_types for target in targets)):
+            raise OwnershipRejected("Remote stream terminal closure rejected")
         if operation == "extension.task_stop":
             expected = {"success": "completed", "error": "failed", "timeout": "failed", "interrupted": "aborted"}.get(row["status"])
             if expected is None or any(target.status != expected or target.event_types != ("run.extension.task_stop",) for target in targets):

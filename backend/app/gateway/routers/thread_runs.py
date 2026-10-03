@@ -37,7 +37,7 @@ from app.gateway.context_usage import build_context_usage
 from app.gateway.deps import get_current_user, get_feedback_repo, get_run_event_store, get_run_manager, get_run_store, get_stream_bridge
 from app.gateway.pagination import trim_run_message_page
 from app.gateway.run_models import RunCreateRequest
-from app.gateway.services import build_checkpoint_state_accessor, build_thread_checkpoint_state_accessor, sse_consumer, start_run, wait_for_run_completion
+from app.gateway.services import build_checkpoint_state_accessor, build_thread_checkpoint_state_accessor, prepare_sse_subscription, should_wait_for_run_stream, sse_consumer, start_run, wait_for_run_completion
 from app.gateway.utils import sanitize_log_param
 from deerflow.agents.middlewares.dynamic_context_middleware import strip_injected_user_message_id_suffix
 from deerflow.runtime import CancelOutcome, RunRecord, RunStatus, serialize_channel_values_for_api
@@ -868,8 +868,9 @@ async def stream_run(thread_id: ThreadId, body: RunCreateRequest, request: Reque
     run_mgr = get_run_manager(request)
     record = await start_run(body, thread_id, request)
 
+    prepared_subscription = await prepare_sse_subscription(bridge, record, request)
     return StreamingResponse(
-        sse_consumer(bridge, record, request, run_mgr),
+        sse_consumer(bridge, record, request, run_mgr, prepared_subscription=prepared_subscription),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -892,7 +893,7 @@ async def wait_run(thread_id: ThreadId, body: RunCreateRequest, request: Request
     record = await start_run(body, thread_id, request)
 
     completed = True
-    if record.task is not None:
+    if await should_wait_for_run_stream(bridge, record):
         completed = await wait_for_run_completion(bridge, record, request, run_mgr)
 
     if completed:
@@ -1006,10 +1007,11 @@ async def join_run(thread_id: ThreadId, run_id: str, request: Request) -> Stream
     if record.store_only and not bridge.supports_cross_process:
         raise HTTPException(status_code=409, detail=f"Run {run_id} is not active on this worker and cannot be streamed")
 
+    prepared_subscription = await prepare_sse_subscription(bridge, record, request)
     return StreamingResponse(
         # Joins are read-only observation: the creator's cancel-on-disconnect
         # policy must not fire because an observer closed their connection.
-        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False),
+        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False, prepared_subscription=prepared_subscription),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1050,6 +1052,8 @@ async def stream_existing_run(
     if record.store_only and action is None and not bridge.supports_cross_process:
         raise HTTPException(status_code=409, detail=f"Run {run_id} is not active on this worker and cannot be streamed")
 
+    prepared_subscription = await prepare_sse_subscription(bridge, record, request)
+
     # Cancel if an action was requested (stop-button / interrupt flow)
     if action is not None:
         outcome = await run_mgr.cancel(run_id, action=action)
@@ -1089,7 +1093,7 @@ async def stream_existing_run(
         # require_cancel_permission_when_action), and an action-less join is
         # read-only observation — the creator's cancel-on-disconnect policy
         # must not fire because a joiner closed their connection.
-        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False),
+        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False, prepared_subscription=prepared_subscription),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

@@ -19,6 +19,16 @@
       "change_required_field_type"
     ]
   },
+  "remote_stream_replay": {
+    "cursor": "canonical fleet.v1 cursor for an actual committed original frame; no cursor requests complete unconsumed history",
+    "preflight_errors": {
+      "400": "Malformed, foreign, stale or deleted cursor; cursor validation precedes missing-history validation",
+      "410": "Remote stream history is unavailable: an original matching private stream pointer after the consumed cursor lacks its matching public stream.frame"
+    },
+    "midstream_retention": "Missing matching history in the current bounded pointer page ends with EOF without END; a missing later page is detected when fetched, and healthy earlier pages may emit. Reconnect preflight reports410 when its cursor remains valid, or400 when that cursor was deleted.",
+    "retention_scope": "Consumed history at or before a retained cursor does not block resume. Semantic event sequence gaps are valid. Missing host frames are never reconstructed from private pointers. Zero-frame sealed runs may emit END.",
+    "runtime_read_scope": "Complete remaining history is checked once before headers. Runtime selects at most128 original pointers before LEFT JOIN host frames, checks only that prefetched window and one exact pending pointer authority before output, and permits END only after an empty pointer page plus consumed matching seal highwater. Mapping change closes the original cached stream with EOF."
+  },
   "legacy_event_aliases": [
     {
       "event_type": "ai_message",
@@ -68,9 +78,26 @@
     "middleware": "Middleware state-change audit evidence.",
     "context": "Identity-only evidence about effective hidden context.",
     "subagent": "Subagent lifecycle and persisted step evidence.",
-    "workspace": "Run-scoped workspace and output file-change evidence."
+    "workspace": "Run-scoped workspace and output file-change evidence.",
+    "stream": "Exact committed remote SSE frames, excluded from message projections."
   },
   "events": [
+    {
+      "event_type": "stream.frame",
+      "category": "stream",
+      "producer": "Original remote stream bridge",
+      "content_schema": {
+        "type": "object", "required": ["event", "data"],
+        "properties": {"event": {"type": "string", "minLength": 1}, "data": {}},
+        "additionalProperties": false
+      },
+      "metadata_schema": {
+        "type": "object",
+        "properties": {"stream_version": {"const": 1}, "content_is_json": {"type": "boolean"}, "content_is_dict": {"type": "boolean"}},
+        "additionalProperties": false
+      },
+      "notes": "Exact namespace and JSON payload. No private execution authority. Debug/events envelopes are rejected before persistence above max_trace_content UTF-8 serialized bytes including envelope overhead; values/messages/updates retain full payloads."
+    },
     {
       "event_type": "run.start",
       "category": "trace",

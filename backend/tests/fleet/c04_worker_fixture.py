@@ -9,6 +9,7 @@ from pydantic import SecretStr
 class ScriptedModel(BaseChatModel):
     model: str = "parent"
     api_key: SecretStr | None = None
+    c07_gate: bool = False
 
     @property
     def _llm_type(self):
@@ -36,6 +37,10 @@ class ScriptedModel(BaseChatModel):
         skills = {skill.name: skill.enabled for skill in get_or_new_skill_storage().load_skills(enabled_only=False)}
         if skills.get("c04-enabled") is not True or skills.get("c04-disabled") is not False:
             raise ValueError("Actual bundled skill state was not preserved")
+        if self.c07_gate:
+            from fleet.c07_integration_fixture import BarrierModel
+
+            return BarrierModel().answer(messages)
         names = {message.name for message in tools}
         calls = []
         config = get_app_config()

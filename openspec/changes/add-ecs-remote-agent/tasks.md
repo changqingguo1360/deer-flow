@@ -47,10 +47,10 @@
 
 ## 7. C07 持久事件 outbox 与可恢复 SSE
 
-- [ ] 7.1 写并运行 backend/tests/fleet/test_c07_remote_agent_runtime.py，确认 C07 行为测试 RED。
-- [ ] 7.2 完成计划列出的接口、事务和部署接线；满足 `Committed ordered remote events`。
-- [ ] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 7.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 7.1 写并运行 backend/tests/fleet/test_c07_remote_agent_runtime.py，确认 C07 行为测试 RED。
+- [x] 7.2 完成计划列出的接口、事务和部署接线；满足 `Committed ordered remote events`。
+- [x] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 7.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 8. C08 实现 C workspace 和 checkpoint 联合恢复点
 

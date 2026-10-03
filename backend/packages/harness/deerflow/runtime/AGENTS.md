@@ -293,3 +293,18 @@ only the isolated worker retains physical deadline exit. Local hosts close the
 stream explicitly without this hook or process exit. Verify actual checkpoint
 SQL rollback barriers, no premature service/resource unwind and independent PG
 rollback/connection/lock checks. Journal drain alone does not settle astream.
+
+
+### Remote event transaction participation
+
+`DbRunEventStore` accepts a neutral optional transaction participant from
+`runtime/events/transactions.py`. Insert callbacks receive the same original
+Session, persisted event ID and record inside its guarded transaction. Batch
+callbacks retain whole-batch rollback; existing singleton rows never call insert
+again. The optional sequence floor runs after the original thread advisory lock
+in that transaction and prevents sequence reuse after public event retention.
+Local None preserves existing allocation/flush behavior. Never import app or
+Fleet from the harness. `stream.frame`/`stream` is a separate transport projection,
+not a message-history row. App adapters preserve actual frame event/namespace and
+value; trace-derived envelopes enforce the exact persisted JSON byte limit before
+writing. The narrow terminal seal is app-owned and grants no events.* authority.

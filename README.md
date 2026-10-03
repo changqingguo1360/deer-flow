@@ -1623,7 +1623,12 @@ C06 now fences supported remote Run/ThreadMeta/event, Store/SQL-definition, memo
 extension, scheduler and MCP tracking writes. Original graph/checkpoint tasks and
 queued callbacks settle before resources close, within one cumulative 120-second
 cleanup budget. See the [C06 acceptance report](docs/ecs-fleet-c06-acceptance.md).
-Gateway still rejects agents_enabled until C07-C12 event delivery, recovery,
+C07 has local acceptance for durable remote stream frames and reconnect replay from PostgreSQL,
+with committed Redis delivery hints and a terminal seal after tail events.
+Host retention that removes unconsumed remote frames reports HTTP 410 before
+streaming; deletion during a stream closes it without a terminal END. Its
+installed-runtime evidence is in the [C07 acceptance report](docs/ecs-fleet-c07-acceptance.md).
+Gateway still rejects agents_enabled until C08-C12 recovery,
 cancellation and routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

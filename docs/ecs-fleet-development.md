@@ -350,3 +350,63 @@ formal review stages. This accepts these substeps only; C06c memory, extension,
 scheduler and MCP boundaries and later C/BC slices remain outstanding. Full C06
 release gates and remote Gateway activation/production deployment remain closed.
 Exact source/image identities and commands are in the implementation progress.
+
+
+## C07 committed remote events (locally accepted)
+
+The original AgentRunner/run_agent path publishes actual SSE frames through
+FleetProducerBridge. A neutral DbRunEventStore participant inserts each private
+outbox pointer on that same fenced Session; post-write fresh-clock validation
+continues through commit/rollback. A private highwater floor under the same
+thread lock prevents retained pointers from colliding after host deletion.
+The appended f0008 migration uses FleetBase only. Neither the harness nor Local
+execution depends on optional Fleet imports.
+
+The Gateway adapter reads joined public events and private pointers directly from
+PostgreSQL, independently of Redis availability. Retention of an unconsumed
+original public stream frame makes history unavailable: cursorless or valid
+cursor preflight returns 410, and an established stream closes without END.
+Deleted/malformed cursor validation keeps 400 priority; consumed retention and
+semantic journal sequence gaps do not block replay. Preparation checks remaining
+history once. Runtime pages select at most128 original pointers before joining
+host frames and keep pre-yield checks within that fixed window; later-page loss
+is detected when that page is fetched. An exact pointer authority check closes
+the original stream after a mapping change, including already prefetched frames.
+Only an empty pointer page plus its consumed seal permits END. No private pointer can
+recreate a removed public row. Historical reads
+use the immutable per-run placement; current task generation and writer lease
+remain mutation guards. Cursor validation runs before HTTP headers. END is a
+separate narrow closure: the live seal checks the same original registered record
+twice around SQL terminal validation, while recovery accepts only a trusted
+accepted exit/physical-stop mapping. The stopped transaction and owned startup
+scanner share lock order and complete identity checks. No stream closure renews
+a writer or broadens events.* terminal permissions.
+
+The owned publisher selects one trusted earliest pending pointer per run before
+its limit, reselects under its private delivery advisory lock, and sends stable
+Redis seq IDs with exact decimal comparisons. It never holds execution locks
+across Redis. Lost replies/ACK failures retain DB pending state; retries are
+idempotent. Connect/socket timeouts and a bounded delivery transaction prevent
+unbounded pool occupation; shutdown cancels and joins the original owned Task.
+Readers poll authoritative DB state, so delivery hints are an optional transport
+and cannot determine completion. Payload/cursor details live in
+[RUN_EVENT_STREAM](../backend/docs/RUN_EVENT_STREAM.md).
+
+Installed C07 proof uses a fresh frozen six-wheel image and the actual
+`python -I -S /opt/deerflow/libexec_bootstrap.py` entry through NodeDaemon and
+AgentContainers. A fixture-only provider can omit the seal after checking real
+original closure, then perform original environment.close and naturally exit0;
+actual daemon inspect/stopped must trigger production physical-stop recovery.
+This is a safe seal-omission injection, not a SIGKILL or arbitrary-crash claim.
+Native receipts do not establish Linux installed-entry acceptance. SOURCE SPEC
+and SOURCE QUALITY reviews must precede formal C07 image builds; public remote
+admission and continuation flags remain closed. C07 is locally accepted; C08–C12
+and B/C continuations remain pending. See [C07 acceptance](ecs-fleet-c07-acceptance.md).
+
+Installed C07 and C04 neighbors share the original strict two-model runtime
+bindings (`model-1` and `child`) and declared model/MCP secret references. The
+deterministic fixture provider's explicit `c07_gate` option selects the C07
+barrier response after its original credential, private-scope and skill checks;
+it defaults to the C04 path. C07 supplies the actual bundled c04 stdio MCP and
+plugin configuration. This fixture option does not change production model
+binding validation, Agent bootstrap, execution loops or admission.

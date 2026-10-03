@@ -461,7 +461,6 @@ async def build_agent_environment(*, bootstrap, spec, grant):
     from deerflow.runtime.events.store.db import DbRunEventStore
     from deerflow.runtime.runs.worker import RunContext
     from deerflow.runtime.store.async_provider import make_store
-    from deerflow.runtime.stream_bridge import make_stream_bridge
 
     from .execution import decode_graph_input
 
@@ -518,7 +517,6 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         store = await stack.enter_async_context(make_store(private, mutation_capability=mutation_capability))
         repository = RunRepository(sf, mutation_capability=mutation_capability)
         manager = RunManager(store=repository, worker_id=bootstrap.identity.owner_worker_id)
-        bridge = await stack.enter_async_context(make_stream_bridge(private))
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
 
@@ -699,10 +697,19 @@ async def build_agent_environment(*, bootstrap, spec, grant):
                 except AgentCleanupPending as pending:
                     raise ExecutionCleanupPending() from pending
 
+        from deerflow_ecs_fleet.persistence.outbox import EventOutbox
+
+        from app.fleet.events import FleetEventParticipant, FleetProducerBridge, FleetStreamSeals, RemoteStreamIdentity
+
+        stream_identity = RemoteStreamIdentity.from_context(mutation_capability.context)
+        participant = FleetEventParticipant(identity=stream_identity, spec=spec, capability=mutation_capability, outbox=EventOutbox())
+        event_store = DbRunEventStore(sf, max_trace_content=private.run_events.max_trace_content, mutation_capability=mutation_capability, transaction_participant=participant)
+        bridge = FleetProducerBridge(event_store=event_store, identity=stream_identity, spec=spec, capability=mutation_capability, seals=FleetStreamSeals(sf), manager=manager)
+
         context = RunContext(
             checkpointer=checkpointer,
             store=store,
-            event_store=DbRunEventStore(sf, max_trace_content=private.run_events.max_trace_content, mutation_capability=mutation_capability),
+            event_store=event_store,
             run_events_config=private.run_events,
             thread_store=ThreadMetaRepository(sf, mutation_capability=mutation_capability),
             mcp_task_repo=mcp_repository,
