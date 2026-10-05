@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import replace
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import text
 
 from .test_c02_remote_agent_admission import admission as admission
@@ -31,6 +32,43 @@ async def original_stream(item):
     return capability, identity, producer, record, FleetStreamReader(item.env[1])
 
 
+async def seal_original_stream(item, capability, producer, record):
+    """Positive reader setup uses original fenced checkpoint/terminal pair APIs."""
+    from deerflow.persistence.run.sql import RunRepository
+
+    from .c08_native_terminal_pair import NativeTerminalPreparation
+
+    item.runs = RunRepository(item.env[1], mutation_capability=capability)
+    directory = item.env[3].config.nas_root / ("c07-reader-terminal-" + item.spec.run_id)
+    preparation = NativeTerminalPreparation(item, directory)
+    await preparation(record)
+    await item.runs.update_status(item.spec.run_id, status="success")
+    async with item.engine.connect() as conn:
+        pair = dict(
+            (
+                await conn.execute(
+                    text(
+                        "SELECT w.id,w.checkpoint_id,w.manifest_id,q.state AS request_state,q.checkpoint_id AS prepared_checkpoint,q.candidate_manifest_id,"
+                        "t.accepted_workspace_point_id,t.state AS task_state,p.final_workspace_point_id,p.state AS placement_state "
+                        "FROM fleet_workspace_points w JOIN fleet_workspace_requests q ON q.id=w.request_id "
+                        "JOIN fleet_agent_tasks t ON t.id=w.agent_task_id JOIN fleet_run_placements p ON p.run_id=w.run_id WHERE w.run_id=:run"
+                    ),
+                    {"run": item.spec.run_id},
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert pair["request_state"] == "accepted"
+    assert pair["id"] == pair["accepted_workspace_point_id"] == pair["final_workspace_point_id"]
+    assert pair["checkpoint_id"] == pair["prepared_checkpoint"]
+    assert pair["manifest_id"] == pair["candidate_manifest_id"]
+    assert pair["task_state"] == pair["placement_state"] == "finishing"
+    latest = await item.writer.aget_tuple(item.config)
+    assert latest.metadata["deerflow_execution_run_id"] == item.spec.run_id
+    await producer.publish_end(item.spec.run_id)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("state", ["unknown", "quarantined"])
 async def test_unknown_original_attempt_replays_frames_without_old_seal_end(checkpoint_owner, state):
@@ -45,9 +83,7 @@ async def test_unknown_original_attempt_replays_frames_without_old_seal_end(chec
     with remote_mutation_scope(capability.context):
         await producer.publish(identity.run_id, "values|child:one", {"tail": "committed"})
         record.status = RunStatus.success
-        async with item.engine.begin() as connection:
-            await connection.execute(text("UPDATE runs SET status='success'"))
-        await producer.publish_end(identity.run_id)
+        await seal_original_stream(item, capability, producer, record)
     async with item.engine.begin() as connection:
         await connection.execute(text("UPDATE fleet_run_placements SET state='unknown'"))
         await connection.execute(text("UPDATE fleet_attempts SET state=:state"), {"state": state})
@@ -94,12 +130,28 @@ async def test_changed_original_mapping_stops_stream_without_end_and_rejects_old
         await stream.aclose()
 
 
+@pytest_asyncio.fixture
+async def queued_reader_environment(owner_environment):
+    """Match Gateway startup's original checkpointer schema setup, without history."""
+    from deerflow.config.app_config import AppConfig
+    from deerflow.runtime.checkpointer.async_provider import make_checkpointer
+
+    engine = owner_environment[0]
+    async with engine.connect() as connection:
+        schema = (await connection.execute(text("SELECT current_schema()"))).scalar_one()
+    private = AppConfig.model_validate({"sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"}, "database": {"backend": "postgres", "postgres_url": engine.url.render_as_string(hide_password=False), "postgres_schema": schema}})
+    async with make_checkpointer(private):
+        async with engine.connect() as connection:
+            assert (await connection.execute(text("SELECT count(*) FROM checkpoints"))).scalar_one() == 0
+        yield owner_environment
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("field", ["user_id", "thread_id"])
-async def test_queued_reader_validates_actual_core_placement_owner(owner_environment, field):
+async def test_queued_reader_validates_actual_core_placement_owner(queued_reader_environment, field):
     from app.fleet.events import FleetStreamReader, InvalidRemoteCursor
 
-    _, sf, _, _, _, record, *_ = owner_environment
+    _, sf, _, _, _, record, *_ = queued_reader_environment
     reader = FleetStreamReader(sf)
     prepared = await reader.prepare(record, None)
     assert prepared.identity is None
@@ -109,7 +161,7 @@ async def test_queued_reader_validates_actual_core_placement_owner(owner_environ
 
 
 @pytest.mark.asyncio
-async def test_queued_subscription_binds_once_after_real_claim(owner_environment):
+async def test_queued_subscription_binds_once_after_real_claim(queued_reader_environment):
     import hashlib
     from types import SimpleNamespace
 
@@ -120,6 +172,7 @@ async def test_queued_subscription_binds_once_after_real_claim(owner_environment
     from deerflow.runtime.execution.mutation_context import remote_mutation_scope
     from deerflow.runtime.stream_bridge.memory import MemoryStreamBridge
 
+    owner_environment = queued_reader_environment
     engine, sf, _, _, app, record, session_id, *_ = owner_environment
     reader = FleetStreamReader(sf)
     prepared = await reader.prepare(record, None)
@@ -195,9 +248,7 @@ async def retention_stream(item, *, sealed=True, count=3, semantic_gap=False):
                 await producer.event_store.put(thread_id=identity.thread_id, run_id=identity.run_id, event_type="run.start", category="trace", content={"chain": "semantic-only"})
         if sealed:
             record.status = RunStatus.success
-            async with item.engine.begin() as connection:
-                await connection.execute(text("UPDATE runs SET status='success' WHERE run_id=:run"), {"run": identity.run_id})
-            await producer.publish_end(identity.run_id)
+            await seal_original_stream(item, capability, producer, record)
     prepared = await reader.prepare(record, None)
     rows = []
     while batch := await reader.page(prepared):

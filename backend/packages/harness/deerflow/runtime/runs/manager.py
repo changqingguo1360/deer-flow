@@ -440,8 +440,12 @@ class RunManager:
             return True
         except OwnershipRejected:
             await self.mark_execution_ownership_lost(record.run_id)
+            if getattr(self._store, "_terminal_participant", None) is not None and status in {RunStatus.success, RunStatus.error, RunStatus.interrupted, RunStatus.timeout}:
+                raise
             return False
         except Exception:
+            if getattr(self._store, "_terminal_participant", None) is not None and status in {RunStatus.success, RunStatus.error, RunStatus.interrupted, RunStatus.timeout}:
+                raise
             logger.warning("Failed to persist status update for run %s", record.run_id, exc_info=True)
             return False
 
@@ -542,8 +546,12 @@ class RunManager:
                     logger.warning("Run completion update for %s affected no rows after row recreation", run_id)
         except OwnershipRejected:
             await self.mark_execution_ownership_lost(run_id)
+            if getattr(self._store, "_terminal_participant", None) is not None:
+                raise
             return None
         except Exception:
+            if getattr(self._store, "_terminal_participant", None) is not None:
+                raise
             logger.warning("Failed to persist run completion for %s", run_id, exc_info=True)
 
     async def update_run_progress(self, run_id: str, **kwargs) -> None:
@@ -1028,7 +1036,7 @@ class RunManager:
         persist: bool = True,
     ) -> str | None:
         """Set a terminal status unless a durable cancellation won first."""
-        if not persist or not self.heartbeat_enabled or self._store is None:
+        if not persist or self._store is None or (not self.heartbeat_enabled and getattr(self._store, "_terminal_participant", None) is None):
             await self.set_status(
                 run_id,
                 status,
@@ -1051,8 +1059,12 @@ class RunManager:
             )
         except OwnershipRejected:
             await self.mark_execution_ownership_lost(run_id)
+            if getattr(self._store, "_terminal_participant", None) is not None:
+                raise
             return None
         except Exception:
+            if getattr(self._store, "_terminal_participant", None) is not None:
+                raise
             async with self._lock:
                 record = self._runs.get(run_id)
             if record is not None:
@@ -1639,7 +1651,9 @@ class RunManager:
 
             # 1) Local inflight check (same-worker guard; cross-worker is the
             #    store's partial unique index below).
-            local_inflight = [r for r in self._thread_records_locked(thread_id) if r.status in (RunStatus.pending, RunStatus.running) or r.finalizing]
+            local_inflight = [
+                r for r in self._thread_records_locked(thread_id) if (r.status in (RunStatus.pending, RunStatus.running) or r.finalizing) and not (r.store_only and self._store is not None and self._store.supports_admission_participants)
+            ]
 
             if multitask_strategy in ("interrupt", "rollback") and any(record.operation_kind != ThreadOperationKind.run for record in local_inflight):
                 raise ConflictError(f"Thread {thread_id} has an active checkpoint write")
@@ -1789,6 +1803,12 @@ class RunManager:
         logger.info("Run created: run_id=%s thread_id=%s", run_id, thread_id)
         return record
 
+    async def assert_thread_operation_allowed(self, thread_id, *, user_id=None):
+        """Shared durable routing/recovery guard before preparing host mutations."""
+        guard = getattr(self._store, "check_thread_admission", None)
+        if guard is not None:
+            await guard(thread_id, user_id=user_id)
+
     @asynccontextmanager
     async def reserve_thread_operation(
         self,
@@ -1828,25 +1848,48 @@ class RunManager:
                 raise ConflictError(f"Thread {thread_id} reservation lease was lost") from None
             raise
         finally:
-            try:
-                if self._store is not None:
+            import sys
+
+            import anyio
+
+            original_error = sys.exception()
+
+            async def release_original_reservation():
+                try:
+                    if self._store is not None:
+                        try:
+                            await self._call_store_with_retry(
+                                "release thread operation",
+                                record.run_id,
+                                lambda: self._store.delete_thread_operation(record.run_id, user_id=record.user_id),
+                            )
+                        except Exception:
+                            logger.warning(
+                                "Failed to release persisted thread operation %s; leaving it for orphan reconciliation",
+                                record.run_id,
+                                exc_info=True,
+                            )
+                finally:
+                    async with self._lock:
+                        removed = self._runs.pop(record.run_id, None)
+                        if removed is not None:
+                            self._unindex_run_locked(record.run_id, removed.thread_id)
+
+            # Own the original SQL/session cleanup and cache release through
+            # HTTP cancellation scopes and repeated raw Task.cancel(). Never
+            # release a different reservation or change its captured owner.
+            release = asyncio.create_task(release_original_reservation())
+            cancelled = None
+            with anyio.CancelScope(shield=True):
+                while not release.done():
                     try:
-                        await self._call_store_with_retry(
-                            "release thread operation",
-                            record.run_id,
-                            lambda: self._store.delete_thread_operation(record.run_id, user_id=record.user_id),
-                        )
-                    except Exception:
-                        logger.warning(
-                            "Failed to release persisted thread operation %s; leaving it for orphan reconciliation",
-                            record.run_id,
-                            exc_info=True,
-                        )
-            finally:
-                async with self._lock:
-                    removed = self._runs.pop(record.run_id, None)
-                    if removed is not None:
-                        self._unindex_run_locked(record.run_id, removed.thread_id)
+                        await asyncio.shield(release)
+                    except asyncio.CancelledError as error:
+                        if cancelled is None:
+                            cancelled = error
+                release.result()
+            if cancelled is not None and original_error is None:
+                raise cancelled
 
     async def reconcile_orphaned_inflight_runs(
         self,

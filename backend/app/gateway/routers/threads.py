@@ -99,7 +99,7 @@ def _checkpoint_mode_http_error(exc: Exception, thread_id: str) -> HTTPException
 # owner identity through the API surface. Defense-in-depth — the
 # row-level invariant is still ``threads_meta.user_id`` populated from
 # the auth contextvar; this list closes the metadata-blob echo gap.
-_SERVER_RESERVED_METADATA_KEYS: frozenset[str] = frozenset({"owner_id", "user_id"})
+_SERVER_RESERVED_METADATA_KEYS: frozenset[str] = frozenset({"owner_id", "user_id", "execution_backend", "deerflow_branch", "branch_parent_thread_id", "branch_parent_checkpoint_id", "branch_parent_message_id", "branch_created_at"})
 _SIDECAR_METADATA_KEY = "deerflow_sidecar"
 _BRANCH_METADATA_KEY = "deerflow_branch"
 _BRANCH_TITLE_SEQUENCE_METADATA_KEY = "branch_title_sequence"
@@ -924,135 +924,159 @@ async def _branch_thread_with_reservation(
     branch_from_latest_turn = await _branch_targets_latest_turn(source_accessor, source_config, target_message_ids)
 
     new_thread_id = str(uuid.uuid4())
-    now = now_iso()
-    branch_metadata = {
-        _BRANCH_METADATA_KEY: True,
-        "branch_parent_thread_id": thread_id,
-        "branch_parent_checkpoint_id": parent_checkpoint_id,
-        "branch_parent_message_id": body.message_id,
-        "branch_created_at": now,
-    }
-
-    if body.title:
-        display_name = body.title
-    else:
-        sibling_records = await _branch_sibling_records(thread_store, thread_id)
-        display_name, title_sequence = _default_branch_title(
-            source_record.get("display_name"),
-            source_is_branch=source_metadata.get(_BRANCH_METADATA_KEY) is True,
-            source_sequence=source_metadata.get(_BRANCH_TITLE_SEQUENCE_METADATA_KEY),
-            sibling_records=sibling_records,
-        )
-        if title_sequence is not None:
-            branch_metadata[_BRANCH_TITLE_SEQUENCE_METADATA_KEY] = title_sequence
-    thread_owner_user_id = get_trusted_internal_owner_user_id(request)
-    thread_owner_kwargs = {"user_id": thread_owner_user_id} if thread_owner_user_id else {}
-
-    # Copy materialized values with replace semantics: reducer channels must
-    # not re-merge an already-aggregated value, so every copied reducer value
-    # is wrapped in Overwrite (not just messages).
-    branch_accessor, new_config = build_checkpoint_state_mutation_accessor(
-        request,
-        thread_id=new_thread_id,
-        as_node="branch",
-        # The branch write carries the full materialized snapshot; use the
-        # source assistant's effective schema so extension middleware channels
-        # survive instead of being silently discarded as unknown channels.
-        state_schema=graph_state_schema(getattr(source_accessor, "graph", None)),
-    )
-    branch_reducer_fields = graph_reducer_channels(getattr(branch_accessor, "graph", None))
-    if branch_reducer_fields is None:
-        branch_reducer_fields = THREAD_STATE_REDUCER_FIELDS
-
-    def branch_values(source_snapshot: Any) -> dict[str, Any]:
-        values: dict[str, Any] = {}
-        for key, value in dict(source_snapshot.values).items():
-            if key in _BRANCH_EXCLUDED_CHANNELS:
-                continue
-            if key in branch_reducer_fields:
-                values[key] = Overwrite(list(value) if key == "messages" and isinstance(value, list) else value)
-            else:
-                values[key] = value
-        if display_name is not None:
-            values["title"] = display_name
-        return values
-
-    # Stamp both synthetic checkpoints with the branch-creation time because
-    # serializers fall back to metadata when snapshot.created_at is absent.
-    checkpoint_metadata_updates = {
-        **branch_metadata,
-        "source": "branch",
-        "updated_at": now,
-        "created_at": now,
-    }
-    new_config.setdefault("metadata", {}).update(checkpoint_metadata_updates)
+    branch_files = None
+    branch_manifest = None
+    store = get_run_manager(request)._store
+    backend = await store.thread_execution_backend(thread_id, user_id=get_effective_user_id()) if hasattr(store, "thread_execution_backend") else None
+    if backend is not None and backend != "local":
+        branch_files = getattr(request.app.state, "fleet_workspace_files", None)
+        if backend != "fleet" or branch_files is None:
+            raise HTTPException(status_code=503, detail="Thread execution backend is unavailable")
+        try:
+            branch_manifest = await branch_files.prepare_branch(user_id=get_effective_user_id(), parent_thread_id=thread_id, thread_id=new_thread_id, checkpoint_id=parent_checkpoint_id)
+            await branch_files.restore_branch(branch_manifest, get_paths().sandbox_user_data_dir(new_thread_id, user_id=get_effective_user_id()))
+        except (LookupError, ValueError, OSError):
+            raise HTTPException(status_code=409, detail="Branch workspace requires recovery") from None
+    # restore_branch owns copy failures; after success this route owns
+    # every subsequent step, including untitled sibling lookup.
+    branch_finished = False
     try:
-        head_config = new_config
-        if replay_base_tuple is not None:
-            head_config = await branch_accessor.aupdate(
-                new_config,
-                branch_values(replay_base_tuple),
+        now = now_iso()
+        branch_metadata = {
+            _BRANCH_METADATA_KEY: True,
+            "branch_parent_thread_id": thread_id,
+            "branch_parent_checkpoint_id": parent_checkpoint_id,
+            "branch_parent_message_id": body.message_id,
+            "branch_created_at": now,
+        }
+
+        if body.title:
+            display_name = body.title
+        else:
+            sibling_records = await _branch_sibling_records(thread_store, thread_id)
+            display_name, title_sequence = _default_branch_title(
+                source_record.get("display_name"),
+                source_is_branch=source_metadata.get(_BRANCH_METADATA_KEY) is True,
+                source_sequence=source_metadata.get(_BRANCH_TITLE_SEQUENCE_METADATA_KEY),
+                sibling_records=sibling_records,
+            )
+            if title_sequence is not None:
+                branch_metadata[_BRANCH_TITLE_SEQUENCE_METADATA_KEY] = title_sequence
+        thread_owner_user_id = get_trusted_internal_owner_user_id(request)
+        thread_owner_kwargs = {"user_id": thread_owner_user_id} if thread_owner_user_id else {}
+
+        # Copy materialized values with replace semantics: reducer channels must
+        # not re-merge an already-aggregated value, so every copied reducer value
+        # is wrapped in Overwrite (not just messages).
+        branch_accessor, new_config = build_checkpoint_state_mutation_accessor(
+            request,
+            thread_id=new_thread_id,
+            as_node="branch",
+            # The branch write carries the full materialized snapshot; use the
+            # source assistant's effective schema so extension middleware channels
+            # survive instead of being silently discarded as unknown channels.
+            state_schema=graph_state_schema(getattr(source_accessor, "graph", None)),
+        )
+        branch_reducer_fields = graph_reducer_channels(getattr(branch_accessor, "graph", None))
+        if branch_reducer_fields is None:
+            branch_reducer_fields = THREAD_STATE_REDUCER_FIELDS
+
+        def branch_values(source_snapshot: Any) -> dict[str, Any]:
+            values: dict[str, Any] = {}
+            for key, value in dict(source_snapshot.values).items():
+                if key in _BRANCH_EXCLUDED_CHANNELS:
+                    continue
+                if key in branch_reducer_fields:
+                    values[key] = Overwrite(list(value) if key == "messages" and isinstance(value, list) else value)
+                else:
+                    values[key] = value
+            if display_name is not None:
+                values["title"] = display_name
+            return values
+
+        # Stamp both synthetic checkpoints with the branch-creation time because
+        # serializers fall back to metadata when snapshot.created_at is absent.
+        checkpoint_metadata_updates = {
+            **branch_metadata,
+            "source": "branch",
+            "updated_at": now,
+            "created_at": now,
+        }
+        new_config.setdefault("metadata", {}).update(checkpoint_metadata_updates)
+        try:
+            head_config = new_config
+            if replay_base_tuple is not None:
+                head_config = await branch_accessor.aupdate(
+                    new_config,
+                    branch_values(replay_base_tuple),
+                    as_node="branch",
+                )
+                head_config.setdefault("metadata", {}).update(checkpoint_metadata_updates)
+            final_branch_config = await branch_accessor.aupdate(
+                head_config,
+                branch_values(snapshot),
                 as_node="branch",
             )
-            head_config.setdefault("metadata", {}).update(checkpoint_metadata_updates)
-        await branch_accessor.aupdate(
-            head_config,
-            branch_values(snapshot),
-            as_node="branch",
-        )
-    except _CHECKPOINT_MODE_ERRORS as exc:
-        raise _checkpoint_mode_http_error(exc, new_thread_id) from exc
-    except Exception:
-        logger.exception("Failed to write branch checkpoint for thread %s", sanitize_log_param(new_thread_id))
-        raise HTTPException(status_code=500, detail="Failed to create branch") from None
+        except _CHECKPOINT_MODE_ERRORS as exc:
+            raise _checkpoint_mode_http_error(exc, new_thread_id) from exc
+        except Exception:
+            logger.exception("Failed to write branch checkpoint for thread %s", sanitize_log_param(new_thread_id))
+            raise HTTPException(status_code=500, detail="Failed to create branch") from None
 
-    try:
-        await thread_store.create(
-            new_thread_id,
-            assistant_id=source_record.get("assistant_id"),
-            display_name=display_name,
-            metadata=branch_metadata,
-            **thread_owner_kwargs,
-        )
-    except Exception:
-        logger.exception("Failed to write branch thread_meta for %s", sanitize_log_param(new_thread_id))
-        raise HTTPException(status_code=500, detail="Failed to create branch") from None
+        try:
+            await thread_store.create(
+                new_thread_id,
+                assistant_id=source_record.get("assistant_id"),
+                display_name=display_name,
+                metadata=branch_metadata,
+                **thread_owner_kwargs,
+            )
+        except Exception:
+            logger.exception("Failed to write branch thread_meta for %s", sanitize_log_param(new_thread_id))
+            raise HTTPException(status_code=500, detail="Failed to create branch") from None
 
-    # The thread feed (GET /messages, /messages/page) reads the run-event
-    # store, not checkpoints, and a fresh branch has no run_events — so the
-    # inherited history would vanish from the UI as soon as the branch's
-    # first run refreshes the feed (#4380 problem 2). Seed the branch's
-    # run_events from the same checkpoint snapshot the branch was created
-    # from. Best-effort: on failure the branch stays usable, with history
-    # visible only through the checkpoint overlay until it is re-branched.
-    try:
-        seed_events = build_branch_history_seed_events(
-            _checkpoint_messages(snapshot),
-            thread_id=new_thread_id,
-            run_id_prefix=f"branch-seed-{new_thread_id}",
-            parent_thread_id=thread_id,
-        )
-        if seed_events:
-            await get_run_event_store(request).put_batch(seed_events)
-            history_seed_mode = "seeded"
+        # The thread feed (GET /messages, /messages/page) reads the run-event
+        # store, not checkpoints, and a fresh branch has no run_events — so the
+        # inherited history would vanish from the UI as soon as the branch's
+        # first run refreshes the feed (#4380 problem 2). Seed the branch's
+        # run_events from the same checkpoint snapshot the branch was created
+        # from. Best-effort: on failure the branch stays usable, with history
+        # visible only through the checkpoint overlay until it is re-branched.
+        try:
+            seed_events = build_branch_history_seed_events(
+                _checkpoint_messages(snapshot),
+                thread_id=new_thread_id,
+                run_id_prefix=f"branch-seed-{new_thread_id}",
+                parent_thread_id=thread_id,
+            )
+            if seed_events:
+                await get_run_event_store(request).put_batch(seed_events)
+                history_seed_mode = "seeded"
+            else:
+                history_seed_mode = "skipped_empty"
+        except Exception:
+            logger.exception("Failed to seed branch history run-events for thread %s", sanitize_log_param(new_thread_id))
+            history_seed_mode = "failed"
+
+        if branch_files is not None:
+            await branch_files.finish_branch(user_id=get_effective_user_id(), thread_id=new_thread_id, checkpoint_id=final_branch_config.get("configurable", {}).get("checkpoint_id"))
+            workspace_clone_mode = "accepted_remote_workspace"
+        elif branch_from_latest_turn:
+            workspace_clone_mode = await _copy_branch_user_data(thread_id, new_thread_id)
         else:
-            history_seed_mode = "skipped_empty"
-    except Exception:
-        logger.exception("Failed to seed branch history run-events for thread %s", sanitize_log_param(new_thread_id))
-        history_seed_mode = "failed"
-
-    if branch_from_latest_turn:
-        workspace_clone_mode = await _copy_branch_user_data(thread_id, new_thread_id)
-    else:
-        workspace_clone_mode = "skipped_historical_turn"
-    return ThreadBranchResponse(
-        thread_id=new_thread_id,
-        parent_thread_id=thread_id,
-        parent_checkpoint_id=parent_checkpoint_id,
-        branched_from_message_id=body.message_id,
-        workspace_clone_mode=workspace_clone_mode,
-        history_seed_mode=history_seed_mode,
-    )
+            workspace_clone_mode = "skipped_historical_turn"
+        branch_finished = True
+        return ThreadBranchResponse(
+            thread_id=new_thread_id,
+            parent_thread_id=thread_id,
+            parent_checkpoint_id=parent_checkpoint_id,
+            branched_from_message_id=body.message_id,
+            workspace_clone_mode=workspace_clone_mode,
+            history_seed_mode=history_seed_mode,
+        )
+    finally:
+        if branch_files is not None and not branch_finished:
+            await branch_files.remove_branch(get_paths().sandbox_user_data_dir(new_thread_id, user_id=get_effective_user_id()))
 
 
 @router.post("/search", response_model=list[ThreadResponse])
@@ -1342,6 +1366,9 @@ async def get_thread_state(thread_id: ThreadId, request: Request) -> ThreadState
 @require_permission("threads", "write", owner_check=True, require_existing=True)
 async def update_thread_state(thread_id: ThreadId, body: ThreadStateUpdateRequest, request: Request) -> ThreadStateResponse:
     """Replace selected thread-state fields through the materialized graph."""
+    from app.gateway.thread_admission import require_thread_mutation_admission
+
+    await require_thread_mutation_admission(request, thread_id)
     from app.gateway.deps import get_thread_store
 
     thread_store = get_thread_store(request)

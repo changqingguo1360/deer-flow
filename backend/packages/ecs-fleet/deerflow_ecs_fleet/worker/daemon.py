@@ -18,13 +18,14 @@ class RecoveryRequired(RuntimeError):
 
 
 class NodeDaemon:
-    def __init__(self, *, client, containers, state_dir: Path, prepare_workspace=None, workspace=None, renew_seconds=30, safety_margin_seconds=5, poll_seconds=0.25):
+    def __init__(self, *, client, containers, state_dir: Path, prepare_workspace=None, workspace=None, workspace_publications=None, renew_seconds=30, safety_margin_seconds=5, poll_seconds=0.25):
         if renew_seconds <= 0 or poll_seconds <= 0 or safety_margin_seconds < 0:
             raise ValueError("Invalid worker timing")
         self.client = client
         self.containers = containers
         self.journal = AttemptJournal(state_dir)
         self.workspace = workspace
+        self.workspace_publications = workspace_publications
         if workspace is not None and prepare_workspace is not None:
             raise ValueError("Choose one workspace preparation interface")
         if workspace is not None:
@@ -40,6 +41,12 @@ class NodeDaemon:
         self.poll_seconds = poll_seconds
         self._ready = False
         self._active = set()
+
+    async def _save_record(self, record):
+        if record["claim"]["kind"] == "agent" and self.workspace_publications is not None:
+            await self.workspace_publications.save_record(record)
+        else:
+            await asyncio.to_thread(self.journal.save, record)
 
     async def bootstrap(self):
         self._ready = False
@@ -66,7 +73,7 @@ class NodeDaemon:
                 response = await self.client.attempt(row["claim"], "stopped", reason=row["stop_reason"], exit_code=row["exit_code"], **({"process_ref": ref, "physical_stopped": True} if row["claim"]["kind"] == "agent" else {}))
                 row["reported"] = True
                 row["server_state"] = response["state"]
-                await asyncio.to_thread(self.journal.save, row)
+                await self._save_record(row)
             needs_completion = (row.get("server_state") == "running" and row.get("stop_reason") == "exit" and row.get("exit_code") == 0) or (row.get("completion_manifest") is not None and not row.get("completion_reported"))
             if self.workspace is not None and needs_completion:
                 if not await self.publish_record(row):
@@ -85,7 +92,7 @@ class NodeDaemon:
                 record["completion_reported"] = False
                 # Persist the exact sealed snapshot before the HTTP commit,
                 # so a lost completion response can replay after restart.
-                await asyncio.to_thread(self.journal.save, record)
+                await self._save_record(record)
             try:
                 response = await self.client.attempt(record["claim"], "complete", manifest=record["completion_manifest"])
             except httpx.HTTPError:
@@ -93,7 +100,7 @@ class NodeDaemon:
                 return False
             record["completion_reported"] = True
             record["server_state"] = response["state"]
-            await asyncio.to_thread(self.journal.save, record)
+            await self._save_record(record)
             return True
         except BaseException:
             self._ready = False
@@ -113,12 +120,12 @@ class NodeDaemon:
             raise ValueError("Unsupported or already active attempt")
         self._active.add(attempt_id)
         record = {"claim": claim, "node_id": self.client.node_id, "reported": False}
-        launch_task = watchdog_task = renew_task = None
+        launch_task = watchdog_task = renew_task = publication_task = None
         ref = "fleet-" + attempt_id
         reason = "lease_lost"
         control_stop = False
         try:
-            await asyncio.to_thread(self.journal.save, record)
+            await self._save_record(record)
         except BaseException:
             self._active.discard(attempt_id)
             self._ready = False
@@ -133,7 +140,7 @@ class NodeDaemon:
             if remaining <= self.margin:
                 raise ValueError("Start grant arrived after local safety deadline")
             record["grant"] = grant
-            await asyncio.to_thread(self.journal.save, record)
+            await self._save_record(record)
             if claim["kind"] == "agent":
                 self.containers.bind_claim(claim)
             output = await self.prepare_workspace(claim, grant)
@@ -187,6 +194,21 @@ class NodeDaemon:
                     if not watchdog.expired and not control_stop:
                         reason = "exit"
                     break
+                if claim["kind"] == "agent" and self.workspace_publications is not None:
+                    if publication_task is not None and publication_task.done():
+                        try:
+                            publication_task.result()
+                        except httpx.HTTPError as error:
+                            if isinstance(error, httpx.HTTPStatusError) and error.response.status_code in {401, 403, 409}:
+                                control_stop = True
+                                reason = "lease_lost"
+                                await stop_local()
+                                break
+                            # A lost HTTP response reuses the durable pointer;
+                            # original renew/watchdog tasks continue independently.
+                        publication_task = None
+                    if publication_task is None:
+                        publication_task = asyncio.create_task(self.workspace_publications.step(claim, grant, output_dir=output, record=record, deadline=watchdog.deadline))
                 if watchdog_task.done():
                     if not await watchdog_task:
                         raise RecoveryRequired("Watchdog could not prove local stop")
@@ -196,10 +218,10 @@ class NodeDaemon:
             self._ready = False
             raise
         finally:
-            for task in (renew_task, watchdog_task):
+            for task in (renew_task, watchdog_task, publication_task):
                 if task is not None and not task.done():
                     task.cancel()
-            await asyncio.gather(*(t for t in (renew_task, watchdog_task) if t is not None), return_exceptions=True)
+            await asyncio.gather(*(t for t in (renew_task, watchdog_task, publication_task) if t is not None), return_exceptions=True)
             if launch_task is not None and not launch_task.done():
                 launch_task.cancel()
                 await asyncio.gather(launch_task, return_exceptions=True)
@@ -210,7 +232,7 @@ class NodeDaemon:
                 observation = await self.containers.inspect(ref)
                 record["stop_reason"] = reason
                 record["exit_code"] = observation["State"]["ExitCode"] if observation else 137
-                await asyncio.to_thread(self.journal.save, record)
+                await self._save_record(record)
                 try:
                     response = await self.client.attempt(claim, "stopped", reason=reason, exit_code=record["exit_code"], **({"process_ref": ref, "physical_stopped": True} if claim["kind"] == "agent" else {}))
                 except httpx.HTTPError:
@@ -218,7 +240,7 @@ class NodeDaemon:
                 else:
                     record["reported"] = True
                     record["server_state"] = response["state"]
-                    await asyncio.to_thread(self.journal.save, record)
+                    await self._save_record(record)
                     if self.workspace is not None and response["state"] == "running" and reason == "exit" and record["exit_code"] == 0:
                         await self.publish_record(record)
         pending = not record["reported"] or (record.get("completion_manifest") is not None and not record.get("completion_reported"))
@@ -260,3 +282,5 @@ class NodeDaemon:
             for task in active:
                 task.cancel()
             await asyncio.gather(*active, return_exceptions=True)
+            if self.workspace_publications is not None:
+                await self.workspace_publications.join_writers()

@@ -43,6 +43,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+import time
 from collections import OrderedDict
 from typing import Any
 
@@ -119,6 +120,10 @@ async def call_pooled_session_tool(
         raise
 
 
+class McpScopeBarrierClosed(RuntimeError):
+    """Trusted scope is paused; this is not a remote task status failure."""
+
+
 class MCPSessionPool:
     """Manages persistent MCP sessions scoped by ``(server_name, scope_key)``."""
 
@@ -161,6 +166,68 @@ class MCPSessionPool:
         # garbage-collected before teardown completes; the done callback keeps
         # the set from growing without bound.
         self._teardown_tasks: set[asyncio.Task[Any]] = set()
+        # Optional positive scope barriers retain real owners across timeout or
+        # cancelled waiters; the ordinary Local close API stays unchanged.
+        self._scope_closing: dict[str, set[tuple[asyncio.AbstractEventLoop, asyncio.Task[Any]]]] = {}
+        self._scope_barriers: dict[str, int] = {}
+        # Host-bound C scopes retain each actual owner from birth, before any
+        # legacy LRU/close/unwind path can detach its registry entry. Unbound
+        # Local scopes keep their existing best-effort close behavior.
+        self._managed_scopes: set[str] = set()
+        self._scope_monitored: set[tuple[str, asyncio.AbstractEventLoop, asyncio.Task[Any]]] = set()
+
+    def manage_scope(self, scope_key: str) -> None:
+        """Trusted host binding before C tools can create any SDK owners."""
+        with self._lock:
+            self._managed_scopes.add(scope_key)
+            for key, (_, loop, task, _) in self._entries.items():
+                if key[1] == scope_key:
+                    self._retain_scope_owner_locked(scope_key, loop, task)
+            for key, (loop, _, task, _) in self._inflight.items():
+                if key[1] == scope_key:
+                    self._retain_scope_owner_locked(scope_key, loop, task)
+
+    def _retain_scope_owner_locked(self, scope_key, loop, task):
+        if scope_key not in self._managed_scopes:
+            return
+        pair = (loop, task)
+        self._scope_closing.setdefault(scope_key, set()).add(pair)
+        marker = (scope_key, loop, task)
+        if marker in self._scope_monitored:
+            return
+        self._scope_monitored.add(marker)
+
+        def start_positive_join():
+            async def join_actual_owner():
+                try:
+                    await asyncio.shield(task)
+                except BaseException:
+                    if not task.done():
+                        raise
+                finally:
+                    # Only awaiting the original SDK owner through its real
+                    # __aexit__ grants removal, never a detached wrapper/reaper
+                    # finishing or a legacy registry becoming empty.
+                    with self._lock:
+                        self._scope_monitored.discard(marker)
+                        if task.done():
+                            owners = self._scope_closing.get(scope_key)
+                            if owners is not None:
+                                owners.discard(pair)
+                                if not owners:
+                                    self._scope_closing.pop(scope_key, None)
+
+            monitor = loop.create_task(join_actual_owner())
+            self._teardown_tasks.add(monitor)
+            monitor.add_done_callback(self._teardown_tasks.discard)
+
+        if not loop.is_closed():
+            try:
+                loop.call_soon_threadsafe(start_positive_join)
+            except RuntimeError:
+                pass
+        # An unverifiable/closed owner loop stays retained for the explicit
+        # scope barrier to fail closed; no completion is invented here.
 
     # ------------------------------------------------------------------
     # Session owner task
@@ -270,6 +337,8 @@ class MCPSessionPool:
         close_evt: asyncio.Event | None = None
         task: asyncio.Task[Any] | None = None
         with self._lock:
+            if scope_key in self._scope_barriers:
+                raise McpScopeBarrierClosed("Original MCP scope barrier is closed")
             if key in self._entries:
                 session, loop, ent_task, ent_close = self._entries[key]
                 if loop is current_loop and not loop.is_closed():
@@ -299,6 +368,7 @@ class MCPSessionPool:
                 close_evt = asyncio.Event()
                 task = current_loop.create_task(self._run_session(key, connection, ready, close_evt))
                 self._inflight[key] = (current_loop, ready, task, close_evt)
+                self._retain_scope_owner_locked(scope_key, current_loop, task)
 
             # Evict LRU entries when at capacity.
             while len(self._entries) >= self.MAX_SESSIONS:
@@ -611,6 +681,84 @@ class MCPSessionPool:
             inflight_keys = [k for k in self._inflight if k[1] == scope_key]
             inflight = [self._inflight.pop(k) for k in inflight_keys]
         await self._close_owners(entries, inflight)
+
+    def freeze_scope(self, scope_key: str, *, barrier_epoch: int) -> None:
+        """Host-only admission fence before detaching original scope owners."""
+        if type(barrier_epoch) is not int or barrier_epoch <= 0:
+            raise ValueError("Original MCP barrier epoch required")
+        with self._lock:
+            existing = self._scope_barriers.get(scope_key)
+            if existing is not None and existing != barrier_epoch:
+                raise ValueError("Original MCP barrier epoch conflicts")
+            self._scope_barriers[scope_key] = barrier_epoch
+
+    def reopen_scope(self, scope_key: str, *, barrier_epoch: int) -> None:
+        """Reopen only the same positively joined original partial barrier."""
+        with self._lock:
+            if self._scope_barriers.get(scope_key) != barrier_epoch:
+                raise ValueError("Original MCP barrier epoch conflicts")
+            if self._scope_closing.get(scope_key) or any(key[1] == scope_key for key in (*self._entries, *self._inflight)):
+                raise RuntimeError("Original MCP scope owners are not settled")
+            self._scope_barriers.pop(scope_key)
+
+    def scope_owners_pending(self, scope_key: str) -> bool:
+        """C host evidence includes detached owners until positive join."""
+        with self._lock:
+            return bool(self._scope_closing.get(scope_key)) or any(key[1] == scope_key for key in (*self._entries, *self._inflight))
+
+    async def close_scope_and_join(self, scope_key: str, *, deadline: float) -> None:
+        """Close original scope owners and prove every actual task has finished.
+
+        The trusted caller must first close tool admission. This optional API
+        provides physical owner-task settlement, not a Node process census or
+        a stateless/reconnectable contract. Retained references survive timeout
+        and cancellation so retry cannot confuse an empty registry with done.
+        """
+        with self._lock:
+            entries = [self._entries.pop(key) for key in tuple(self._entries) if key[1] == scope_key]
+            inflight = [self._inflight.pop(key) for key in tuple(self._inflight) if key[1] == scope_key]
+            owners = self._scope_closing.setdefault(scope_key, set())
+            owners.update((loop, task) for _, loop, task, _ in entries)
+            owners.update((loop, task) for loop, _, task, _ in inflight)
+            retained = tuple(owners)
+        # Signal every owner before waiting for any. Only original in-flight
+        # initialization receives the existing guarded cancellation semantics.
+        for _, loop, task, close in entries:
+            self._signal_close(loop, close)
+        for loop, ready, task, close in inflight:
+            self._signal_close(loop, close)
+            self._cancel_owner(loop, task, ready)
+
+        async def settle(task):
+            try:
+                await asyncio.shield(task)
+            except BaseException:
+                if not task.done():
+                    raise
+                # Original close swallows owner teardown errors; actual task
+                # completion is all this barrier proves. Node still verifies
+                # that the SDK's real child processes disappeared.
+
+        for loop, task in retained:
+            if not task.done():
+                if loop.is_closed() or (loop is not asyncio.get_running_loop() and not loop.is_running()):
+                    raise RuntimeError("Original MCP owner loop cannot positively settle")
+                if loop is asyncio.get_running_loop():
+                    waiter = asyncio.create_task(settle(task))
+                else:
+                    waiter = asyncio.ensure_future(asyncio.wrap_future(asyncio.run_coroutine_threadsafe(settle(task), loop)))
+                self._teardown_tasks.add(waiter)
+                waiter.add_done_callback(self._teardown_tasks.discard)
+                done, _ = await asyncio.wait({waiter}, timeout=max(0, deadline - time.monotonic()))
+                if not done or not task.done():
+                    raise TimeoutError("Original MCP scope owners have not physically joined")
+                waiter.result()
+            with self._lock:
+                if self._scope_closing.get(scope_key) is owners:
+                    owners.discard((loop, task))
+        with self._lock:
+            if self._scope_closing.get(scope_key) is owners and not owners:
+                self._scope_closing.pop(scope_key, None)
 
     async def close_session(self, server_name: str, scope_key: str) -> None:
         """Close one exact server/scope session so a retry reconnects cleanly."""

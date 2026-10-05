@@ -32,6 +32,15 @@ async def owned_manifest(request, thread_id, manifest_id):
 @router.get("/{manifest_id}")
 @require_permission("threads", "read", owner_check=True)
 async def get_manifest(thread_id: ThreadId, manifest_id: str, request: Request):
+    files = getattr(request.app.state, "fleet_workspace_files", None)
+    if files is not None:
+        user_id = await get_current_user(request)
+        try:
+            return await files.metadata(user_id=user_id, thread_id=thread_id, manifest_id=manifest_id)
+        except LookupError:
+            pass
+        except (ValueError, OSError):
+            raise HTTPException(status_code=404, detail="Accepted workspace manifest not found") from None
     _, _, row = await owned_manifest(request, thread_id, manifest_id)
     return {key: row[key] for key in ("id", "files", "total_bytes", "sealed_at")}
 

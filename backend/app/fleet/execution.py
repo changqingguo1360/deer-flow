@@ -93,7 +93,59 @@ class FleetRunAdmission:
             "secret_refs": backend.secret_refs,
         }
 
+    guard_thread = staticmethod(lambda *args, **kwargs: fleet_thread_admission_guard(*args, **kwargs))
+
     async def prepare(self, session):
+        from deerflow_ecs_fleet.persistence.models import WorkspacePointRow, WorkspaceRequestRow
+
+        from deerflow.persistence.run.model import ThreadExecutionBindingRow
+
+        binding = await session.get(ThreadExecutionBindingRow, (self.parameters.user_id, self.parameters.thread_id))
+        origin = binding.source_workspace if binding is not None else None
+        selector = self.parameters.normalized_config.get("configurable", {}).get("checkpoint_id")
+        source_thread = self.parameters.thread_id
+        own_accepted = await session.scalar(
+            select(WorkspacePointRow)
+            .join(AgentTaskRow, AgentTaskRow.accepted_workspace_point_id == WorkspacePointRow.id)
+            .where(AgentTaskRow.user_id == self.parameters.user_id, AgentTaskRow.thread_id == self.parameters.thread_id)
+            .order_by(AgentTaskRow.created_at.desc())
+            .limit(1)
+        )
+        if origin and (selector == origin.get("target_checkpoint_id") or selector is None and own_accepted is None):
+            source_thread = origin["source_thread_id"]
+            selector = origin["source_checkpoint_id"]
+            self.inputs["source_workspace_thread_id"] = source_thread
+            self.inputs["source_workspace_checkpoint_id"] = selector
+        if selector is None:
+            accepted = own_accepted
+            if accepted is not None:
+                selector = accepted.checkpoint_id
+                latest = await session.scalar(text("SELECT checkpoint_id FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1"), {"thread": self.parameters.thread_id})
+                if latest != selector:
+                    raise ConflictError("Latest checkpoint has no matching accepted remote workspace")
+                self.inputs["source_workspace_checkpoint_id"] = selector
+        if selector is not None:
+            points = (
+                (
+                    await session.execute(
+                        select(WorkspacePointRow)
+                        .join(WorkspaceRequestRow, WorkspaceRequestRow.id == WorkspacePointRow.request_id)
+                        .where(WorkspacePointRow.user_id == self.parameters.user_id, WorkspacePointRow.thread_id == source_thread, WorkspacePointRow.checkpoint_id == selector, WorkspaceRequestRow.state == "accepted")
+                        .order_by(WorkspacePointRow.accepted_at.desc(), WorkspacePointRow.id)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if not points:
+                raise ConflictError("Checkpoint has no accepted remote workspace")
+            source = points[0]
+            root = (await session.execute(text("SELECT metadata FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' AND checkpoint_id=:checkpoint"), {"thread": source_thread, "checkpoint": selector})).scalar_one_or_none()
+            if root is None or root.get("deerflow_execution_run_id") != source.run_id:
+                raise ConflictError("Accepted source checkpoint execution conflicts")
+            if origin and source_thread != self.parameters.thread_id and source.id != origin["point_id"]:
+                raise ConflictError("Branch original accepted point conflicts")
+            self.inputs["source_workspace_point_id"] = source.id
         if session.get_bind().dialect.name != "postgresql":
             raise RuntimeError("Remote admission requires PostgreSQL")
         # Serialize even an absent goal without locking a core run first.
@@ -135,6 +187,22 @@ class FleetRunAdmission:
             raise ValueError("Run idempotency backend conflicts") from None
         # Original immutable IDs/deadlines are reused; only stable request and
         # operator inputs are compared. A fresh clock/UUID is not a conflict.
+        for name in ("source_workspace_point_id", "source_workspace_thread_id", "source_workspace_checkpoint_id"):
+            if getattr(spec, name) is not None:
+                self.inputs[name] = getattr(spec, name)
         expected = self.spec_for(run_id=spec.run_id, agent_task_id=spec.agent_task_id, generation=spec.generation, execution_deadline=spec.execution_deadline)
         if spec.payload_digest() != expected.payload_digest():
             raise ValueError("Run idempotency execution inputs conflict")
+
+
+async def fleet_thread_admission_guard(session, *, user_id, thread_id, backend, requested_backend, operation):
+    """No lease/core-status shortcut releases an unfinished remote task."""
+    if backend != "fleet":
+        raise ConflictError("Thread execution backend is unsupported")
+    tasks = (await session.execute(select(AgentTaskRow).where(AgentTaskRow.user_id == user_id, AgentTaskRow.thread_id == thread_id).order_by(AgentTaskRow.created_at, AgentTaskRow.id).with_for_update())).scalars().all()
+    if any(task.state not in {"succeeded", "failed", "cancelled", "timed_out"} for task in tasks):
+        raise ConflictError("Thread has unfinished remote execution or recovery")
+    if operation == "artifact_write":
+        raise ConflictError("Accepted remote workspace is immutable")
+    if requested_backend != "fleet" and operation == "run":
+        raise ConflictError("Thread requires its original remote execution backend")

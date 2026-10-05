@@ -38,6 +38,7 @@ from app.gateway.deps import get_current_user, get_feedback_repo, get_run_event_
 from app.gateway.pagination import trim_run_message_page
 from app.gateway.run_models import RunCreateRequest
 from app.gateway.services import build_checkpoint_state_accessor, build_thread_checkpoint_state_accessor, prepare_sse_subscription, should_wait_for_run_stream, sse_consumer, start_run, wait_for_run_completion
+from app.gateway.thread_admission import require_thread_mutation_admission
 from app.gateway.utils import sanitize_log_param
 from deerflow.agents.middlewares.dynamic_context_middleware import strip_injected_user_message_id_suffix
 from deerflow.runtime import CancelOutcome, RunRecord, RunStatus, serialize_channel_values_for_api
@@ -833,6 +834,7 @@ async def prepare_regenerate_run(
     request: Request,
 ) -> RegeneratePrepareResponse:
     """Prepare input and checkpoint for regenerating the latest assistant turn."""
+    await require_thread_mutation_admission(request, thread_id)
     return await _prepare_regenerate_payload(thread_id, body.message_id, request)
 
 
@@ -844,6 +846,7 @@ async def prepare_edit_regenerate_run(
     request: Request,
 ) -> EditRegeneratePrepareResponse:
     """Prepare input and checkpoint for editing then rerunning the latest user turn."""
+    await require_thread_mutation_admission(request, thread_id)
     return await _prepare_edit_regenerate_payload(thread_id, body.human_message_id, body.replacement_text, request)
 
 

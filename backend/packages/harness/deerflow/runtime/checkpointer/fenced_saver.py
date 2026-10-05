@@ -25,6 +25,7 @@ class FencedAsyncPostgresSaver(AsyncPostgresSaver):
         super().__init__(conn)
         self._write_fence = write_fence
         self._schema = schema
+        self.after_root_commit = None
         self._mutation = ContextVar("checkpoint_mutation", default=None)
 
     async def setup(self):
@@ -88,8 +89,17 @@ class FencedAsyncPostgresSaver(AsyncPostgresSaver):
             self._mutation.reset(token)
 
     async def aput(self, config, checkpoint, metadata, new_versions):
+        from deerflow.runtime.execution.mutation_context import current_remote_mutation_context
+
+        context = current_remote_mutation_context()
+        if context is not None:
+            metadata = dict(metadata, deerflow_execution_run_id=context.run_id)
         async with self._operation(config["configurable"]["thread_id"], "aput"):
-            return await super().aput(config, checkpoint, metadata, new_versions)
+            committed = await super().aput(config, checkpoint, metadata, new_versions)
+        # The audited saver TX, original connection and lock have all exited.
+        if not committed["configurable"].get("checkpoint_ns") and self.after_root_commit is not None:
+            await self.after_root_commit(committed, metadata)
+        return committed
 
     async def aput_writes(self, config, writes, task_id, task_path=""):
         async with self._operation(config["configurable"]["thread_id"], "aput_writes"):

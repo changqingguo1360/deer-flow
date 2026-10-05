@@ -165,8 +165,8 @@ class RedisFaultProxy:
         self.delivery_reply_held = asyncio.Event()
         self.release_delivery_reply = asyncio.Event()
 
-    async def start(self):
-        self.server = await asyncio.start_server(self.accept, "127.0.0.1", 0)
+    async def start(self, *, host="127.0.0.1"):
+        self.server = await asyncio.start_server(self.accept, host, 0)
         self.port = self.server.sockets[0].getsockname()[1]
 
     async def accept(self, reader, writer):
@@ -473,8 +473,11 @@ async def installed_omitting_seal_environment(*, bootstrap, spec, grant):
     """Trusted fault fixture: omit seal after real worker closure, then naturally close."""
     from app.fleet.runner_context import build_agent_environment
     from deerflow.runtime.runs.manager import RunStatus
+    from fleet.c08_installed_bytes import verify_installed
 
+    verify_installed()
     environment = await build_agent_environment(bootstrap=bootstrap, spec=spec, grant=grant)
+    install_stock_final_probe(environment)
     original_close = environment.close
     original_record = None
 
@@ -508,3 +511,88 @@ def installed_omitting_seal_compatibility():
 
 
 installed_omitting_seal_environment.worker_compatibility = installed_omitting_seal_compatibility
+
+
+async def installed_c07_environment(*, bootstrap, spec, grant):
+    """Original C07 model/tool over actual C08 installed publication resources."""
+    from app.fleet.runner_context import build_agent_environment
+    from deerflow.runtime.stream_bridge.redis import RedisStreamBridge
+    from fleet.c08_installed_bytes import verify_installed
+
+    verify_installed()
+    receipt("runner-start", execution_surface="installed Linux container")
+    original_init = RedisStreamBridge.__init__
+
+    def owned_init(instance, **kwargs):
+        kwargs["key_prefix"] = (_RUNNER_DIR / "redis-prefix.txt").read_text()
+        original_init(instance, **kwargs)
+
+    prefix_patch = patch.object(RedisStreamBridge, "__init__", owned_init)
+    prefix_patch.start()
+    try:
+        environment = await build_agent_environment(bootstrap=bootstrap, spec=spec, grant=grant)
+    except BaseException:
+        prefix_patch.stop()
+        raise
+    original_end = environment.bridge.publish_end
+    original_close = environment.close
+
+    async def publish_end(run_id):
+        try:
+            await original_end(run_id)
+        except Exception as error:
+            receipt("runner-exception", error_type=type(error).__name__, writer_seal_fault="actual C07 writer seal fault" in str(error))
+            raise
+
+    async def close():
+        try:
+            await original_close()
+            receipt("runner-exit", execution_surface="installed Linux container")
+        finally:
+            prefix_patch.stop()
+
+    environment.bridge.publish_end = publish_end
+    environment.close = close
+    return environment
+
+
+installed_c07_environment.worker_compatibility = installed_omitting_seal_compatibility
+
+
+def install_stock_final_probe(environment):
+    """Keep the accepted closed-Service fixture check after original owner joins."""
+    from dataclasses import replace
+
+    from deerflow_c04_fixture import Service
+
+    from fleet.c08_stock_linux_fixture import install_final_closed_service_probe
+
+    restore = install_final_closed_service_probe(environment.workspace_publications, Service)
+    original_prepare = environment.context.prepare_terminal
+    original_close = environment.close
+
+    async def prepare(record):
+        restore.capture_owners()
+        await original_prepare(record)
+
+    async def close():
+        try:
+            await original_close()
+        finally:
+            restore()
+
+    environment.context = replace(environment.context, prepare_terminal=prepare)
+    environment.close = close
+
+
+async def installed_c07_stock_environment(*, bootstrap, spec, grant):
+    from app.fleet.runner_context import build_agent_environment
+    from fleet.c08_installed_bytes import verify_installed
+
+    verify_installed()
+    environment = await build_agent_environment(bootstrap=bootstrap, spec=spec, grant=grant)
+    install_stock_final_probe(environment)
+    return environment
+
+
+installed_c07_stock_environment.worker_compatibility = installed_omitting_seal_compatibility

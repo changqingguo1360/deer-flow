@@ -79,6 +79,7 @@ class WorkerCompatibilityRequest(BaseModel):
     runtime_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     skill_snapshot: SnapshotRequest
     plugin_snapshot: SnapshotRequest
+    workspace_contract_version: int | None = Field(default=None, strict=True, ge=1, le=1)
 
 
 class ClaimRequest(NodeSessionRequest):
@@ -175,3 +176,50 @@ async def complete_attempt(request: Request, attempt_id: str, body: CompleteRequ
         raise HTTPException(status_code=403, detail="Attempt unavailable") from None
     except (ValueError, OSError):
         raise HTTPException(status_code=409, detail="Completion not accepted") from None
+
+
+class WorkspaceClaimRequest(AttemptRequest):
+    request_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+    request_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    barrier_epoch: int = Field(gt=0, strict=True)
+    nonce: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class WorkspacePreparedRequest(WorkspaceClaimRequest):
+    manifest: dict
+
+
+async def workspace_operation(request, attempt_id, body, operation):
+    principal = require_node(request)
+    service = getattr(request.app.state, "fleet_workspaces", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="Fleet workspace staging unavailable")
+    from sqlalchemy.exc import DBAPIError
+
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    try:
+        return await getattr(service, operation)(node_id=principal.node_id, credential_id=principal.credential_id, attempt_id=attempt_id, **body.model_dump())
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Workspace attempt unavailable") from None
+    except DBAPIError as error:
+        if getattr(error.orig, "sqlstate", None) not in {"55P03", "57014"}:
+            raise
+        raise HTTPException(status_code=409, detail="Workspace original deadline elapsed") from None
+    except (ValueError, OwnershipRejected, OSError, TimeoutError):
+        raise HTTPException(status_code=409, detail="Workspace request unavailable") from None
+
+
+@router.post("/attempts/{attempt_id}/workspace/poll")
+async def workspace_poll(request: Request, attempt_id: str, body: AttemptRequest):
+    return await workspace_operation(request, attempt_id, body, "poll")
+
+
+@router.post("/attempts/{attempt_id}/workspace/claim")
+async def workspace_claim(request: Request, attempt_id: str, body: WorkspaceClaimRequest):
+    return await workspace_operation(request, attempt_id, body, "claim")
+
+
+@router.post("/attempts/{attempt_id}/workspace/prepared")
+async def workspace_prepared(request: Request, attempt_id: str, body: WorkspacePreparedRequest):
+    return await workspace_operation(request, attempt_id, body, "prepared")

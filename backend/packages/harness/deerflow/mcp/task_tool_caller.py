@@ -17,6 +17,7 @@ from deerflow.mcp.headers import apply_header_overrides
 from deerflow.mcp.interceptors import build_mcp_tool_interceptors
 from deerflow.mcp.oauth import OAuthTokenManager, build_oauth_tool_interceptor
 from deerflow.mcp.session_pool import MCPSessionPool, call_pooled_session_tool, get_session_pool
+from deerflow.runtime.execution.workspace_boundary import run_native_writer, settled_workspace_activity
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ class McpTaskToolCaller:
         else:
             self._interceptors = [interceptor for interceptor in self._submit_interceptors if interceptor is not context_headers_interceptor]
 
+    @settled_workspace_activity
     async def call_tool(
         self,
         *,
@@ -110,7 +112,7 @@ class McpTaskToolCaller:
         scope_key = mcp_task_session_scope_key(user_id=user_id, thread_id=thread_id)
 
         if transport == "stdio":
-            connection = await asyncio.to_thread(
+            connection = await run_native_writer(
                 _prepare_stdio_connection,
                 connection,
                 user_id=user_id,

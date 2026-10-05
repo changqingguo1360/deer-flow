@@ -50,8 +50,26 @@ async def tracking(checkpoint_owner):
     item.tasks = bound(ScheduledTaskRepository, item)
     item.occurrences = bound(ScheduledTaskRunRepository, item)
     item.mcp = bound(McpTaskRepository, item)
-    with remote_mutation_scope(item.capability.context):
+    from deerflow.runtime.execution.workspace_boundary import WorkspaceWriterController, workspace_writer_scope
+
+    item.workspace_controller = WorkspaceWriterController()
+    item.workspace_controller.bind_execution_context(item.capability.context)
+    with remote_mutation_scope(item.capability.context), workspace_writer_scope(item.workspace_controller):
         yield item
+
+
+async def accept_original_terminal(item):
+    from deerflow.persistence.run import RunRepository
+
+    from .c08_native_terminal_pair import NativeTerminalPreparation, assert_original_terminal_pair
+
+    if not hasattr(item, "runs"):
+        item.runs = RunRepository(item.env[1], mutation_capability=item.capability)
+    directory = item.env[3].config.nas_root / ("tracking-terminal-" + item.spec.run_id)
+    preparation = NativeTerminalPreparation(item, directory, controller=item.workspace_controller)
+    await preparation(SimpleNamespace(status="success", error=None, stop_reason=None))
+    await item.runs.update_status(item.spec.run_id, "success")
+    await assert_original_terminal_pair(item)
 
 
 async def rows(item):
@@ -122,8 +140,7 @@ async def test_actual_tracking_writes_reject_revoked_original_owner(tracking, op
 @pytest.mark.asyncio
 async def test_actual_scheduler_completion_is_legal_and_both_transactions_commit(tracking):
     item = tracking
-    async with item.engine.begin() as conn:
-        await conn.execute(text("UPDATE runs SET status='success'"))
+    await accept_original_terminal(item)
     await complete(item)
     async with item.engine.connect() as conn:
         assert (await conn.execute(text("SELECT status FROM scheduled_task_runs"))).scalar_one() == "success"
@@ -135,8 +152,7 @@ async def test_scheduler_revocation_between_actual_completion_transactions(track
     from deerflow.runtime.execution.mutation_context import OwnershipRejected
 
     item = tracking
-    async with item.engine.begin() as conn:
-        await conn.execute(text("UPDATE runs SET status='success'"))
+    await accept_original_terminal(item)
     original = item.occurrences.update_status
 
     async def revoke_after_occurrence(*args, **kwargs):
@@ -254,7 +270,7 @@ async def test_mcp_cancel_or_create_wrong_original_context_has_no_effect(trackin
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("identity", ["valid", "revoked", "missing", "wrong", "late-revoke"])
+@pytest.mark.parametrize("identity", ["valid", "ambient-none", "revoked", "missing", "wrong", "late-revoke"])
 async def test_actual_mcp_background_tool_private_submitter_service_repository(tracking, identity):
     from dataclasses import replace
 
@@ -274,6 +290,11 @@ async def test_actual_mcp_background_tool_private_submitter_service_repository(t
 
     class Driver:
         async def submit(self, request):
+            from deerflow.runtime.execution.mutation_context import current_remote_mutation_context
+            from deerflow.runtime.execution.workspace_boundary import current_workspace_controller
+
+            assert current_remote_mutation_context() == item.capability.context
+            assert current_workspace_controller() is item.workspace_controller
             calls.append(request)
             if identity == "late-revoke":
                 entered.set()
@@ -291,7 +312,9 @@ async def test_actual_mcp_background_tool_private_submitter_service_repository(t
     drivers.register("ordinary-tools", Driver())
     service = McpTaskService(repository=item.mcp, drivers=drivers, poll_interval_seconds=1, lease_seconds=30, max_concurrent_polls=1)
     raw = StructuredTool(name="actual_submit", description="Submit", args_schema=Args, coroutine=lambda **kw: None)
-    tool = _make_background_submit_tool(raw, server_name="configured", task_name="actual", submit_tool="submit", status_tool="status", cancel_tool="cancel")
+    if identity != "missing":
+        with mcp_task_submitter_scope(service, ExtensionsConfig()):
+            tool = _make_background_submit_tool(raw, server_name="configured", task_name="actual", submit_tool="submit", status_tool="status", cancel_tool="cancel")
     runtime = SimpleNamespace(context={"user_id": item.spec.user_id, "thread_id": item.spec.thread_id, "run_id": item.spec.run_id}, config={}, tool_call_id="call")
     set_mcp_task_submitter(LocalSubmitter())
     if identity == "revoked":
@@ -299,8 +322,14 @@ async def test_actual_mcp_background_tool_private_submitter_service_repository(t
             await conn.execute(text("UPDATE runs SET owner_worker_id='other'"))
     before = await rows(item)
     try:
+        if identity == "missing":
+            with pytest.raises(OwnershipRejected, match="Remote MCP requires private bound submitter"):
+                _make_background_submit_tool(raw, server_name="configured", task_name="actual", submit_tool="submit", status_tool="status", cancel_tool="cancel")
+            assert calls == []
+            assert await rows(item) == before
+            return
         with mcp_task_submitter_scope(service, ExtensionsConfig()):
-            token = _current_mutation_context.set(None if identity == "missing" else replace(item.capability.context, attempt_id="other") if identity == "wrong" else item.capability.context)
+            token = _current_mutation_context.set(None if identity == "ambient-none" else replace(item.capability.context, attempt_id="other") if identity == "wrong" else item.capability.context)
             try:
                 if identity == "late-revoke":
                     task = __import__("asyncio").create_task(tool.coroutine(runtime=runtime, value="external"))
@@ -310,7 +339,7 @@ async def test_actual_mcp_background_tool_private_submitter_service_repository(t
                     release.set()
                     with pytest.raises(OwnershipRejected):
                         await task
-                elif identity != "valid":
+                elif identity not in {"valid", "ambient-none"}:
                     with pytest.raises(OwnershipRejected):
                         await tool.coroutine(runtime=runtime, value="external")
                 else:
@@ -321,7 +350,7 @@ async def test_actual_mcp_background_tool_private_submitter_service_repository(t
     finally:
         set_mcp_task_submitter(None)
         await service.stop()
-    if identity == "valid":
+    if identity in {"valid", "ambient-none"}:
         assert len((await rows(item))["mcp_tasks"]) == 1
     else:
         assert await rows(item) == before
@@ -347,10 +376,9 @@ async def test_mcp_idempotent_conflict_never_returns_other_users_persisted_row(t
 
 async def prepare_tracking_transaction(item, operation):
     if operation.startswith("scheduler"):
-        async with item.engine.begin() as conn:
-            await conn.execute(text("UPDATE runs SET status='success'"))
-            if operation == "scheduler-parent":
-                await conn.execute(text("UPDATE scheduled_task_runs SET status='success'"))
+        await accept_original_terminal(item)
+        if operation == "scheduler-parent":
+            await item.occurrences.update_status("occurrence", status="success", run_id=item.spec.run_id, finished_at=datetime.now(UTC), completion_task_id="scheduled")
     elif operation == "mcp-cancel":
         await create_mcp(item)
 
@@ -503,7 +531,8 @@ async def test_actual_toolnode_preserves_private_mcp_runtime_to_bound_service(tr
     drivers.register("ordinary-tools", Driver())
     service = McpTaskService(repository=item.mcp, drivers=drivers, poll_interval_seconds=1, lease_seconds=30, max_concurrent_polls=1)
     raw = StructuredTool(name="actual_submit", description="Submit", args_schema=Args, coroutine=lambda **kw: None)
-    tool = _make_background_submit_tool(raw, server_name="configured", task_name="actual", submit_tool="submit", status_tool="status", cancel_tool="cancel")
+    with mcp_task_submitter_scope(service, ExtensionsConfig()):
+        tool = _make_background_submit_tool(raw, server_name="configured", task_name="actual", submit_tool="submit", status_tool="status", cancel_tool="cancel")
     from deerflow.tools.sync import make_sync_tool_wrapper
 
     tool.func = make_sync_tool_wrapper(tool.coroutine, tool.name)
@@ -559,11 +588,11 @@ async def test_actual_tracking_target_wait_expiry_cannot_commit(tracking, domain
     item = tracking
     if domain == "mcp-cancel":
         await create_mcp(item)
+    if domain in {"occurrence", "parent"}:
+        await accept_original_terminal(item)
+    if domain == "parent":
+        await item.occurrences.update_status("occurrence", status="success", run_id=item.spec.run_id, finished_at=datetime.now(UTC), completion_task_id="scheduled")
     async with item.engine.begin() as conn:
-        if domain in {"occurrence", "parent"}:
-            await conn.execute(text("UPDATE runs SET status='success'"))
-        if domain == "parent":
-            await conn.execute(text("UPDATE scheduled_task_runs SET status='success',error=NULL"))
         await conn.execute(text("UPDATE runs SET lease_expires_at=clock_timestamp()+interval '1 second'"))
         await conn.execute(text("UPDATE fleet_attempts SET lease_expires_at=(SELECT lease_expires_at FROM runs)"))
     before = await rows(item)
@@ -698,7 +727,8 @@ async def test_real_worker_full_agent_preserves_mcp_original_runtime(mutations, 
     drivers.register("ordinary-tools", Driver())
     service = McpTaskService(repository=item.mcp, drivers=drivers, poll_interval_seconds=1, lease_seconds=30, max_concurrent_polls=1)
     raw = StructuredTool(name="actual_submit", description="Submit", args_schema=Args, coroutine=lambda **kw: None)
-    tool = _make_background_submit_tool(raw, server_name="configured", task_name="actual", submit_tool="submit", status_tool="status", cancel_tool="cancel")
+    with mcp_task_submitter_scope(service, ExtensionsConfig()):
+        tool = _make_background_submit_tool(raw, server_name="configured", task_name="actual", submit_tool="submit", status_tool="status", cancel_tool="cancel")
     from deerflow.tools.sync import make_sync_tool_wrapper
 
     tool.func = make_sync_tool_wrapper(tool.coroutine, tool.name)
@@ -719,12 +749,15 @@ async def test_real_worker_full_agent_preserves_mcp_original_runtime(mutations, 
 
     compiled = create_agent(model=Model(), tools=[tool], state_schema=ThreadState)
     bridge = SimpleNamespace(publish=AsyncMock(), publish_end=AsyncMock(), cleanup=AsyncMock())
+    from .c08_native_terminal_pair import NativeTerminalPreparation
+
+    preparation = NativeTerminalPreparation(item, item.env[3].config.nas_root / ("mcp-worker-terminal-" + item.spec.run_id), controller=item.workspace_controller)
     with mcp_task_submitter_scope(service, ExtensionsConfig()):
         await run_agent(
             bridge,
             manager,
             record,
-            ctx=RunContext(checkpointer=item.writer, event_store=item.events, thread_store=item.threads, app_config=item.private),
+            ctx=RunContext(checkpointer=item.writer, event_store=item.events, thread_store=item.threads, app_config=item.private, prepare_terminal=preparation),
             agent_factory=lambda *, config: compiled,
             graph_input={"messages": [HumanMessage(content="submit real durable task")]},
             config={"configurable": {"thread_id": item.spec.thread_id}, "context": {"user_id": item.spec.user_id}},
@@ -736,3 +769,7 @@ async def test_real_worker_full_agent_preserves_mcp_original_runtime(mutations, 
     assert record.status.value == "success"
     assert len(calls) == 1 and calls[0].run_id == item.spec.run_id
     assert len((await rows(item))["mcp_tasks"]) == 1
+
+    from .c08_native_terminal_pair import assert_original_terminal_pair
+
+    await assert_original_terminal_pair(item)

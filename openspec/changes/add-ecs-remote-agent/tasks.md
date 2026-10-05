@@ -54,10 +54,14 @@
 
 ## 8. C08 实现 C workspace 和 checkpoint 联合恢复点
 
-- [ ] 8.1 写并运行 backend/tests/fleet/test_c08_remote_agent_runtime.py，确认 C08 行为测试 RED。
-- [ ] 8.2 完成计划列出的接口、事务和部署接线；满足 `Consistent workspace checkpoint boundary`。
-- [ ] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 8.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+实施依据：[源审计后的详细 C08 计划](../../../docs/superpowers/plans/2026-10-03-ecs-fleet-c08-workspace-checkpoint.md)。恢复点必须关联实际 checkpoint 与 runner 可写目录之外的封存 manifest；finishing 和 recovery_required 保留线程排他。以下完成项只在实际验证与验收后勾选。
+
+- [x] 8.1 写并运行 backend/tests/fleet/test_c08_remote_agent_runtime.py，确认 C08 行为测试 RED。
+- [x] 8.2 完成计划列出的接口、事务和部署接线；满足 `Consistent workspace checkpoint boundary`。
+- [x] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 8.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+
+C08 实际验收 — 2026-10-06：[验收报告](../../../docs/ecs-fleet-c08-acceptance.md)。完整 SOURCEv14 SPEC→QUALITY 及最终 combined SPEC→QUALITY 均无发现，Root 独立验收；本轮 native24、current stock6、actual B12 image1 无失败/错误/skip。历史完整 required49/default/B261 等保留原始字节和镜像 ID，不改标为当前单方法修复的执行结果。文档注释和单个 C08 slice 提交不启用远程 Agent；C09–C12 与组合仍待执行。
 
 ## 9. C09 远程取消、人工中断与故障隔离
 
@@ -231,3 +235,9 @@ Final nonpackaged acceptance documentation: guidance24/0errors/6soft chain warni
 
 
 C06 accepted implementation commit: `5e936510964222d0f9e556fbe18c9f6e60cdd2f9` (`feat(fleet): fence remote durable writes and settle owned cleanup`), 59 explicitly staged files. Postcommit all frozen technical60/18 SHA values still match; worktree was clean. OpenSpec6.1-6.4 and all detailed C06 steps are complete. C07-C12 and B/C continuations remain pending; remote activation stays closed. This receipt changes documentation only.
+
+C08 final formatting supplement v2: only35 f0009 SQL EOL spaces removed; narrow
+SPEC then QUALITY passes with no findings, original actual PostgreSQL2PASS/0skip.
+Current stockd3b529/inventorye207 and Bfb884 have complete byte verification,
+not fresh main6/B12/native24 execution. Source14/runtime4 retain original main
+proof IDs; sparse override and final Root receipt accompany the single C08 commit.

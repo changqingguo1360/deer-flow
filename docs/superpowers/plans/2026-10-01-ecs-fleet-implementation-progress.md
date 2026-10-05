@@ -6,6 +6,1042 @@ B has met its isolated local release gate; C and BC remain incomplete. Current s
 [B acceptance](../../../docs/ecs-fleet-b-acceptance.md). Dated historical sections below
 do not override the final matrix.
 
+## Current C08 accepted slice — 2026-10-06
+
+C08 source/runtime passed Root independent acceptance after fresh complete
+SOURCEv14 SPEC→QUALITY and final combined SPEC→QUALITY, all zero findings.
+[Acceptance](../../ecs-fleet-c08-acceptance.md) records exact hashes, exact-image
+main paths, historical full regressions and evidence limits. SOURCE202/171Python/
+55Task5delta is frozen in task6-source-freeze-v14.json (deb2570f...); final runtime
+supplement task6-runtime-freeze-v4-final-v1.json (3c58252c...) references prior
+v13/v3 without relabeling historical participating bytes. Root checks SOURCE
+10692refs/9786unique and runtime976refs/966unique, zero hash/size errors.
+
+Q13-1 closes with retained/shielded native preparation and24PASS/0fail/error/skip;
+actual SOURCEv14 stock6 (initial/new-turn/branch full/delta) and current B12 Compose
+image1 pass with no failures/errors/skips. SOURCEv14 stock20ea binds10 distinct
+parent/child containers, sixwheel782-member events and physical stop. SOURCEv14 B
+d95f binds all55COPY, inherited12deps303members/CLI and original no-port entry.
+The incidental hostB11 case is not an image gate. Prior49/default/B261/C04/typed
+gates remain honestly historical, not replayed after the one-method fix.
+
+All owned runtime/build/observer handles ended and current container residuals
+are0. Image cleanup removes18 obsolete feature images with zero container refs,
+no force/prune/volume deletion; final inventory keeps6 feature images for current
+C/B and necessary parent/regression/dependency roles. Postacceptance documentation
+annotations have separate hashes; frozen inputs/manifests are not rewritten.
+OpenSpec8.1–8.4 and detailed Task6 belong to the single accepted C08 slice commit.
+C09–C12, C→B→C and activation remain incomplete; FINAL remains cumulative120s.
+
+Formatting supplement v2 removes only35 SQL EOL spaces in f0009, preserves AST/SQL
+semantics and passes sequential narrow SPEC→QUALITY. Existing actual PG upgrade/
+downgrade2PASS/0skip uses final bytes. Current stockd3b529/inventorye207 and Bfb884
+pass complete byte checks; these are not new main6/B12/native24 runs. Original
+20ea/d95 main proof IDs remain exact. The sparse override and Root annotations
+are separate from immutable SOURCE14/RUNTIME4; staged whitespace is fixed before
+commit. Cleanupv3/finalinventoryv2 records18 removed and6 retained feature images.
+
+## Historical C08 ownership fix passes targeted native verification — 2026-10-06
+
+Q13-1 is implemented narrowly in `AgentContainers.prepare_workspace`: both initial
+and accepted preparation retain one private native writer task and defer ordinary
+or repeated cancellation until real copy/fsync/preparation-marker completion.
+The first cancellation and the original native copy failure remain observable.
+Other production methods/import ASTs are unchanged; the new production SHA is
+`736b5ba2e23653b639909d8bce6a5e415c6a04660ecf2a938cf223f3843008d2`.
+
+Actual original `run_worker`/`NodeDaemon` and real flock/native filesystem behavior
+have4 genuine RED failures on early lock release, then final24PASS/0failure/error/
+skip (the same4 ownership cases plus20 existing preparation neighbors), canonical
+wall3.599905375s. The test invokes the original registered SIGTERM callback through
+controlled registration, not actual OS signal delivery; RPC/container doubles do
+not establish Docker or accepted-point SQL authorization. Copy-error injection is
+limited to the actual native operation; the intermediate22PASS/2FAIL window records
+an overly broad test injection into a reused thread's journal save, not feature RED.
+Root independently read the complete new test, exact production diff, final XML
+and canonical receipt. Source/participating-byte freeze and sequential re-review
+remain required; whole C08 remains unaccepted and uncommitted.
+
+Only1of773 packaged inputs and1of55 B COPY sources changes. Existing image/report
+IDs and all v13 runtime windows remain honestly historical. Input-only preparation
+of one changed ECS wheel and unchanged five original wheel archives precedes a new
+source review; no new Docker build or broad test replay is authorized by this note.
+C09–C12, BC and activation remain incomplete; FINAL retains its cumulative120s.
+
+## Historical final C08 QUALITY finding — 2026-10-06
+
+Complete SOURCEv13 + RUNTIMEv3 SPEC passes with P1/P2/P3=0/0/0; final independent
+QUALITY reports P1/P2/P3=0/1/0 (Q13-1). Root read both complete reports and confirmed
+the current Node shutdown ordering. Initial and accepted workspace preparation
+await `asyncio.to_thread` without retaining its physical writer. Cancellation can
+allow stopped reporting and daemon flock/client release before native copying,
+fsync and marker writes settle. The sole implementer must retain and join this
+writer through repeated cancellation before propagating cancellation or releasing
+ownership. This is current C08 preparation ownership, not deferred C09 control.
+
+Original v13 sources, runtime gates and review reports remain immutable historical
+evidence. `task6-source-runtime-v13-root-review-decision.json` records NOT ACCEPTED.
+No C08 checkbox or commit is made. A narrow fix, meaningful targeted verification,
+new source/participating-byte bindings and sequential re-review remain required;
+C09–C12, BC and activation still remain incomplete. The120-second FINAL budget
+and all original ownership/fencing requirements remain unchanged.
+
+## Historical C08 Task6 runtime checkpoint — 2026-10-05
+
+The completed SOURCEv12 SPEC then QUALITY reviews both report P1/P2/P3=0;
+Root recorded source-only acceptance in `task6-source-v12-root-acceptance.json`.
+The later C04 compatibility migration changes only the host-side live fixture;
+SOURCEv13 and complete final source/runtime SPEC then QUALITY remain pending.
+This checkpoint does not mark Task6, whole C08, OpenSpec8.1–8.4 or the slice commit
+complete. C09–C12, BC and activation remain incomplete.
+
+The original B image `c307f97d...` was already absent before the scoped image
+cleanup. One original worker build, using the frozen base, twelve hash-verified
+binary wheels and verified Docker29.2.0 archive, now produces honest immutable ID
+`sha256:b4bf95e0f991781d6d864a984599f12dfe1b3cc41d3afd752c0f8cb9f52546f7`.
+It retains the original worker entrypoint and no exposed ports. Actual55COPY,
+303 immutable dependency members, twelve versions and CLI executable bytes match.
+The full original B required gate passes261/261 with no failures/errors/skips,
+natural exit0, reaped, wall149.763347583 seconds. This is new worker evidence,
+not an assertion that the missing original image was retained or recreated by ID.
+
+The missing C04 installed regression now passes its complete original15 cases
+(6 lead-graph,3 bundle-drift,6 standalone-provider), natural exit0/reaped with
+zero failures/errors/skips. Final v5 wall134.566116 seconds and actual host SHA
+`c100438162003fa8e61220c02d182f82131dacca4eda5ae2620e91845159e864` are recorded.
+The v12 reference in that receipt binds unchanged packaged/image bytes only;
+it does not describe the migrated host fixture. The migration connects the
+original Node publication owner and independent owned cleanup, scopes artifact
+uniqueness to the original execution directory, and checks canonical sealed
+manifests against actual SQL points and the original grant budgets. Original111
+assertions comprise108 unchanged ASTs and3 explicit semantic migrations; the
+module now contains128 assertions. The migrations use
+C08 recovery_required on unpaired failed readiness, distinguish paused physical
+stop from success, and bind paused artifact absence to the original output root.
+Actual terminal pair/seal/checkpoint, physical stop, private journal/no relaunch,
+file contents, process isolation, memory/MCP and Local parity checks remain.
+The legacy alternate provider still proves real installed metadata introspection
+without app/harness, while the original C08 preflight correctly rejects its absent
+workspace contract; no fixture advertises unsupported workspace execution.
+
+Earlier C04 windows are retained accurately: v1 is an owned SIGINT interruption
+with0cases/exit2, not business RED or PASS; v2 has8PASS/7FAIL (six import scaffold
+failures and one separate old-provider admission expectation); v3 has9PASS/6FAIL
+from old artifact/state expectations. V4 passes15 before the final canonical
+snapshot refinement; final acceptance uses v5. No production, wheel or image
+change was needed for this host fixture migration. The previous full default and
+native suites did not execute these opt-in live bodies; their unchanged scope is
+retained, and the exact final live fixture is separately verified by final15.
+
+Root independently binds sixteen completed stock20 parent-attempt proofs to
+actual FINAL start with remaining≤120, identical cumulative deadline before/after
+cleanup, monotonically decreasing remaining time, and the same physically stopped
+container/image. Two are paused and fourteen final. This proves preservation of
+the original cumulative120-second budget; it neither pretends the native0.3-second
+watchdog tests are physical120 proof nor requires deliberately exhausting120.
+The original stock20/history4/Barrier21/C07stock4/typed5 proofs keep their actual
+image IDs and exact participating-byte bindings. Final1 overlaps typed5, and the
+required49 collection remains a separate case-to-runtime mapping; cross-window
+counts are not summed into a unique acceptance total. Complete runtime assembly
+and formal review are the remaining gates. Older paragraphs below preserve their
+dated checkpoints and do not override this current status.
+
+B isolated local gate, C01–C07 and C08 Tasks1–5 remain accepted. Task5 is
+source/native only. Task6 and whole C08 acceptance remain pending; C09–C12, BC
+and activation are incomplete. OpenSpec8.1–8.4 remain unchecked and no C08 commit
+has been made. The original Runner FINAL cumulative120-second budget is unchanged.
+
+Complete SOURCEv5 passed SPEC then QUALITY with P1/P2/P3=0. Its manifest SHA is
+`b8834023a3e6d5e37f849e5f932f7d09fea0e0cd97f25a839e7b40a34e718750`;
+Root independently matched4290 references/3421 unique paths with zero missing or
+mismatched hashes. The accepted source gate and its1184 unique native/neighbor
+passes are historical immutable evidence. Subsequent compatibility changes require
+a new complete source freeze and sequential SPEC then QUALITY review.
+
+The historical first fresh-build preflight did not reach image construction: Docker CLI context and its
+Unix socket exist, but daemon API requests time out. The bounded info and direct
+ping probes were reaped; no daemon restart, prune or container cleanup was performed.
+No Task6 build context or image exists. Docker Desktop restart requires separate
+human authorization because other projects' containers may be interrupted.
+
+A first whole-default window was interrupted when an old shell unit fixture entered
+the real sandbox-cleanup script. Only its owned process tree was stopped and reaped;
+zero owned residuals remain. The window is an infrastructure interruption, not a
+complete regression result. The repaired shell fixture uses owned cleanup stubs and
+Docker/Apple-container denial executables while preserving the real stop/Compose
+path and its assertions. No production orchestration script changes were needed.
+
+A supported disabled-work Fleet configuration permits empty profiles. Gateway
+startup exposed an actual empty max() failure in FleetWorkspaceFiles. The reader
+now uses the canonical ExecutionProfile output limit (64MiB) only when profiles
+are empty; nonempty maxima and all accepted-point/file/checkpoint guards remain.
+The boundary test reads an actual sealed64MiB output and rejects one extra byte.
+Combined profile and isolated-shell tests pass30/30 with zero errors/skips.
+C-enabled empty profiles remain rejected by configuration validation.
+
+The native host environment was synchronized offline from the existing lock with
+postgres and redis extras; the lock was unchanged. The whole-default command uses
+its original make target and PYTHONPATH, with UV_NO_SYNC=1 to retain those extras.
+Required installed release selection remains49 cases:45 physical/live plus4 native
+cases (the earlier two native functions expand to four parameterized cases). The
+staged Linux gate has five additional physical cases. Only physical cases receive
+the existing live marker; explicit release commands still run all required cases
+and fail on missing required images rather than skip or weaken their assertions.
+
+The original strict blocking-I/O target passed75/75. The complete default target
+then naturally failed after682.457s:14809 tests,14671 passes,59 failures,4 errors
+and75 skips. Raw evidence is private; reviewable XML/log/classification are redacted
+under `.local/fleet-evidence/c08-task6/task6-default-offline-v2-*`. These failures
+are retained, not described as a passed gate. Strict OpenSpec validation also passed.
+
+Six narrowly repaired fixture groups subsequently pass with zero failures/errors/
+skips and natural exit0: C04 physical-stop contract1, Delta checkpointers15,
+current-head migration32, independent dependency sync21, duration9 and Local
+thread routes92 (170 total). Changes preserve physical-stop rejection and capacity
+checks, historical migration seeds/concurrency checks, duration=0 and Local route
+assertions. The temporary sync test removes only inherited UV_NO_SYNC. PostgreSQL
+fixture URL normalization preserves the same database and credentials without
+printing connection values. Production routers and saver authority are unchanged.
+
+C06 terminal positives now use original NativeTerminalPreparation/FencedSaver/
+WorkspaceRequests and actual run-repository writes to obtain a same-transaction
+accepted pair. Direct-SQL association/revocation negatives remain intact. MCP tools
+are constructed under the real private submitter scope and use the same bound
+writer controller as their worker. Missing private binding rejects despite an
+available Local global submitter; a separately named ambient-none positive verifies
+that a trusted captured callback restores only its original context/controller.
+The repaired tracking module plus four terminal bookkeeping cases pass67/67
+(XML24.399s, natural exit0/wall26.252s). Earlier paired compatibility runs266/13FAIL
+and repeated old-tracking266/9FAIL are retained as failed windows. Final focused161
+passes (XML23.145s/wall25.042s), main939 passes (XML224.872s/wall228.213s) and
+neighbors517 pass (XML107.670s/wall110.509s), all with zero failures/errors/skips and
+natural exit0. Root independently verifies1456 actual unique XML cases with no
+main/neighbor intersection; focused is a main subset. Native evidence does not
+substitute for fresh installed physical120-second proof.
+
+The corrected whole-default v3 naturally failed once, not twice:14810 tests,
+14734 passes,1 failure,0 errors and75 skips (XML717.506s/wall735.207s). Duplicate
+log status output initially inflated the progress failure count; final JUnit is
+authoritative. The remaining sync schema test found existing public checkpoint
+tables. Read-only diagnostics cannot attribute the original database's existing
+tables without a prior baseline. A new uniquely owned temporary test database
+established the cause: public was initially empty, then the old Delta fixture's
+real saver setup created four checkpoint tables in public and the unchanged sync
+no-public assertion failed. The second RED failure was an observer KeyError from
+assuming tuple rows; it is a fixture failure, not a second business RED.
+
+The Delta fixture now creates one UUID-owned schema for its entire saver lifetime,
+including reopen. It normalizes the driver once and then uses the original
+DSN search_path helper without reserializing its libpq encoding. Teardown includes
+creation and connection-close failures and drops only that schema, preserving the
+original error. Failed repair windows (13 passes/5 setup errors from repeated URL
+encoding, then17 passes/1 observer fixture failure) remain retained. Final owned
+GREEN19 passes with zero failures/errors/skips (XML2.161s/wall3.669s):17 Delta
+cases plus the two unchanged schema integration tests. Actual public before/after
+are both empty. A real CREATE commit followed by real connection close and injected
+close failure verifies cleanup with a second real connection, no owned residual
+schema and the exact original primary exception. Root independently verifies the
+RED failure types, causal public table inventory and final GREEN XML/receipts.
+Each dedicated probe database was dropped only after its owned connections
+closed; Root verifies created/dropped receipts for all four Delta windows and the
+final complete-default window. The original database and its tables remain untouched.
+
+Delta is the only source changed after the native/neighbor gates and is absent
+from their collected targets; their participating source bytes remain unchanged.
+The final original make default target naturally passes on a fresh uniquely owned
+test database:14812 tests,14737 passes,0 failures/errors and75 skips
+(XML728.375s/wall741.604s). Actual public before/after are empty and the owned
+DB is dropped. Root independently verifies XML and cleanup receipts; all1456
+native/neighbor cases are among these14737 passes and must not be added again.
+The original strict blocking-I/O target passes75/75 with zero failures/errors/skips
+(XML7.794s/wall9.959s). Private phase environment overrides preserve the original
+server/identity and connection options without changing the real handoff file or
+exposing credentials. Earlier failed/interrupted windows remain immutable.
+
+The first final lint run found one E501 in a fixture-only SQL literal. Adjacent
+literal wrapping changes test-helper bytes but preserves its entire Python AST and
+exact SQL UTF8 content. Root independently matches the pre-wrap snapshot, whole
+module AST, SQL SHA and all other1520 backend Python hashes. Whole/default/native
+windows used the recorded pre-wrap helper; this exact equivalence is explicit,
+not a claim that they executed the later bytes. Final post-wrap focused161 passes
+with zero failures/errors/skips (XML34.541s/wall36.768s), then read-only lint passes
+(all1521 formatted), guidance passes24 files/0 errors/6 existing soft warnings,
+diff-check passes and strict OpenSpec validates all three changes. Required release
+collection remains49; collection is not installed execution. Root independently
+verifies all final receipts, XML and static logs. No guidance budgets changed.
+
+Complete SOURCEv6 was frozen with SHA
+`6da781cb8ee0c30f8199a2666af32a0760fb4cd04bc8986fa6a70b67d93382a9`:
+199 sources,773 wheel inputs,765 installed targets and2417 reports. Root and both
+reviewers independently matched5262 references/4377 unique paths without missing
+or mismatched hashes. Full SPEC passed with P1/P2/P3=0; subsequent full QUALITY
+returned NOTPASS with one P2 (Q5). The v6 manifest and review reports remain
+immutable historical evidence, not whole C08 acceptance.
+
+Q5 identified a Delta fixture parent-URI conversion that changed original libpq
+percent-encoded options to literal plus characters. Both parent connection sites
+now call the existing normalize_libpq_dsn helper, preserving the original URI
+query bytes and keyword DSNs before owned search_path construction. Only the
+Delta test file changed; production normalization, saver authority, schema
+creation/cleanup try-finally and the original no-public-table assertion are
+unchanged. Local boundary cases intercept the actual fixture caller before network
+access; real PostgreSQL cases cover encoded parent options, CREATE, reopen and
+connection-close fault cleanup.
+
+The Q5 RED window naturally exited1:25 tests,14 passes,6 failures,5 setup errors
+and zero skips (XML1.376s/wall9.518s). Four failures demonstrate local caller DSN
+corruption; the remaining two failures and five setup errors demonstrate actual
+PostgreSQL rejection of corrupted options. The unchanged bare-URI schema gates
+passed. These are retained as failed evidence. Final Q5 GREEN naturally exited0:
+25 passes,zero failures/errors/skips (XML1.268s/wall2.103s). Actual public inventories
+remain empty and each probe's uniquely owned database was dropped.
+
+Root independently confirms all773 wheel-input and765 installed-target hashes
+still match v6, only Delta Python bytes changed, and the creation/cleanup try AST
+is identical. The author records a boolean-only comparison confirming that the
+actual no-options handoff's old/new libpq DSNs are equal; no DSN values are recorded.
+The earlier complete-default14737 passes used v6 fixture bytes. Their scope is
+bound explicitly to unchanged participating production bytes and this observed
+handoff equality; they are not described as a complete run of later v7 bytes.
+The changed Delta cases have their separate fresh25-case GREEN evidence.
+
+Final post-Q5 focused161 passes (XML19.625s/wall21.169s) and original strict
+blocking-I/O75 passes (XML4.179s/wall5.163s), all natural exit0 with zero failures,
+errors or skips. Read-only lint passes with1521 formatted files; guidance checks
+24 files with zero errors and six existing soft warnings; diff-check and strict
+OpenSpec validation of all three changes pass. Required release collection remains
+49 and is collection only. Root independently verifies XML, receipts, static logs
+and current hash/AST bindings. No guidance budgets changed.
+
+Complete SOURCEv7 was frozen with SHA
+`3de24d20b83a390d77f8aba4d836aa082117bba8942b262031d5f2a5a270975e`:
+199 sources,773 wheel inputs,765 targets and2564 reports. Root and both reviewers
+independently matched5415 references/4524 unique paths, including42 original_path
+references, with zero missing or mismatched hashes. Full SPEC passed with
+P1/P2/P3=0; subsequent full QUALITY returned NOTPASS with sole P2 Q6. Its frozen
+manifest and both full review reports remain immutable. Q1–Q5 remain closed.
+
+Q6 concerns only the newly added real-options test's parent construction: applying
+URL query concatenation to a legal keyword DSN produces an invalid ?options
+connection parameter. Root independently reproduced this with a synthetic DSN
+and installed psycopg parser without network access. Actual-test-caller RED also
+exposed the new URI setup's duplicate options replacing an existing lock_timeout.
+Neither failure changes production normalization or saver authority. Expanded
+actual-caller RED has four failures,zero errors/skips and natural exit1
+(wall1.204s):two keyword parse failures and two URI option-preservation failures.
+The initial two-case failed window is retained too.
+
+The fixture-only parent constructor now distinguishes URI and keyword forms.
+URI construction retains other raw query/userinfo bytes and combines existing
+options before percent-encoding the additional statement_timeout; keyword
+construction uses original psycopg conninfo parsing/building, preserving all other
+parameters and existing options. Four actual-caller cases now pass without network,
+covering repeated options, existing search_path/timeout, and literal-plus credentials
+and application_name. The real PostgreSQL URI and keyword windows each pass29/29
+with zero failures/errors/skips and natural exit0 (URI XML1.310s/wall2.112s;
+keyword XML1.280s/wall2.199s). They are the same29 cases under different configurations,
+not58 unique cases. Both use the same newly owned database; public tables and
+remaining owned Delta schemas are empty before and after each phase, and the exact
+database is dropped. Root independently verifies XML and catalog/cleanup receipts.
+
+Root independently verifies773 wheel inputs and765 installed targets are unchanged
+from v7, the entire owned-schema function AST is unchanged, and assertion inventories
+for all20 existing top-level functions are identical. Only the Delta Python source
+changed. The author separately records a boolean-only actual no-options handoff
+comparison between the old and new test caller parent DSNs, without recording
+connection values. Older complete-default/native results retain their original
+participating bytes and are not presented as execution of current v8 fixture bytes.
+
+Final post-Q6 focused161 passes (XML20.528s/wall22.027s) and original strict
+blocking-I/O75 passes (XML3.910s/wall4.840s), all natural exit0 with zero failures,
+errors or skips. Lint confirms1521 formatted files; guidance checks24 files with
+zero errors/six existing soft warnings; diff-check, strict OpenSpec three-change
+validation and required49-case collection pass. Root independently verifies
+receipts, XML and static logs. Collection is not installed execution.
+
+Complete SOURCEv8 was frozen with SHA
+`56209fbed18fcb9520d335279927f3bbd08f85fd6922899acb918187258e6e20`:
+199 sources,773 wheel inputs,765 targets and2724 reports. Root independently
+matched5584 references/4684 unique paths with zero missing or mismatched hashes.
+Full SPEC returned NOTPASS with sole P2 SPEC-v8-P2-01: the new URI regression
+parent builder used form-query decoding, which turns a valid libpq literal+
+inside an options value into a space. The full report and original freeze are
+retained unchanged; QUALITY was not started for this failed source revision.
+The earlier Q6 keyword and duplicate-options defects remain repaired.
+
+The repair is confined to percent-only URI options/key decoding in the newly
+added test parent builder. Other raw URI query/userinfo bytes, keyword construction,
+production sources, owned schema management and existing assertions remain intact.
+An actual-test-caller literal+ options case first fails alongside four passing
+prior cases (5 tests:4 passes/1 failure,zero errors/skips,natural exit1/wall1.283s).
+The failure directly distinguishes application_name=a+b from the corrupted a b.
+After the repair all five actual-caller cases pass (natural exit0/wall1.197s).
+
+Real PostgreSQL verification uses three separate windows in the same newly owned
+DB: the entire affected URI group30 passes with percent-encoded %2B in options
+(wall2.058s), the original actual-options test1 passes with raw literal+ options
+(wall1.149s), and the entire keyword group30 passes with literal+ options
+(wall2.181s). All exit naturally0 with zero failures/errors/skips. These overlapping
+case sets are not61 unique cases. The raw+ case exercises real administration
+connection, CREATE and saver reopen after the new builder correctly percent-encodes
+its parent. Public tables and remaining Delta schemas are empty before/after each
+phase; the exact owned DB is dropped. Root independently verifies actual XML and
+catalog/cleanup receipts. The unchanged production dsn_with_search_path has inherited
+form-query decoding; this verification does not certify arbitrary raw+ options
+passed directly to that older helper and does not expand this fixture repair into
+a production change.
+
+Root independently verifies773 wheel inputs and765 installed targets still match
+v8, the whole owned-schema function AST is identical and all21 existing top-level
+function assertion inventories are unchanged. Only Delta Python bytes changed.
+The author records only a boolean for old/new actual caller parent equality on
+the current no-options handoff; no connection values are saved. The preservation
+v1 receipt's inherited since_v7 label was incorrect although its loaded baseline
+was v8; the retained v2 explicitly records since_v8. Older whole-default/native
+evidence is not relabeled as execution of current v9 fixture bytes.
+
+Final post-repair focused161 passes (XML21.499s/wall22.905s), original strict
+blocking-I/O75 passes (XML3.507s/wall4.455s), all natural exit0 with zero failures,
+errors or skips. Lint reports1521 formatted files; guidance checks24 files with
+zero errors/six existing soft warnings; diff-check, strict OpenSpec three-change
+validation and required49-case collection pass. Root independently verifies
+receipts, XML and static logs. Collection remains distinct from installed execution.
+
+Complete SOURCEv9 passed sequential full SPEC and QUALITY with P1/P2/P3=0.
+Its manifest SHA is
+`f627ca16fa8caeb5da65e1220d33cf2f481b540dee7f14418b34caabf9e247d1`;
+Root and reviewers independently match5748 references/4840 unique paths. Root's
+source-only acceptance receipt explicitly leaves runtime and whole C08 pending.
+Docker remained unresponsive through two bounded goal rechecks; the goal was
+marked blocked after three consecutive affected turns. The user then restored
+Docker and requested continuation. Fresh preflight v3 naturally confirms info/ping,
+original B image identity and absent unique build contexts. No agent restarted,
+pruned or removed another project's Docker resources.
+
+The original builder successfully generated six fresh wheels and dependency,
+provider, stock and independently bound Barrier images (natural exit0/wall143.383s).
+Root independently verifies all788 archive members, metadata and entrypoint
+inventories,765 SOURCEv9 source targets against the new wheel payloads, and complete
+stock31/Barrier30 context file hashes. Image IDs are retained in
+`task6-fresh-build-v1-verification.json`; stock is
+`sha256:f32a7d2ec97df6117a8986786939c3639e16aba929d8995e72f573c57126a7c2`,
+Barrier is `sha256:ae963f3af96ae5cba7154676bfd6173fb1b1412d34c263a872c1a0180be39e56`.
+The original B image remains exact. Each actual Runner verifies782 installed
+members; only the six pip-rewritten RECORD files are excluded from installed
+payload comparison, while their complete archive bytes remain inventoried.
+
+The first installed stock window naturally exits1 (wall419.577s):20 tests,
+10 passes,10 failures,zero errors/skips. Passes cover original normal/pause4,
+lost-reply2, conflicting-claims2 and failed2. Eight sequence/corruption cases fail
+at the host fixture's duplicate parent thread create, before a child Runner starts;
+they do not establish a business restore failure. Two preseal-kill cases establish
+actual original exit137 and recovery SQL, then fail because the host fixture did
+not expect the original bootstrap RecoveryRequired. Subsequent noReplay/partialHTTP
+assertions had not run; they are not accepted from this failed physical window.
+The serial runner stops before remaining required phases. Raw/redacted evidence and
+failure classifications remain immutable. All owned subprocesses are reaped and
+postphase read-only inspection finds no stock/Barrier residual containers.
+
+A separate read-only command observer captured20 original test container observations:
+12 have original Node/attempt/launch labels,8 are unlabeled compatibility probes.
+Root independently verifies the actual python -I -S bootstrap command in the records,
+with labelled Node evidence kept distinct from compatibility probes. Image default
+Cmd is not substituted for actual Node process evidence. The observer created no
+containers, read no Env values and changed no fixture timing or source.
+
+Two host-only fixtures are repaired: sequence uses the original owner-filtered
+ThreadMetaRepository.get and asserts an existing same-owner parent; restart expects
+only the exact original RecoveryRequired message, asserts _ready=false and continues
+all prior new-session/old-attempt409/noStart/noReplay/SQL/partialHTTP checks. Production
+and all prior assertions remain unchanged. Root confirms sequence26 original Assert
+nodes remain an ordered subsequence of28, and fault32 remain a subsequence of33.
+Native regressions directly execute both callers using real PG thread rows and an
+original accepted partial/ownership stopped path, not hand-written recovery SQL.
+Their native container protocol observations are explicitly not physical proof.
+
+Initial native REDv1 has four failures, but one is an added test's incorrect partial
+setup and is retained as such. Corrected REDv2 has four actual failures,zero errors/
+skips and natural exit1 (wall3.560s):same-owner and wrong-owner duplicate create,
+missing parent incorrectly created then advancing past its intended guard, and
+original typed bootstrap rejection. First GREEN has3 passes/1 failure from missing
+thread_store setup in the new native host at the unchanged partialHTTP200 assertion.
+Only that new setup is corrected. Final native GREENv2 passes4/4 with zero failures/
+errors/skips,natural exit0/wall3.271s, including the complete restart caller checks.
+Root independently verifies RED types and GREEN XML/receipts.
+
+Final focused165 passes (XML21.465s/wall23.060s), main943 passes
+(XML236.707s/wall240.437s) and original strict blocking-I/O75 passes
+(XML4.855s/wall5.995s), all natural exit0 with zero failures/errors/skips. Focused is
+a main subset, including the new four cases; counts must not be summed. Lint confirms
+1522 formatted files; guidance24 files has zero errors/six existing soft warnings;
+diff-check, strict OpenSpec validation of three changes and required49 collection
+pass. Root independently parses actual XML, receipts and static logs.
+
+All773 wheel source inputs and765 installed targets still match v9. The two changed
+host helpers and new regression module are not image inputs. An independent fresh
+prepare-only context comparison confirms the complete stock31 and Barrier30 path
+sets and all bytes equal the already built v1 contexts, including .gitignore.
+The comparator's first failed window omitted this uv-generated artifact from its
+copy list; it was a comparator input-classification failure, not a payload mismatch,
+and is retained. The corrected v2 naturally exits0/wall0.133s. Root independently
+compares every actual file and both complete sets. Prior wheels/generated artifacts
+are explicitly copied for comparison; no new wheel/image build is claimed. The
+existing fresh immutable IDs can bind the unchanged image inputs after complete
+new SOURCE review. The first physical10FAIL remains failed evidence.
+
+The actual next source inventory is200 files, with51 cumulative Task5 delta paths,
+including the new regression module. Source/docs are fixed and no live execution
+handles remain. Complete SOURCEv10 freeze and full SPEC then QUALITY review precede
+new whole stock20, all required49 and staged5 physical execution windows using the
+bound unchanged fresh image inputs. Docker is restored. Physical FINAL cumulative120,
+complete runtime review and whole C08 acceptance remain pending; OpenSpec8.1–8.4
+remain unchecked and no C08 commit has been made. C09–C12, BC and activation remain
+incomplete. The original Runner FINAL budget is unchanged.
+
+
+Complete SOURCEv10 subsequently passed sequential full SPEC and QUALITY with
+P1/P2/P3=0. Manifest SHA
+`68895291c8a1e70b337834c347281ba2e8688ab84a02be49c828ae731af78aaa`
+binds200 sources/773 wheel inputs/765 targets/3298 reports. Root and both reviewers
+independently verify6216 references/5298 unique paths. Root accepts source only;
+physical runtime and whole C08 remain pending.
+
+The second installed stock window naturally exits1/wall598.528s:20 cases,
+15PASS/5FAIL/0errors/skips. Four delta cases fail before child START because the
+host cannot import the configured original deerflow_c04_fixture.memory package.
+Full branch fails original HTTP403 for missing CSRF token, before clone/child START.
+These are host fixture prerequisites, not established restore algorithm defects.
+Full new-turn, both full corruption cases and both preseal-kill cases now pass;
+the latter execute the complete original RecoveryRequired/new-session/old-attempt409/
+noReplay/partialHTTP checks. Later history/Barrier/C07-stock/staged phases do not run
+in this failed serial window. All subprocesses are reaped and owned residuals absent.
+The v3 command observer naturally exits0/count20; Root independently verifies all20
+original Node/attempt/launch-labelled python -I -S bootstrap records. Root also
+checks all64 owned retained workspace versions/1316 files against originals and
+copies,2632 byte/SHA comparisons with zero mismatch; observed corruption is retained.
+
+The authorized host repair installs only the two original fresh C04 fixture wheels
+in the dedicated backend .venv, offline/no-deps. Both were absent, both are now0.1.0.
+Root independently compares all9 immutable installed members with the complete
+original archives; only pip-rewritten installed RECORD is excluded. Current uv.lock
+matches both pre/post hashes. UV_NO_SYNC preserves these test-only host extras.
+Original configured PostgresMemory resolution succeeds; no noop/fallback, dependency
+lock/global environment or production guard is changed.
+
+The branch host caller now uses original generate_csrf_token and the matching
+csrf_token cookie/X-CSRF-Token header, retaining original internal owner headers.
+Root compares all28 caller Assert AST nodes with SOURCEv10:exact equality. Native
+REDv1 naturally exits1 with3PASS/1FAIL/0errors/skips (wall5.135s); its real branch
+caller fails for missing CSRF while original missing/mismatch403 and matching200
+middleware boundaries pass. GREENv1–v3 each retain7PASS/1FAIL setup windows:missing
+RunManager reservation, unbound repository guard and stale test NAS binding. These
+are not new business RED or acceptance. The corrected test uses original RunManager,
+installed ownership bound to the same real NAS, trusted final checkpoint/terminal
+pair and original stopped authority. Final GREENv4 naturally exits0/wall4.654s,
+8PASS/0failures/errors/skips. Original real HTTP200, independent clone inode, SQL
+source manifest/checkpoint and owner preview200 assertions pass before a controlled
+start_run sentinel; this native window makes no Docker physical claim.
+
+Final source gates run the actual fixed bytes:focused169PASS (XML28.007s/wall29.802s),
+main947PASS (XML250.313s/wall254.168s), strict blocking-I/O75PASS
+(XML7.939s/wall9.156s), all natural0/zero failures/errors/skips. Focused169 is a main
+subset and is not added to947. Root independently parses XML/receipts. Lint1522
+formatted, guidance24/0errors/6existing soft warnings, diff0, strict OpenSpec3/3 and
+required49 collection pass; collection is not physical execution. All handles end.
+Only sequence and its native regression source differ from SOURCEv10; all773 wheel
+inputs and765 targets match. Root independently rebuilds complete file maps for
+prepare-only stock31/Barrier30 contexts:all path sets/bytes equal original fresh
+build contexts. Existing immutable image IDs are therefore retained without a new
+build claim. No original assertion or cumulative Runner FINAL120 budget changes.
+
+Source/docs are ready for complete SOURCEv11 freeze and sequential full SPEC then
+QUALITY review. Only after Root source acceptance may a new physical window execute
+stock20, history4, Barrier21, C07-stock4 and staged5. Failed windows remain immutable;
+OpenSpec8.1–8.4, whole C08/runtime review, C08 commit, C09–C12, BC and activation remain
+pending. Docker is available; no further restart/prune or permission is required for
+these already authorized scoped fixtures and tests.
+
+
+SOURCEv11 full SPEC then QUALITY passed P1/P2/P3=0; Root independently rechecked
+7963 references/7039 unique files and accepted source only. The subsequent v3
+physical stock20 passed (natural0/wall512.759s) and history4 passed (wall88.704s).
+Root additionally verifies all four full/delta new-turn/branch children:distinct
+current run, each47 stored current-run checkpoint stamps, three actual materialized
+model inputs, six wheels/782 immutable members and actual original container exit0.
+Barrier then failed:JUnit suite21 reports5 failures/17 errors, with22 testcase rows
+because the first case also reports teardown. The primary daemon publication error
+is missing .deer-flow, followed by missing seal; later duplicate node/table failures
+remain historical observations, not a fabricated public-pollution diagnosis.
+
+Independent audit and existing-caller native10 RED expose a production first-launch
+lifecycle gap:empty inputs create no user-data root, uploads-only inputs leave other
+required categories absent, and prepared retry does not reject removed/symlink roots.
+RED10=4PASS/6FAIL/0error/skip. The narrow Node snapshots fix securely creates approved
+workspace/uploads/outputs directories through trusted no-follow descriptors after
+all original input verification; prepared retry only validates and never repairs
+removed/symlink directories. Original copy/hash/marker and collector/fencing rules
+remain. Existing10 checks then pass; no extra cases are added.
+
+The user explicitly changes execution order:run the main path first, add cases later.
+Root follows this instruction:full native/SOURCE reviews are not used as a prerequisite
+for diagnostic main-path execution. The new diagnostic build generates real updated
+six-wheel payloads and stock/Barrier images; it is explicitly not formal SOURCE/runtime
+acceptance. Existing original cached and hydrated Barrier main cases each pass, and
+four existing transactions pass, before broader regression. Their actual run success,
+writer seal/last_seq50, physical stopped exit0 and new782-member inventory are retained.
+Complete existing Barrier21 then passes in one pytest window (natural0/wall126.470s),
+followed by C07 stock4 (natural0/wall60.539s). Earlier duplicate table/node failures do
+not recur; their precise old cause remains unproven.
+
+Existing staged5 initially fails:all installed six-wheel/782 comparisons succeed,
+but the old fixture reads an MCP owner after original presentation publication has
+already closed it. Root approves the necessary fixture lifecycle migration, without
+production bypass:new first-callback observations capture original owners/writers,
+use original close/reconnect and retain the original publication callback. Partial
+and negative cases observe a real prepared candidate before acceptance; final uses
+real terminal preparation and retains the earlier legitimate accepted partial.
+Only obsolete global-zero final counts become exact prior-partial/current-final
+checks; original permission, containment, budget, stop and rejection checks remain.
+A unique stock COPY build changes only that fixture, retaining the same six wheels
+and unchanged Barrier/provider/B images. Existing staged5 then passes (natural0,
+wall102.997s), with no added cases. Root verifies the actual final XML/receipts.
+Five actual installed782 comparisons are recorded. Only one actual Node command
+observation is available for this staged window; it is not claimed to cover all five.
+A proof sidecar labels old literal prior-point fields as expectations; the later
+host-only actual-SQL serialization correction is written but its original final
+case has not yet rerun. It is not accepted as new SQL evidence from the old window.
+
+Thus the user's main-first milestone and existing Barrier21/C07-stock4/staged5
+regression have passed. Updated-image stock20 subsequently stops naturally with
+3PASS/17FAIL/0error/skip (wall102.254s):first failure is original owned PG readiness
+30-second timeout, followed by16 actual Docker Desktop unable-to-start errors before
+Agent START. Their common mechanism is not invented. History4 is not run afterward.
+All owned processes/observers are reaped; earlier successful and failed windows are
+kept distinct and immutable. No source is silently changed during live execution.
+
+Root observes host Data/root at100% with only about121MiB free. The only proven safe
+reclaimable candidate is the old installation test's isolated temporary .venv under
+pytest-162/test_real_manager_installs_fle0/checkout/backend. It has no live users or
+references in94 historical freeze inventories; source, lock and extension snapshot
+are retained. Only that exact directory is removed with guards. Actual free space
+increases by24,375,296 bytes, not the935MiB apparent du size. About150MB remains.
+Docker info times out at15 seconds and Unix ping at5 seconds; an earlier CLI exit0
+with empty version and unable-to-start stderr is explicitly not readiness. No Docker
+restart, global prune, other-project deletion or evidence deletion is performed.
+The user is asked to release disk space and restore Docker.
+
+Current sources include the narrow snapshots fix, migrated existing staged fixtures
+and pending host actual-SQL proof serialization. New complete source/native/static
+and runtime review are pending after the main path, in the user's requested order.
+Remaining physical work includes updated-image stock20/history4 and the existing
+final staged case rerun for actual SQL serialization, plus required B/C01–C07 gates
+and full runtime SPEC then QUALITY. No new SOURCE acceptance is inferred from the
+diagnostic build. OpenSpec8.1–8.4 remain unchecked; no C08 commit, C09–C12, BC or
+activation advancement. Original cumulative Runner FINAL120 remains unchanged.
+
+### Task6 Docker recovery, scoped image cleanup and explicit resume — 2026-10-05
+
+The user restores Docker/disk availability, explicitly requests obsolete feature-image
+cleanup, then says "继续处理吧". Root deletes exactly14 superseded C07/C08 image IDs
+without force, after checking every running/stopped container reference. Current
+stock e025353c962e, Barrier5589166fa6d8, provider539275e0d317 and dependenciesda399e40963d
+remain present. Every non-target image ID is preserved; containers/volumes/evidence
+are untouched. Docker reported image-layer usage changes24.65GB to24.51GB; host
+free-space observed delta is136,572,928 bytes, not the sum of shared image sizes.
+The immutable cleanup receipt is task6-obsolete-docker-image-cleanup-v1-receipt.json.
+B baseline c307f97d2720 is already absent before cleanup and remains absent afterward;
+its historical accepted execution is retained, but a future B gate must recover and
+verify an appropriate image before it can run, never silently substitute a C image.
+
+The goal is active again. The same sole implementer owns sequential runtime/native
+handles. Immediate work is original updated-stock20, original history4, then the
+existing final staged case for actual SQL observations; no additional cases or new
+acceptance are implied by environment recovery. Complete source/native/default/static
+and sequential SPEC then QUALITY gates still follow the main path. OpenSpec8.1–8.4,
+C08 commit, later C/BC delivery and activation remain pending.
+
+### Task6 resumed original main windows independently verified — 2026-10-05
+
+Using the retained latest stock image, all three original resumed windows naturally
+exit0 and their owned children are reaped:stock20 passes (wall422.876s), history4
+passes (wall80.430s), existing final staged actual-SQL1 passes (wall20.256s).
+Each JUnit has zero failures/errors/skips. Root directly verifies canonical XML and
+receipts,16 stock base runs plus4 actual new-turn/branch children:all six-wheel782
+inventories match diagnostic f4f071e6702c, and all original containers are stopped
+with exit0. Each child has a distinct new run,47 actual current stored run stamps
+and3 materialized current-run model inputs. These windows are not added to earlier
+overlapping runs as unique test counts.
+
+The final proof now serializes actual SQL:current candidate point count0 before/after
+physical stop, prior accepted partial count1 and identical nine-field prior-point
+rows, exact current final/prepared request with matching checkpoint and candidate
+manifest. The earlier literal expectation fields remain only historical evidence.
+The bounded read-only Node entry observer naturally exits0 with23 available actual
+observations; Root does not claim observation coverage for every test or run.
+Root verification receipt:task6-root-resumed-main-verification-v1.json.
+
+No new image or case was added for these resumed runs. Current complete native,
+default, strict/static checks, new complete SOURCE SPEC then QUALITY, B/C neighbors
+and full runtime review still precede C08 acceptance/commit; later C/BC remains pending.
+
+### Task6 complete current checks and exact MCP observation — 2026-10-05
+
+Current full native main957 and neighbors517 naturally pass with zero failures,
+errors/skips (wall229.426s and112.073s). Root directly verifies their case-key
+intersection is0, union1474. Actual original make default on a newly owned DB
+naturally passes14769 with72 skipped,0 failures/errors (wall685.246s); all1474
+native cases occur among those passes and are not added again. The owned DB is
+created/dropped and public remains empty before/after. Original strict I/O75
+passes with no failures/errors/skips. Whole lint/format1523, guidance24 with0
+errors/6 existing soft warnings, diff and strict OpenSpec3 checks pass. Required49
+collection is collection only, not an additional installed run.
+
+Read-only review identifies a test-observation precision gap:the migrated staged
+fixture inherited a broad RuntimeError catch, which could misclassify unrelated
+connection failures as an MCP scope refusal. It is not an observed production
+failure. After all live handles settle, only that fixture is narrowed to the
+original McpScopeBarrierClosed and records the actual exception type; its header
+now distinguishes prior accepted partial points from the held current candidate.
+All10 original Assert ASTs remain unchanged. Initial local import-scaffold F821
+is retained as a static construction failure, repaired before tests/build.
+
+Final affected48 source/native checks pass with no errors/skips. One necessary
+COPY image b3df27742fe7 changes only c08_linux_fixture.py among31 context files;
+all6 wheels/other30 inputs remain byte-identical. Original staged5 naturally
+passes (wall96.392s), with5 actual exact MCP rejection observations and5 actual
+six-wheel782 comparisons matching f4f071e6702c. Actual candidate counts stay0,
+prior rows remain unchanged, final retains1 prior partial/2 actual seals, other
+four retain0 prior partial/1 seal; late claim409 and recovery_required remain
+honest outcomes after intentional stop. Root independently verifies each proof.
+
+Default/native/strict windows executed the pretyped fixture bytes and did not
+execute its live staged body. Their participating production, wheels and stock/
+continuation fixture bytes are unchanged; they are not relabeled as execution of
+every final fixture byte. The changed fixture has separate final48 and installed5
+proofs. Source-only documentation changes add no runtime claim. Root receipt:
+task6-root-post-typed-validation-v1.json. No extra case or production patch was added.
+
+Complete new SOURCE SPEC then QUALITY, required B/C neighbor coverage and runtime
+review remain pending before C08/OpenSpec acceptance and commit. B c307 remains
+absent; any necessary replacement must have verified concrete build provenance.
+Old e025 is retained pending scoped lifecycle cleanup. Later C/BC and activation
+remain incomplete; the original cumulative Runner FINAL120 budget is unchanged.
+
+## Previous C08 Task6 pre-SOURCEv5 checkpoint (historical) — 2026-10-05
+
+B isolated local gate, C01–C07 and C08 Tasks1–5 are accepted. Task5 acceptance is
+source/native only: SOURCEv3 SPEC then QUALITY PASS, P1/P2=0, all662 hashed
+references independently matched by Root; its accepted664 native tests passed with no
+failures/errors/skips (XML187.706s, natural Exit0/wall191.948s). Review and
+Root acceptance receipts are retained under `.local/fleet-evidence/c08-task5/`.
+Task6 fresh installed new-turn/branch execution and whole C08 acceptance remain
+pending. C09–C12, BC and activation remain incomplete. OpenSpec8.1–8.4 remain
+unchecked; no C08 commit. Original cumulative120 final cleanup budget unchanged.
+Post-acceptance documentation updates become Task6 inputs; immutable prior
+source/evidence snapshots retain their original bytes.
+
+Human explicitly approved the exact finishing-read v3 modification on 2026-10-04
+with “同意修改”, answering Root's v3 application/verification request. Goal is
+active again; the reviewed patch is applied with independently verified bytes.
+After all current caller repairs, final main native646 and complementary517
+pass with zero failures/errors/skips; Root verifies1163 unique cases and final
+focused150 is included in646. Complete SOURCEv4 passed full SPEC with
+P1/P2/P3=0. Independent full QUALITY is NOTPASS with one P2 B-only compatibility
+regression (Q4); the three prior cleanup findings are closed in this revision.
+The supported B-only application-PG + legacy memory/SQLite checkpointer + Redis
+configuration has no application checkpoints table, while the C publisher
+queries it even with zero C rows. The same author reproduced both memory and SQLite variants in real PG
+(2 behavior failures, zero setup errors/skips), then applied a minimal C
+publisher/recovery capability binding. The Fleet bridge and exact historical-C
+reader guards remain installed. Root independently matches the predicate and
+entire reader AST against SOURCEv4; only the installation factory changes.
+Final focused compatibility7 passes with zero failures/errors/skips and natural
+exit0. It covers actual Redis local frames/END, C-enabled publisher/candidate/
+recovery, C-disabled valid/mutated historical reads, and absent-checkpoint remote
+preparation rejection without Local fallback. Test schema introspection is
+distinct from prohibited C checkpoint relation queries in B-only publication.
+An intermediate seventh-case fixture attribute error is retained as a fixture
+failure, not a business RED. Final current main667 and complementary517 pass with zero failures/errors/skips,
+natural exit0; Root independently verifies1184 unique cases with no intersection
+(main XML144.808s/wall147.651s; neighbor XML108.372s/wall111.316s). Focused157
+passes on the same final production bytes. Final static checks and fresh complete
+SOURCEv5 SPEC then QUALITY are required before any build. Original v4 reports and snapshots remain immutable under
+`.local/fleet-evidence/c08-task6/`. No Docker build has started and whole C08
+acceptance remains pending.
+
+## Previous Task4 execution checkpoint (historical) — 2026-10-04
+
+- Human authorized the three-file idle patch and verification; patch applied,
+  goal active. B isolated gate, C01–C07 and C08 Tasks1–3 accepted. Task5–6,
+  C09–C12, BC and activation incomplete; OpenSpec8.1–8.4 unchecked.
+  One cumulative 120-second final cleanup budget remains unchanged.
+- SOURCEv8 passed SPEC then QUALITY. Sixth fresh installed four-case matrix
+  removed prior HTTP409 races, but all four containers exited1 and lacked
+  original complete close receipt. Six failed runtime attempts remain historical.
+- New SOURCEv9 SHA
+  aa4bed8212fa34f0c14db845dbe60815dce672d8fe8fac80796d631530983d6b
+  freezes138sources/115Python/122XMLreports/44 unchanged production targets.
+  Root independently matches current and snapshot source hashes, all report
+  hashes/counts, all v8 137paths/111reports and both fixed normative hashes.
+  Full SPEC then QUALITY passed, P1/P2=0; seventh fresh runtime4PASS.
+- Changes since v8 are two original test/fixture files and one new test.
+  C08-only finalclosed service probe preserves original Service.stop and
+  fenced terminal receipt; only exact closed-gate rejection is accepted after
+  positive original SDK owner join. Original C04 plugin and production unchanged.
+- C06 original four terminal positive tests now use actual same-TX accepted
+  pairs; eight association negatives begin with legal pairs before faults;
+  four added core-only cases repeatedly reject without SQL changes. Latest
+  owned43407 naturalexit0:73passes,0errors/skips,27.919 seconds,59PG/14neutral.
+  Earlier39 four failures and73 one FK fixture failure remain retained.
+  Native counts overlap and do not prove installed Linux lifecycle.
+- Full RUNTIME SPEC then QUALITY passed P1/P2=0; Root accepts Task4 only.
+  Task5 dispatch follows; no fullC08, commit or activation.
+
+## Previous SOURCEv8 checkpoint (historical) — 2026-10-04
+
+## Current C08 execution checkpoint — 2026-10-04
+
+- B isolated local gate, C01–C07 and C08 Tasks1–3 foundation accepted.
+  Task4–6, C09–C12, BC and activation incomplete; OpenSpec8.1–8.4 unchecked.
+  One cumulative120-second final cleanup budget remains unchanged.
+- Human authorized exact three-file idle patch and verification:
+  “允许应用这三处补丁并继续验证”. Approved patch applied; goal active.
+  Original auth/lease/identity fences and immutable accepted evidence preserved.
+- New SOURCEv8 SHA
+  72d2af83c40d9f31a810929aa25c7134a94b813015555fe37bfa73fea3e7b671
+  frozen137sources/114Python/111XMLreports/44productiontargets. Root independently
+  checks current137 and snapshot137 hashes, all111report SHA/counts, all prior
+  135paths/101reports retained; no mismatch. Both normative files remain fixed.
+  Full SPEC then QUALITY passed, P1/P2=0. Fresh image/installed runtime
+  verification dispatched; runtime/Task4/full C08 acceptance remains pending.
+- Actual coherent605 cases304PG/301neutral pass83.935 seconds; original failed
+  v15(604passes/1native ASGI cancellation failure) remains retained. Narrow native
+  original TCPserver correction passed2cases3.026 without weaker assertions.
+  Final-current affected29pass7.389 after one nonsemantic import order correction.
+  Counts overlap and are not summed; native results do not prove Linux lifecycle.
+- Five failed fresh images and all inventories/history retained. Fifth normal
+  cases reached accepted final/core success, but all four rawstops137 and no
+  strict original close receipt; no runtime acceptance follows from SQLpoints.
+  Source v8 adds actual idle repair and needs a new installed four-case gate.
+- Sole implementer owns fresh image/runtime work. No Task4 acceptance, Task5,
+  commit or activation.
+
+## Previous approved-patch checkpoint (historical) — 2026-10-04
+
+## Current C08 execution checkpoint — 2026-10-04
+
+- B isolated local gate, C01–C07 and C08 Tasks1–3 foundation accepted.
+  Task4–6, C09–C12, BC and activation incomplete; OpenSpec8.1–8.4 unchecked.
+  One cumulative120-second final cleanup budget remains unchanged.
+- Human explicitly authorized exact three-file idle patch and verification:
+  “允许应用这三处补丁并继续验证”. Previous automatic-review blocker resolved;
+  goal active. Approved patch SHA
+  a388ccccfaec042848efbab16961d3efbfd5cc67f163ffd5fd46e9e2337ded22 applied.
+  Root verified only these three frozen production files changed from SOURCEv7
+  at initial application; no implementation acceptance follows from approval.
+- Native original HTTP/PG RED2 retained. Owned37116 naturally exited0; Root
+  independently parsed workspace-idle-green-v1.xml:2 passes,0 errors/skips,
+  2.166 seconds. These are native contracts, not installed Docker lifecycle.
+- Expanded8082 naturally exited1:27 tests,21 passes/6 fixture failures,
+  0 errors/skips,7.465 seconds. Four immutable SQL tamper attempts rejected
+  by original database triggers; two credential detail expectations had wrong
+  capitalization. None of these six failures is labeled new feature RED.
+  Sole implementer corrects fixtures, adds real Node race checks and regression.
+- Complete new SOURCE freeze SPEC then QUALITY must precede fresh image/
+  installed-byte verification and actual four-case runtime. Five prior failed
+  images, exact inventories and source review histories remain retained.
+  No Task4 acceptance, Task5, commit, deployment or activation yet.
+
+## Previous pending-authorization checkpoint (historical) — 2026-10-04
+
+## Current C08 execution checkpoint — 2026-10-04
+
+- B isolatedlocalgate,C01–C07,C08Tasks1–3foundation accepted. Task4–6 and
+  C09–C12/BC/activation incomplete. OpenSpec8.1–8.4 unchecked; one cumulative
+ 120second finalcleanup budget, not reset. No Task4commit/Task5/push/activation.
+- SOURCEv7 SHA85561a38f0c87c7c3a75efe860d8cfd9bd938c474e6b89ce353c97308e0dc8f7
+ 135files/112Python/101reports/44targets passed SPEC then QUALITY, P1/P2=0.
+  Bothnormative fixed; SOURCE production remains unchanged after rejected patch.
+  Historicalwhole574 (274PG/300neutral) and finalaffected15(5PG/10neutral) pass
+  exact frozen inputs; no runtime success inferred.
+- Fivefresh images/installedinventories retained. Fifth b3c0df4db5fb109c965a2b5d
+ 65195306b08349455b6556105dc1340921b867e2 independently779members/44targets match.
+  Actualmandatory4 fail88.151seconds,allrawstop137/nooriginalclose receipt.
+  Normal2 reached bothpartials+final/core success/bothpointers; paused attempts
+  stopped byworkspaceclaim409 while leases valid. No strictlifecycle acceptance.
+- ActualoriginalHTTP/PG typedRED2 (1.960s) proves finishingpoll→StaleAgentgeneration
+  and preparedpoll→acceptedpartial→sameclaim→requestcannotbeclaimed. Proposed
+  narrow read-onlyidle patch prepared at
+  `/private/tmp/c08-task4-workspace-idle-proposed.patch`,SHA
+  a388ccccfaec042848efbab16961d3efbfd5cc67f163ffd5fd46e9e2337ded22.
+  It is a reviewartifact only, not applied or executed.
+- Automaticapproval rejectedproductionsecurity-boundary modification andGREEN,
+  explicitly requiringhuman exactscope approval. Rootaskedhuman whether to
+  apply this concrete3filepatch andcontinueverification; permissionpending.
+  Do not retry/apply throughanothercheckout/indirectexecution or treat elapsed
+  time/agentmessages as approval. Read-only evidencecatalog maycontinue.
+- Proposal keeps auth/lease/owner/generation/nonce/epoch/checkpoint fences and
+  allows only exactfinishing/acceptedrequest idle withoutnewgrant/copy/writes.
+  Approval would permit implementation+tests+SOURCE SPEC→QUALITY+freshimage;
+  it would not itselfaccept Task4/C08. Goalremainsactive, not userpaused/complete.
+
+## Previous SOURCEv6 current-checkpoint snapshot (historical) — 2026-10-04
+
+## Current C08 execution checkpoint — 2026-10-04
+
+- B isolated local gate, C01–C07 and C08 Tasks1–3 foundation accepted.
+  Task4–6, C09–C12, BC and activation pending. OpenSpec8.1–8.4 unchecked;
+  final cleanup retains one cumulative120-second budget.
+- Three actual image attempts are preserved: v3 compatibility failure before
+  Runner; v4 child no-saver inherited sync failure; v5 full2 six-writer join and
+  first acceptedpartial/reopen only, delta callback lost. All v5 containers
+  stopped137; no complete normal/paused lifecycle or original close proof.
+- Child remote-only async fix keeps parent root sync/Local omission/private
+  namespace/callback isolation. Delta CachedHistorySaver exact hook forwarding
+  now preserves inner postcommit callback with cache enabled. Actual root
+  stock full/delta/native contract RED→GREEN passed; full installed second
+  presentation/cleanup root cause remains unresolved.
+- Complete SOURCEv6 freeze
+  aa3cb135713db97ca9b21254442691456cc97535dfed8ba34689d93c0eee451a:
+  133files/110Python/97reports/44targets/50goal/3stop. Root independently checks
+  current/copies/reports/observations with no mismatch. Both normative fixed.
+  Independent SPEC→QUALITY both PASS P1/P2=0. Static110 pass, guide0errors/
+  prior warnings and unchanged budgets.
+- Current whole574 GREEN76.536 seconds=274PG+300neutral/source/Local.
+  Affected182=133PG+49neutral; finalbytes8=4PG+4neutral. Counts overlap.
+  Pure fixture protocol2 is simulation, not physical/SQL acceptance.
+- Fourth fresh six-wheel/image authorized under sole implementer. Complete
+  installation member/44target proof, actual4 lifecycle and runtime SPEC→QUALITY
+  remain required. Safe model/callback identity receipts add observation only;
+  strict sixwriters/twopartials/reconnect/exit0/originalclose/120deadline/pointers
+  remain unchanged. No Task4 commit, Task5, push or activation.
+- Same-session controlled native daemon is not Node restart proof; oldattempt
+  new-session409 remains C09/fullrestart boundary. Finishing poll409/original
+  cleanup overlap remains unproved.
+
+## Previous SOURCEv5 current-checkpoint snapshot (historical) — 2026-10-04
+
+## Current C08 execution checkpoint — 2026-10-04
+
+- B isolated local gate, C01–C07 and C08 Tasks1–3 foundation are accepted.
+  Task4–6, C09–C12, BC and activation remain outstanding. OpenSpec8.1–8.4 stay
+  unchecked. Final cleanup retains one cumulative120-second budget.
+- SOURCEv3 goal pause and exact terminal-outcome repairs passed SPEC→QUALITY.
+  Fresh v3 image installation matched six wheels779 members/43 targets, but
+  all4 lifecycle cases failed compatibility before Runner launch. Minimal
+  selected-factory fixture SOURCEv4 passed SPEC→QUALITY.
+- Fresh v4 image1232e79 passed779/43 installation byte comparison and launched
+  all4 actual Runner cases. Each failed actual child no-saver inherited sync
+  durability, then original six-writer ancestry check; physical Docker exit137
+  and immutable desired error/statefailed were preserved. No original complete
+  cleanup/normal exit proof is claimed. Exact logs/XML/raw State are retained.
+- Minimal remote-only original child astream async override preserves parent
+  sync, Local omission, inherited namespace/identity/callback isolation. Actual
+  PG full/delta child RED2→GREEN2 plus103 original neighbors passed. Complete
+  gate396 passes/0fail/error/skip,61.337 seconds =143PG+253neutral/source/Local.
+  Counts overlap and are not added. Actual library provenance is1.2.9, not the
+  prior known namespace boundary1.2.6.
+- Complete SOURCEv5 freeze SHA
+  7f2b889f9aa35d0c91a557667dec52d8a95497acc204616563412f7d420a38fb:
+  126files/103Python/43targets/87reports/50goal/3stop observations. Root
+  matched all current/copies/reports/observations and precise source changes.
+  Both normative references remain fixed; static checks pass and guidance
+  0errors/6existing warnings, unchanged budgets. SOURCE v5 SPEC then QUALITY passed, P1/P2=0.
+- Third fresh six-wheel/image is authorized under sole implementer; no Task4
+  commit or Task5 start. Fresh image→installed bytes→mandatory actual4 lifecycle→
+  runtime SPEC→QUALITY remain prerequisites for Task4 acceptance. Original
+  close receipt/exit0/120budget/gates/pointers assertions are unchanged.
+- Same-session controlled native daemon does not prove installed close or
+  new-session Node restart recovery. Old-attempt new-session409 remains C09/
+  full-restart incomplete; finishing poll409 cleanup overlap remains unproved.
+
+## Earlier current-checkpoint snapshot (historical) — 2026-10-04
+
+## Current C08 execution checkpoint — 2026-10-04
+
+- B has passed its isolated local gate; C01–C07 and C08 Tasks1/2/3 foundation
+  are accepted. Task3 SOURCE/runtime v7 passed SPEC then QUALITY with actual
+  installed six-writer pre-publication SQL join evidence. Full C/BC remain incomplete.
+- Task4 SOURCE v1 SPEC found hidden goal-turn pause loss. Original goal/helper
+  business RED8 was fixed minimally and GREEN8 passed; v2 SPEC passed. Fresh
+  QUALITY then found accepted-final outcomes incorrectly downgraded by non-exit
+  stop reasons. Original PG RED12/16 and original daemon/HTTP/PG RED1 were fixed.
+- Complete SOURCE v3 is frozen at123 files/101 Python/43 installed targets,
+  SHA bd7c0f2d5378a141c2aa257b4102bd5c7ba98224eb7ee24b12f455311adaf4dd.
+  Root verified all files/copies,78 reports,42 goal and2 stop observations plus
+  static/guidance fingerprints; both normative references remain unchanged.
+  SOURCE SPEC v3 and subsequent independent QUALITY both passed, P1/P2=0.
+- Current v12 gate has290 passes,0 failures/errors/skips,51.011 seconds:
+  141 actual PostgreSQL cases plus149 neutral/source/Local cases. Final new26
+  test bytes pass6.362 seconds after cosmetic import formatting. Overlapping
+  reports are not added. All101 Python check/format/diff checks pass;
+  guidance0 errors/6 existing chain-soft warnings,backend28666 bytes,unchanged budgets.
+- Native stock tests use scripted providers/prewritten files/authenticated ASGI
+  and fixture stop proof. The new daemon stop chain uses original daemon/client/
+  publication/HTTP/PG with a controlled native child; it is not stock close or
+  Docker/Linux. Actual new-session stop rejection409 remains a C09/full-restart
+  incomplete boundary. These limitations are preserved in the complete freeze.
+- Task4 installed full/delta × normal/original ASK pause four-case matrix remains
+  collected-only pending execution. First SOURCE v3 six-wheel/image and installed-byte verification passed, but
+  all4 cases failed at compatibility before Runner launch. Minimal fixture
+  SOURCE v4 passed SPEC then QUALITY; new fresh build is authorized. Actual Linux
+  lifecycle and runtime dual review must precede Task4 acceptance.
+  No Task4 commit, Task5 start or public activation.
+- Task4–6, C09–C12, BC and deployment remain outstanding. Full C08/OpenSpec8.1–8.4
+  stay unchecked. Final cleanup retains one cumulative120-second budget.
+
+## Prior C08 execution checkpoint (historical) — 2026-10-04
+
+- B is accepted; C01–C07 are accepted. C08 Tasks1/2/3 foundation is accepted
+  after complete source and runtime SPEC then QUALITY, P1/P2=0. Task4 is now
+  dispatched to a fresh sole implementer;
+  full C08/OpenSpec acceptance gates remain unchecked.
+- Task3 SOURCE v5 and v6 passed sequential SPEC then QUALITY. V5 installed
+  partial/final2 PASS (43.678 seconds) and three separate negatives each1 PASS
+  cover their exact frozen inputs; overlapping/native scopes are not summed.
+- Fresh v6 six-wheel779 installed-member verification passed. Actual ancestry
+  and pre-first-publication-SQL physical join were observed for all6 writers,
+  but combined partial failed afterward (1 failure,29.115 seconds; final not run).
+  Actual raw diagnosis isolated only S→R scheduling state drift against unchanged
+  stable identity. These failed reports are retained, not treated as acceptance.
+- Minimal stable-identity repair now independently validates each live process
+  observation while preserving CID/StartedAt/image/profile/ns/cgroup fences.
+  Final original-code RED13/23, focused32 PASS and affected7-file80 PASS prove
+  the native repair, with zero errors/skips; counts overlap and are not summed.
+- Complete SOURCE v7 (67 current files and snapshots) is frozen; SPEC passes
+  and subsequent QUALITY passes, P1/P2=0. Fresh v7 build is dispatched.
+  Root independently matched
+  all67 paths/copies and31 report SHAs. Production delta is solely the comparison
+  repair. Fresh v7 image byte/source comparison and actual partial/final2 PASS
+  (51.262 seconds) now complete, including all6 actual writer ancestry/pre-SQL
+  join observations. Final runtime SPEC and subsequent QUALITY pass (P1/P2=0).
+- Task4 is actively integrating original worker publication and terminal closure.
+  Preliminary saver native RED1 → GREEN1 verifies root postcommit callback outside
+  original locks/transaction. Pair v2 has21 passes (5.849 seconds):14 native
+  PostgreSQL cases plus7 neutral SQLite cases,0 errors/skips; original terminal
+  SQL/pair rollback, lock/flush lease expiry, duplicate/conflict and cancellation
+  are covered. Historical v1 token test was ineffective and is not cited as proof.
+  These component tests do not accept full worker integration or Task4.
+- Task4 now has actual native stock graph success/pause coverage across full/delta
+  and single/multiple stream modes. Keyed resume contracts preserve actual pending
+  interrupt identities and cached parallel tool results around original title/
+  duration writes. Cancellation/rollback native3 PASS (3.475 seconds) verifies no
+  accepted final or END on faults and retained recovery after trusted stopped
+  acknowledgement. The fixture uses scripted provider responses, prewritten
+  output bytes, authenticated ASGI and a fixture stop proof; it does not replace
+  fresh installed Linux/Docker evidence. Current coherent native/unit94 PASS
+  (28.690 seconds) includes actual manager heartbeat-disabled terminal entrypaths,
+  restored C07 coverage and typed completion/edit-rollback/late-title faults.
+  Actual stock ask_clarification END now has trusted current-root observation,
+  preserving original card/request IDs. Current172 PASS (34.479 seconds) covers
+  the added full/delta waiting-input paths and original clarification neighbors;
+  source-only installed-observer build inputs are verified, with real Docker
+  execution still pending. Prior overlapping scopes are not summed. Whole source
+  review/runtime acceptance remains pending. Detailed measured scopes are retained
+  in the C08 plan.
+- Task4–6, C09–C12, BC and public activation/deployment remain outstanding.
+  Final cleanup retains the original cumulative120 seconds.
+
 ## Initial foundation snapshot (historical)
 
 - B01: standalone optional package, strict profiles and identity-free JobSpec;
@@ -2170,3 +3206,2290 @@ bookkeeping changes only nonpackaged docs and OpenSpec7 state, leaving
 production/tests/packagedresources/buildinputs/wheels identical to the reviewed
 freeze. One explicit accepted C07 commit follows; C08-C12/BC and remote activation
 remain outstanding.
+
+
+## C07 commit receipt and C08 planning — 2026-10-03
+
+C07 accepted implementation commit: `3d920f2df47d2bfdbb71d775671e450c07c410fc`
+(`feat(fleet): persist and replay committed remote agent events`),43explicitfiles.
+Postcommit Root checked clean status and unchanged production/tests/packaged
+resources/buildinputs against the acceptedv9 freeze; ignored receipt is
+`.local/fleet-evidence/c07-restart-2e1633848e2b/formal-v9/postcommit-root-receipt.json`.
+Post-bookkeeping guidance24/0errors/2existingsoftwarnings, strictOpenSpec3/0 and
+diff0 passed. OpenSpec7.1–7.4 complete; C08–C12/BC remain unchecked.
+
+Source-audited [C08 detailed plan](2026-10-03-ecs-fleet-c08-workspace-checkpoint.md)
+refines the approved jointpoint contract. It identifies missing real filewriter
+settlement, trusted Node sealing outside the runner mount, original stock
+checkpoint boundary, same-session coreterminal participant, durable finishing
+and recovery thread reservations, and owner fileAPI. No C08 code/tests/build/
+migration/acceptance has run. Fresh Root read-only resource preflight confirms
+owned local PG16.12 PID21606/15436 and Redis8.6 PID36597/58929; no data changed.
+A first preflight used a SQLAlchemy URI directly with psycopg and failed before
+connecting; corrected driver conversion passed. This is setup evidence only.
+Remote Gateway activation remains closed.
+
+
+## C08 Task1 baseline RED after runtime restoration — 2026-10-03
+
+Final same-fixture native report `c08-runtime/red-final-v2.xml`: two expected
+behavior failures, zero errors/skips in9.28 seconds. Original tools and committed
+root checkpoint precede existing artifact HTTP404. Actual runner kill/wait,
+authenticated stopped HTTP and FleetService reconstruction precede unknown
+placement versus required recovery_required. Actual tool-start counts2→2 and
+identical execution identities prove no new tool invocation; runner starts1.
+All setup failures are retained separately and excluded from behavior RED.
+Root checked raw XML/current source SHA and tool receipts; independent SPEC
+passed, then independent QUALITY passed with no blocking issues. Root ruff,
+format and diff checks passed. Task2 private schema/storage sole implementer has
+been dispatched with an exclusive native-only window. No C08 image/migration
+executed, no C08 acceptance or OpenSpec8 checkmarks. C09-C12/BC remain outstanding.
+See [C08 plan](2026-10-03-ecs-fleet-c08-workspace-checkpoint.md) for exact scope
+and later partial metadata, immutable URL and Linux containment proof requirements.
+
+
+## C08 Task2 first foundation review — 2026-10-03
+
+Root independently matched all eleven frozen source hashes and read actual
+78-pass/zero-failure/error/skip XML (47.070s; log47.17s), covering descriptor
+storage, full private ownership constraints, real PostgreSQL migration/restart,
+isolated manager install/native build and autogenerate partitioning. Historical
+upgrade starting points remain unchanged. Independent SPEC passed. QUALITY
+found P2 oversized metadata publication before reader refusal: candidate and
+request marker could be fixed before >2MiB metadata was rejected. The sole
+implementer is reproducing and fixing it; new targeted GREEN/source freeze and
+SPEC → QUALITY are required before Task2 acceptance or Task3 dispatch.
+No C08 image or runtime acceptance; OpenSpec8/C09-C12/BC remain incomplete.
+
+
+## C08 Task2 foundation accepted; Task3 started — 2026-10-03
+
+The metadata producer P2 has real descriptor RED then GREEN and revised
+sequential SPEC → QUALITY PASS. Final actual80-pass report has zero failures/
+errors/skips (41.742s XML /41.84s log), retaining real PostgreSQL, isolated
+manager native installation and autogenerate/B/C migration neighbors. Root
+matched all11finalsourcehashes; only storage/test changed from the prior78
+freeze. Oversized rejection leaves no candidate/marker; >85% fixed-budget
+metadata verifies and restores twice. This accepts only Task2 foundation.
+Task3 sole implementer now owns C-only writer settlement/Node staged protocol
+and the exclusive native window. Native results cannot replace required Linux
+preseal containment proof; later stable-source reviews and coordinated fresh
+build/testing remain necessary. No C08 runtime/image acceptance, commit or
+OpenSpec8 completion; C09-C12/BC remain outstanding.
+
+
+## C08 Task3 resumed after system restart — 2026-10-03
+
+User authorized continuation. Feature checkout and active B→C→BC objective were
+rechecked; C07 remains HEAD with uncommitted C08 work. The same Task3 implementer
+retains the native-only window and confirms actual PostgreSQL availability.
+Root read original XML:process-schema-green.xml has39 passes/zero skips in
+5.232s, including the first private process schema upgrade. Historical C06
+cleanup-neighbors.xml has24 passes/zero skips; separate activity-green.xml has
+24 passes and3 platform skips in6.226s (one Linux proc-fd and two Windows cases),
+explicitly excluded from Linux containment proof. Subsequent parent-identity
+FK/NULL-check revisions still require fresh tests. Root has not accepted Task3
+or rerun tests concurrently.
+
+The trusted per-tool subreaper and durable process registry decision is recorded
+in the detailed C08 plan. Original120-second cumulative final cleanup remains;
+partial seals do not start it. Stable source reviews, fresh Linux container
+proof and the rest of C08/C09-C12/BC remain required. No image build, C08 commit
+or OpenSpec8 completion is claimed by this incremental continuation.
+
+
+C08 Task3 intermediate native foundation:Root read65-case XML with62 passes,
+3 platform skips,zero failures/errors in12.349s. Original tool identity binding
+and retained Popen failure handling are being integrated; subsequent revisions
+are not covered by that report. Node staged protocol and Linux process proof
+remain outstanding, as detailed in the C08 plan. This is not Task3 acceptance.
+
+
+Task3 cleanup setup correction:older minimal grants omitted the now-required
+original frozen profile/deadline and failed before writer startup, after which
+test-finally waiting masked the error. The shared C05 fixture retains its actual
+existing authorize_start response; C06 passes that original grant. Production
+fencing and assertions are unchanged. Root inspected the test diff and24-pass
+zero-skip cleanup XML (9.059s; log9.13s). Root also confirmed107-pass zero-skip
+schema/installation neighbor XML (48.038s; log48.11s), and62-pass/3-platform-skip
+foundation XML (9.635s; log9.71s). Changed shared fixtures require additional C05
+neighbor coverage. Stage protocol and Linux proof remain outstanding.
+
+
+### Restart continuation verification — 2026-10-03
+
+User confirmed continuation after the system restart. The original active goal
+and feature checkout remain in use; C08 Task3 continues with one implementer.
+Root re-read actual XML: installed-contract binding34/0skip; C01–C03
+admission74/0skip; C05 after contract preflight130/0skip; complete original
+cleanup/budget scope plus stream25/0skip. Private partial publication-budget
+RED1 then GREEN3 proves the partial request/wait path does not start the original
+final120-second budget. Retained process join/reopen defects have RED2 then
+GREEN19/0skip with source inspection; this does not establish Linux containment.
+Detailed scopes, timings and outstanding Node/terminal integration are recorded
+in the C08 checkpoint plan.
+
+Root ran `git diff --check` successfully and `openspec validate --all --strict`
+reported three changes passed, zero failed. These checks validate source
+whitespace and planning structure only. OpenSpec8.1–8.4 and Superpowers Task3
+remain unchecked pending the full original-runtime implementation, sequential
+SPEC/QUALITY review, and fresh installed Linux-image evidence. No C08 completion
+claim or public activation was made.
+
+
+### C08 Task3 authenticated candidate protocol checkpoint — 2026-10-03
+
+Actual Node HTTP/PG protocol now has original poll/claim plus prepared
+acknowledgement under the original shared ownership fence. Root read:
+node-auth1/0skip, candidate ack4/0skip, credential-final7/0skip, and the
+subsequent final natural-expiry fix8/0skip. A real SQL projection wait had
+returned200 after credential expiry (RED1); final credential and lease
+validation now rejects it. The latest identity/bearer neighbor report has
+11 passes/zero skips in6.268s; its earlier exception-status assertion mismatch
+is preserved separately and did not require a production auth relaxation.
+
+Native collector5/0skip and pidfd/source23/0skip are source-contract evidence.
+Actual Node exec, immutable container identity, journal/transport failure
+replay and fresh installed Linux containment remain in progress. The selected
+collector transport keeps original Docker CLI with fixed immutable source and
+trusted exec receipts; it introduces no argv/path whitelist. The kernel probe
+must preserve the caller's dumpable/subreaper flags because installed
+compatibility also runs in original runner PID1, whose proc namespace must
+remain independently observable to the collector. Detailed decisions and
+scoped XML timings are retained in the C08 checkpoint plan. Task3 and all
+OpenSpec C08 parent gates remain unchecked.
+
+
+### C08 Task3 reboot continuation and collector revision — 2026-10-03
+
+Execution continues in the original feature checkout with the same sole Task3
+implementer. Final cleanup retains one120-second monotonic budget; partial
+publication uses the original execution deadline. The revised producer first
+stops and positively joins its known supervisors. Node independently proves
+zero children before and after candidate copy. A different-UID trusted exec
+closes the inherited-descriptor birth window that Python-main nondumpable alone
+cannot cover. The existing non-root profile policy is unchanged. Historical
+same-UID/source-signalling tests are not acceptance of the revised protocol.
+See the detailed C08 checkpoint plan for the authority/mount/UID checks and
+required real Linux negative evidence. Task3 and OpenSpec C08 stay unchecked.
+
+
+### C08 revised collector source GREEN and recovery integration — 2026-10-03
+
+Root verified revised collector source/native report19PASS/0skip2.058s. The
+producer partial/final before-SQL real child test preserves the original final
+120-second deadline and leaves it unstarted for partial publication. NodeDaemon
+copy/ack integration continues. A minimal exact identity-bound storage recover
+read API is approved to retry lost responses without re-copying legal large
+manifest data into the original1MiB journal. Full descriptor verification,
+negative FS cases and re-review of the storage delta are required; installed
+Linux containment and whole C08 acceptance remain pending.
+
+
+### C08 storage recovery delta accepted; Node lifecycle continues — 2026-10-03
+
+Original SPEC then QUALITY re-review passed the exact three-file recovery delta
+with P1=0/P2=0. Actual named-stat marker deletion now rejects after initial open;
+final34PASS/0skip7.294s includes original storage neighbors and real near-limit
+metadata recovery. The early race that passed is not mislabeled RED. The Node
+same-instance retry/cache regression now3PASS/0skip2.215s after two actual
+failures. This is scoped source/native evidence only. Whole Task3 still needs
+combined original daemon/HTTP, physical copy/journal cancellation and installed
+Linux proof; all OpenSpec C08 gates remain unchecked.
+
+
+### C08 Task3 resumed after restart — 2026-10-03
+
+Root verified the source/native aggregate: 407 PASS and eight isolated child
+fixture failures, zero skips. The minimally updated original C06 child fixture
+then passed all eight affected cases in 20.763 seconds, preserving its original
+fault injection and assertions. Source lint/format cleanup and the full Task3
+freeze are next, followed by SPEC → QUALITY. The original final cleanup budget
+remains cumulative 120 seconds. Existing recovery SHA review stays scoped to
+its historical bytes; test import cleanup will have a new explicit freeze.
+Task3 and all C08 OpenSpec parent gates remain unchecked; fresh installed Linux
+containment, subsequent C tasks and BC delivery remain pending.
+
+
+### C08 Task3 whole-source SPEC rejected; repairs in progress — 2026-10-03
+
+The complete 57-file source freeze was independently verified, but SPEC found
+one P1 and one P2: MCP scope closing owners can outlive original resource
+unwind after publication timeout/cancellation; final prepared waiting can
+exceed the already-started cumulative cleanup deadline. The same implementer
+is adding actual failure regressions and fixing these two paths. QUALITY is
+withheld until same-reviewer SPEC re-review passes a new explicit freeze.
+The 120-second cumulative budget and partial execution-only deadline remain
+requirements. No Linux, Task3 or C08 acceptance is claimed.
+
+
+### C08 Task3 SOURCE SPEC v2 PASS; QUALITY running — 2026-10-03
+
+The two source-review findings were reproduced with four actual failures and
+fixed under the original cleanup ownership/budget. The same reviewer passed
+the complete v2 57-file freeze with no remaining P1/P2. Root verified repair
+28 PASS, C06 neighbors 33 PASS, MCP defaults 70 PASS (all zero error/skip);
+overlapping reports are not summed. Whole-source QUALITY is now dispatched.
+Task3 still awaits installed Linux and combined original daemon/HTTP evidence;
+C08 and subsequent C/BC work remain in progress.
+
+
+### C08 Task3 SOURCE QUALITY v2 FAIL; detached MCP owner repair — 2026-10-03
+
+QUALITY found one additional P1 (no P2): old MCP eviction/close/creation-unwind
+paths can detach a real owner before its context-manager exit, making the C
+scope barrier miss it. The same implementer is adding real SDK owner failures
+and preserving original-scope ownership through every detach path. V2 source
+SPEC remains passed but QUALITY is failed; a new freeze must pass SPEC then
+QUALITY before installed Linux/combined daemon HTTP proof. Full scope remains
+B → C → BC and C08 is not accepted.
+
+
+### C08 Task3 SOURCE SPEC v3 PASS; QUALITY re-review — 2026-10-03
+
+Actual detached SDK-owner failures were reproduced (3 FAIL), fixed from owner
+birth under its original scope, and verified across all old detach/close APIs:
+97 PASS and C06 neighbors 33 PASS, zero error/skip. Root verified the full
+58-file v3 freeze; same-reviewer SPEC v3 passed with no new P1/P2. QUALITY
+re-review is now running. Original cumulative final 120 seconds remains.
+Task3/C08 and installed Linux/combined daemon HTTP acceptance stay pending.
+
+
+### C08 Task3 SOURCE v3 accepted; installed Linux window started — 2026-10-03
+
+Sequential SPEC v3 and QUALITY v3 PASS, P1=0/P2=0; the complete 58-file freeze
+and actual SDK-owner recovery evidence are independently verified. Root has
+dispatched the same sole implementer for fresh six-wheel/installed-image bytes,
+real original C04 writer/MCP containment and combined original daemon/HTTP/NAS
+lost-reply recovery. Existing native mocks/separate scopes are not relabeled
+Linux proof. Task3/C08 remain unchecked; Task4/5/6 and later C/BC remain pending.
+The original B image and cumulative 120-second final cleanup budget remain.
+
+
+### C08 Task3 real Linux build/byte proof; combined test pending — 2026-10-03
+
+The first fresh build completed; Root verified 779 non-RECORD installed wheel
+members with zero byte differences, with six RECORD files separately recorded.
+Actual combined runs a/b failed on test-fixture profile and canonical-path
+inputs; historical evidence remains and is not labeled production RED or PASS.
+The installed fixture correction required a second fresh build, now completed
+with Runner `sha256:47967e23411b4bb6ec8d6a7d0020cd88890db8b7a883fb1c1e300178cfdec319`.
+New installed-byte verification and combined run c are in progress under the
+same sole implementer. Task3/C08 remain unchecked; original cumulative final
+120 seconds and full B → C → BC scope remain.
+
+
+### C08 Task3 actual Linux scope defect confirmed — 2026-10-03
+
+The fixed Node collector correctly refuses a remaining live original MCP
+service. Installed same-pool diagnostics show owners in both the trusted
+`user-c04:thread-c04` scope and `default:default`; the latter escapes the
+original managed scope barrier. Production v3 is unchanged pending TDD repair
+of trusted C scope binding, preserving Local defaults. New source review and
+fresh installed Linux validation are required; Task3/C08 remain unaccepted.
+
+
+## C08 Task4 source-freeze preparation checkpoint — 2026-10-04
+
+Root independently parsed the latest XML and read the original source/test
+contracts. Owned48340 naturally exits0; task4-neighbors-green-v3.xml has394
+passes,0 errors/skips,35.216 seconds (pytest log35.32), including current
+clarification/human-input middleware and original C05/C07/manager/repository/
+checkpoint/stream neighbors plus source preflight. Owned33226 naturally exits0;
+task4-source-coherent-v8.xml has110 passes,0 errors/skips,34.596 seconds (pytest
+log34.72):91 real PostgreSQL cases plus19 neutral/source-only cases. These overlap
+prior172/324/94 windows and are not added together.
+
+Owned82123 source preflight naturally exits0:4 passes,1.910 seconds. It verifies
+actual frozen RunContext replacement and the original committed point/request
+SQL join, plus source preparation. Owned14169 source-only input preparation
+exits0:2 passes,0.642 seconds. Neither is a Docker/installed AgentRunner gate.
+The new required installed lifecycle test collects4 full/delta × success/original
+ask_clarification pause cases; missing required image/environment is failure,
+never a mandatory skip. Those cases have not yet executed or built an image.
+
+The implementer is freezing the complete accepted Task3 foundation plus Task4,
+relevant backend/runtime/middleware/tools guides, build inputs and evidence.
+Root has fixed the C08 normative plan and OpenSpec runtime specification bytes
+until sequential SOURCE SPEC then QUALITY completes; this progress tracker is
+excluded from the production inventory and may continue recording status.
+Root requested direct persistence of the actual stopped Docker State, with no
+Config.Env or secrets, so upcoming runtime reviewers can inspect raw stop proof
+rather than infer it only from passing assertions. That fixture source adjustment
+must be included in the freeze. No Task4 acceptance, new image build, Task5 start,
+commit, activation or C08 checkbox follows from these source/native components.
+The goal remains B → C → BC; final cleanup remains cumulative120 seconds.
+
+
+## C08 Task4 reboot continuation and SOURCE v1 review — 2026-10-04
+
+User explicitly resumed after interruption/system restart. Root recovered the
+existing active B → C → BC goal and retained the sole Task4 implementer's
+ownership; no duplicate native, Docker, build, or implementation window started.
+Owned23653 naturally exits0. Current task4-source-coherent-v9.xml has110 passes,
+0 failures/errors/skips,34.081 seconds (pytest log34.17):91 actual PostgreSQL
+cases plus19 neutral/source-only cases. Stock observer preflight-v2 has4 passes,
+1.887 seconds; current C07 final-source gate has28 passes,9.151 seconds.
+These scopes overlap earlier gates and are not summed.
+
+Root independently verified complete SOURCE v1 SHA
+9352642cd7d8d48ca7fbd19ac8bbd28b90aed0ec00819c3609068634c663b4cd:
+118 current files and snapshot copies,63 report fingerprints,static check evidence
+all match, with all67 inherited Task3 paths present. Inventory SHA is
+1f6e6c1a8021a668d3ea8423c6b6ceb58cd9d6dbd3cd7782581cde53f77cb7a0.
+The complete freeze records96 Python files and43 installed production targets.
+Fresh c08_task4_spec now reviews SOURCE compliance before a separate QUALITY
+review. Both normative plan/spec bytes remain fixed. This excluded tracker alone
+records ongoing status.
+
+The required four-case installed lifecycle matrix is collected source only;
+raw Docker State and cumulative-budget deadline observations are assertions
+prepared in source, not executed runtime evidence. No new image, Task4 acceptance,
+Task5 start, slice commit, or public activation follows. C08/OpenSpec8.1–8.4 remain
+unchecked. Final cleanup retains one cumulative120-second budget.
+
+
+## C08 Task4 SOURCE review finding: hidden-turn pause — 2026-10-04
+
+The fresh SPEC reviewer and Root independently identify a P1 in original worker
+continuation handling. graph_paused is materialized only after the first turn;
+a later hidden goal turn's true interrupt or original ask_clarification END does
+not refresh that value. The original goal helper may persist an evaluation root
+or evaluate/continue again, and final status may become success instead of the
+required interrupted/paused input boundary. The sole implementer confirms the
+source path and prepares a real original-goal continuation RED matrix. SOURCE v1
+remains unchanged while the reviewer finishes its complete audit; QUALITY/build
+are not authorized by the partial finding. No Task4 acceptance follows current
+GREEN evidence. Original B → C → BC scope and cumulative120 seconds remain.
+
+
+## C08 Task4 SOURCE SPEC v1 FAIL; original continuation repair authorized — 2026-10-04
+
+Fresh c08_task4_spec completed the full118-file source audit: one P1, no second
+confirmed P1/P2. At worker.py1136, a hidden continuation returns without refreshing
+graph_paused. Original helper1773–1782 may persist goal evaluation through
+runtime/goal.py553 into a new root lacking interrupt pending writes/IDs/cached
+completed work, then final status can remain success. Original ASK END can also
+be evaluated or continued instead of paused/input_required. This is a confirmed
+source-reachable defect, not executed native RED. Existing110/394 reports do not
+cover it. SOURCE v1 fails and QUALITY/image build remain disallowed.
+
+Root authorized the same sole implementer to reproduce using the actual original
+GoalState/helper and controlled evaluator provider, full/delta × actual interrupt
+or original ASK, including both stock stream branches; then minimally refresh
+remote materialized pause after every stream turn, before helper/evaluator/root
+mutation. Verify exact paused pair, core interrupted, card/pending IDs/cached
+work, no further evaluator/hidden turn, and original Local/goal neighbors. New
+complete SOURCE v2 must pass same-reviewer SPEC then fresh QUALITY before build.
+No Task5 start, C08 checkbox, commit or activation; cumulative120 seconds remain.
+
+
+## C08 Task4 repair ownership and guidance audit — 2026-10-04
+
+Root observed the original implementer in pending_init after the interrupted
+session, explicitly triggered followup_task for the already-authorized same-agent
+repair, then verified running state. Implementer acknowledged full P1 context,
+actual original-goal RED preparation and no native handle yet. No replacement
+implementer or duplicate window was created.
+
+Root additionally read current build preparation and original guidance validator.
+SOURCE v1 backend/AGENTS.md is29150 UTF-8 bytes: above the existing28KiB soft
+limit28672, below32KiB hard limit32768. This is a documentation warning boundary,
+not a second production P1 or executed validation failure. The implementer was
+asked to compact guidance within existing budgets in the next complete freeze;
+no validator budget change is authorized. Final slice guidance checks still await
+Task6. SOURCE review failure remains the real next action; B/C/BC remain active.
+
+
+## C08 Task4 continuation first window: rebooted PostgreSQL unavailable — 2026-10-04
+
+Owned85365 naturally exits1 before production changes. Root independently parsed
+ goal-continuation-pause-first.xml:8 tests,8 setup errors,0 failures/skips,
+2.928 seconds; every error contains ConnectionRefusedError to the established
+native PostgreSQL listener. This is environment/setup evidence, not a business
+RED or a successful gate. The implementer owns the sole restoration window:
+inspect original service/process/data-directory state, then restore the original
+owned instance after confirming absence, preserving all data and credentials.
+User explicitly authorized continuing after system restart. Root authorized no
+new database, cleanup, global service restart, or competing test window.
+After readiness, the same original-goal eight-case RED matrix must run again.
+
+
+## C08 Task4 restored native services; corrected goal fixture in flight — 2026-10-04
+
+The implementer inspected original PostgreSQL16 data-directory/pg_ctl status3
+and absent listeners before restoring that same instance, and restored the
+original authenticated Redis service after confirming absence. Root independently
+observed PostgreSQL PID12364 on127.0.0.1:15436 and Redis PID12517 on58929, without
+printing credentials. No new database or data reset occurred.
+
+Owned20903 naturally exits1:goal-continuation-pause-red.xml8 failures,4.039 seconds;
+Root parsed every failure as fixture NameError from missing graph_input. Root had
+independently flagged that source omission. This is not business RED despite XML
+failure labels. Implementer corrected real active GoalState input, retained old
+production worker bytes, and started sole native9118 with
+ goal-continuation-pause-behavior-red.xml. Root does not poll its owned handle or
+start another native/Docker window. SOURCE v2/reviews/build remain pending.
+
+
+## C08 Task4 original continuation business RED confirmed — 2026-10-04
+
+Owned9118 naturally exits1 on unchanged old worker. Root independently parsed
+ goal-continuation-pause-behavior-red.xml:8 actual assertion failures,0 errors/skips,
+7.221 seconds (pytest log7.27), plus all8 unique original goal-pause JSON receipts.
+All4 true-interrupt full/delta × single/multiple stream cases show hidden_turn1,
+evaluator1,question entry1,completed parallel sideeffect1, but materialized
+interrupt IDs and cached pending tool writes empty after the original goal helper.
+All4 original ASK END cases show hidden_turn1 and evaluator2, with goal cleared,
+violating the one-evaluation boundary. Real active GoalState and original
+_prepare_goal_continuation_input/_persist run; only evaluator provider responses
+are scripted. These are business RED, distinct from previous environment and
+fixture failures. No new image or installed Linux claim follows. Same implementer
+now applies the minimal authorized remote-only materialized check after every
+stream return. GREEN/new complete source dual review still required.
+
+
+## C08 Task4 original continuation first GREEN — 2026-10-04
+
+Owned51871 naturally exits0. Root independently parsed
+ goal-continuation-pause-green.xml:8 passes,0 failures/errors/skips,7.865 seconds
+(pytest log7.92) and all8 newest distinct goal-pause receipts. All4 true-interrupt
+cases retain one actual interrupt ID and completed_goal_sideeffect pending
+ToolMessage, with next tools, one question entry and one completed sideeffect.
+All8 cases retain evaluator1/hidden_turn1 and the original goal continuation;
+ASK cases preserve the original current card without a second evaluation.
+The actual original stock helper's further SQL assertions cover exact paused
+point/core interrupted/private pointers/native trusted stopped outcomes.
+Native physical_stopped remains fixture authority, not actual Linux stop proof.
+
+Root read the minimal worker change: a remote-only materialized pause helper is
+called immediately after both initial and every continuation stream, before
+another goal helper/evaluator/root mutation; Local returns false as previously.
+No original goal helper implementation changed. Original goal/Local/coherent
+regressions, complete SOURCE v2 SPEC→QUALITY and fresh installed runtime remain
+pending. First GREEN does not accept Task4 or C08.
+
+
+## C08 Task4 current goal/coherent regression GREEN — 2026-10-04
+
+Owned92899 naturally exits0. Root independently parsed
+ task4-goal-coherent-v10.xml:244 passes,0 failures/errors/skips,40.485 seconds
+(pytest log40.54). Implementer identifies99 real PostgreSQL cases and145
+neutral/source/Local cases:original110,8 new goal-pause cases and126 original
+goal worker/runtime/RunManager/Local namespace neighbors. These overlap prior
+gates and are not added together. Both RED/GREEN unique goal receipts are retained
+with separate indexing. No native handle remains while complete SOURCE v2 is
+prepared. Root verified backend/AGENTS.md now28666 bytes, below unchanged28KiB
+soft28672 and smaller than HEAD28671; no budget increase. The implementer reports
+guidance0 errors with6 existing chain-soft warnings, awaiting indexed evidence
+verification. Same-reviewer SOURCE SPEC re-review is the next gate; QUALITY and
+fresh installed lifecycle remain pending. Task4/C08 remain unchecked.
+
+
+## C08 Task4 complete SOURCE v2 frozen for SPEC re-review — 2026-10-04
+
+Root independently verified complete v2 SHA
+bf32eb46021c3dedfa82fbb84ad09e99e9eaef6892466bd1c3f2c3b65903434f,
+inventory0338777792205dfe28748635098e3d80f438027e6d8c0525ad8109b15db0145c:
+122 current files and copies,68 XML report fingerprints,static evidence and26
+goal observation/index fingerprints all match. All118 v1 source paths and all63
+original report hashes remain represented; four original goal/manager/namespace
+neighbor sources extend the inventory. Complete100 Python check/format and
+original diffcheck evidence all exit0. Guidance evidence confirms0 errors/6
+existing effective-chain soft warnings, no backend AG001, no budget change.
+Same c08_task4_spec is explicitly triggered for complete v2 re-review, including
+closure of its original continuation P1 and preservation of Task3/Task4 protocols.
+Both normative SHA remain unchanged; only this excluded tracker records progress.
+No native/build handle, QUALITY dispatch, Task4 acceptance, Task5 or slice commit
+occurs before the required sequential SOURCE gates. Installed matrix remains
+collected-only and all original evidence limitations remain explicit.
+
+
+## C08 Task4 SOURCE SPEC v2 PASS; fresh QUALITY dispatched — 2026-10-04
+
+Same c08_task4_spec completed v2 re-review:PASS,P1=0/P2=0. It independently
+confirmed122 current/copy files,43 installed targets,68 XML reports,26 goal
+observations/static/guidance and both fixed normative SHA. V1's unique P1 is
+closed by refreshing materialized pause immediately after every original turn,
+before original goal helper/evaluator/root mutation. Original interrupt/cache
+and ASK protocol evidence are recognized within their exact native scope.
+Root now dispatches fresh c08_task4_quality for complete source architecture,
+ownership/concurrency/fault/backward-compatibility and test integrity review.
+Implementation remains frozen, no native/build/commit window starts before its
+formal verdict. Neither this SPEC PASS nor current244 GREEN accepts Task4 runtime,
+Task5/6, OpenSpec8.1–8.4 or C08. Fresh installed four-case lifecycle is still
+collected-only; real new six-wheel/image/byte proof and runtime dual review follow
+only if SOURCE QUALITY passes. Full B → C → BC and cumulative120 seconds remain.
+
+
+## C08 Task5 later entrypoints revalidated during frozen QUALITY — 2026-10-04
+
+Root performed read-only current-source inspection, without starting Task5.
+Actual artifacts.py get_artifact begins349, its .skill archive path precedes
+ordinary resolve_thread_virtual_path at440; both must receive exact accepted
+point/version handling before mutable fallback while preserving permission,
+MIME/disposition/Range and internal owner normalization. reserve_artifact_write
+at59 reaches original RunManager.reserve_thread_operation; manager1805 uses
+_admit_thread_operation with no supplied Fleet participant. Original
+RunRepository.create_thread_operation_atomic at831 invokes a supplied
+participant before core locks, whereas FleetRunAdmission.prepare is actually
+in app/fleet/execution.py96 and acquires the user/thread Fleet advisory domain.
+These current paths are the future shared durable admission boundary; no guessed
+router or separate app/fleet/admission.py exists.
+
+Actual AgentContainers.prepare_workspace at60 delegates to existing
+worker/agent_workspace.py AgentWorkspaceSnapshots.prepare at107. Its trusted
+prepared-workspace marker returns at126 before opening/reverifying source
+manifest/files. Task5 must implement accepted-version clone/reverification using
+its intended contract and cannot reuse this legacy-input shortcut as recovery
+proof. Task5 still awaits Task4 complete source and fresh runtime acceptance;
+this is read-only handoff evidence, not Task5 implementation or acceptance.
+
+
+## C08 Task4 SOURCE QUALITY v2 FAIL: postcommit stop authority — 2026-10-04
+
+Fresh c08_task4_quality completed whole v2 audit:FAIL,P1=1/P2=0. Root independently
+read the same actual source chain. ownership.py177 applies an exact accepted
+final point only for physical reason exit, and events.py136 similarly requires
+exit for C07 recovery closure. Original NodeDaemon.bootstrap stops residuals then
+reports default lease_lost for an unreported postcommit journal. Exact final
+point remains valid but this path downgrades task/placement to recovery_required,
+attempt unknown and cannot seal. Normal final-paired finishing can also overlap
+original cleanup and Node workspace poll; current publisher auth rejects finishing
+with409 and daemon reports lease_lost after authentic stop. Fixed normative
+postcommit-kill rule requires immutable desired outcome preservation and closure.
+This is source-reachable QUALITY evidence, not an executed native/Linux RED.
+
+Root authorized the same sole implementer for original PG/Node bootstrap and
+held-postpair-cleanup/poll RED, then minimal stopped/seal authority repair:
+complete exact accepted final plus original authenticated physical stop decides
+immutable targets; transport reason remains observed information. Unpaired/stage,
+head/identity mismatch or untrusted stop remain failclosed recovery. Preserve
+narrow finishing permissions, original C07 duplicate closure, fresh clocks and
+prior goal pause/cache invariants. New complete SOURCE v3 must pass same SPEC
+then QUALITY re-review. No fresh build/runtime, Task5, slice commit or acceptance
+follows v2 SPEC PASS/current244 GREEN. Real Linux postcommit kill/restart proof
+also remains required within fresh runtime/full acceptance scope.
+
+
+## C08 Task4 actual Node-session boundary correction — 2026-10-04
+
+The implementer and Root read original NodeClient.open_session/attempt and
+AgentAttempts.authenticate. A real open_session rotates the Node session;
+NodeClient.attempt sends that new session while the accepted attempt retains its
+old session. authenticate still requires both to match even with
+require_lease=False. Therefore a real new-session bootstrap rejects before the
+QUALITY stopped-authority branch; the earlier bootstrap chain must not be
+represented as proven new-session restart recovery. The same-session original
+postpair cleanup/poll409 → daemon lease_lost → authenticated stopped chain remains
+reachable and is the immediate P1 RED target.
+
+Root approved actual PG stop-reason and original held-cleanup daemon paths, with
+controlled same-session bootstrap only as explicitly limited supplemental proof.
+A real new-session rejection negative must remain visible. No generic authentication
+or session-fence relaxation is authorized to bypass this boundary. Existing C09
+session recovery and full C08 Task6 actual restart requirements remain incomplete,
+not deleted or accepted from controlled bootstrap evidence. Complete SOURCE v3
+will preserve this boundary before SPEC→QUALITY and new image/runtime gates.
+
+
+## C08 Task4 final stop-reason business RED — 2026-10-04
+
+Owned31152 naturally exits1 on old production. Root independently parsed
+ final-stop-reason-red.xml:16 actual PostgreSQL cases,12 assertion failures,
+4 passes,0 errors/skips,5.088 seconds. The four exit cases pass; cancelled,
+lease_lost and execution_deadline each fail across committed success/paused/
+error/timeout desired outcomes, because stopped returns recovery_required
+instead of the exact immutable target. Fixture uses original same-TX terminal
+participant/RunRepository and physical_stopped proof flag; this is actual PG
+business RED, not actual Linux container stop proof. The original daemon/HTTP
+transport chain is still under fixture construction before production changes.
+Root requested final GREEN snapshots also assert actual placement/attempt states
+and retained both pointers in addition to core/task/seal/reservation/point bytes.
+SOURCE v3/reviews/new image/runtime remain pending; no Task4/C08 acceptance.
+
+
+## C08 Task4 original daemon postpair stop business RED — 2026-10-04
+
+Owned83816 naturally exits1. Root independently parsed
+ final-stop-daemon-behavior-red-v2.xml:1 actual assertion failure,0 errors/skips,
+1.628 seconds, returned recovery_required instead of succeeded. Root read fixture:
+original NodeDaemon.execute and AgentWorkspacePublication.step call actual
+credential-authenticated ASGI workspace/poll409, physically terminate/wait the
+controlled native Popen child, then call original authenticated stopped with
+lease_lost. The final pair is accepted by original RunRepository participant
+when controlled launch runs. This proves actual daemon/HTTP/PG transport authority
+failure; it does not execute stock AgentRunner/environment.close or Linux Docker.
+The original same Node session is preserved. New-session restart is not claimed.
+
+Root also parsed retained earlier fixture windows:77847
+ final-stop-daemon-red.xml1 failure1.545 seconds from IssuedCredential object use;
+10709 final-stop-daemon-behavior-red.xml1 failure1.517 seconds from unnormalized
+native negative signal return code causing stopped422. Neither is business RED.
+Both genuine PG reason and original daemon RED now exist. Same implementer
+repairs only ownership/events transport reason restrictions while retaining
+exact point/identity/head/physical proof fences and observed stop reasons.
+GREEN/full SOURCE v3 SPEC→QUALITY/fresh installed acceptance remain pending.
+
+
+## C08 Task4 stop authority first GREEN; Node fixture alignment pending — 2026-10-04
+
+Owned74453 naturally exits0. Root independently parsed
+ final-stop-authority-green.xml:17 passes,0 failures/errors/skips,4.616 seconds
+(16 original PG reason/outcome cases plus the original daemon/ASGI controlled
+native-child transport chain). Root read the two minimal production removals:
+exact accepted_final remains required, but transport reason no longer overrides
+immutable desired states or blocks C07 recovery closure. Stop reason remains
+stored as observed outcome. This is native GREEN, not installed Linux acceptance.
+
+Owned36127 naturally exits1. Despite its historical filename
+ final-stop-authority-neighbors-green.xml, actual XML is97 tests/80 pass/17 fail,
+0 errors/skips,21.262 seconds. Root read every failure:one new bad-token test
+expects the wrong exception type, and16 original Node protocol/stager tests use
+a manual initial root without the private current-run stamp required by Task4.
+These fail before their intended auth/lease/candidate branches, so they are not
+reason-fix business failures or successful negative coverage. The implementer
+must align the shared native helper through actual original fenced saver/private
+scope and returned root config, preserving all original negatives, then rerun
+with a new unique XML. No direct SQL/metadata stamp bypass is authorized. Prior
+history remains; complete SOURCE v3 and sequential reviews are still required.
+
+
+## C08 Task4 complete SOURCE v3 and current290 GREEN; SPEC re-review — 2026-10-04
+
+Owned55397 naturally exits0:Root parsed97 passes,0 failures/errors/skips,
+28.093 seconds in final-stop-authority-neighbors-green-v2.xml. Original shared
+publish helper now creates a current root through actual private-scope fenced
+saver.aput and uses its returned checkpoint config; original negatives remain.
+Owned21517 v11 naturally exits1 with290/289 pass/1 fixture failure,51.573 seconds:
+accepted-partial helper omitted the original MCP freeze epoch. Correct fixture
+freeze_scope precedes original accept_partial; production did not change.
+Owned60112 naturally exits0:current v12 XML290 passes,0 errors/skips,51.011 seconds.
+Exact scope141 real PG+149 neutral/source/Local:original244 plus26 stop-authority
+PG cases and11 protocol/5 stager PG plus4 neutral daemon/journal cases. Root's
+initial module-only PG inference was corrected after reading individual stager
+fixture dependencies; no145/145 inference is accepted. Owned76364 naturally
+exits0 after pure import formatting:final26 passes,6.362 seconds.
+
+Root independently verified complete SOURCE v3 SHA
+bd7c0f2d5378a141c2aa257b4102bd5c7ba98224eb7ee24b12f455311adaf4dd,
+inventoryf768bc3b6982c368bce42dbb4cb55f8ee51b7c351df78cff1a4febc9c35ef59a:
+123 current/copy files,78 reports,42 goal observations,2 safe stop observations,
+43 installed targets,static and guidance fingerprints all match. V2 all122paths
+and68 report hashes remain. All101 Python check/format/diff evidence exit0;
+guidance0 errors/6 existing soft warnings,backend28666 bytes,budgets unchanged.
+Both normative SHA stay fixed. Same SPEC reviewer is now re-triggered for whole
+v3 before same QUALITY re-review. No live native/build/commit handle exists.
+Controlled daemon proof remains native/ASGI/PG, not stock close or Docker.
+Actual new-session409 negative remains the C09/full-restart incomplete boundary.
+Task4 installed matrix remains source-only; no Task4/C08/OpenSpec acceptance.
+
+
+## C08 Task4 SOURCE SPEC v3 PASS; QUALITY re-review started — 2026-10-04
+
+Same SPEC completed whole v3 re-review:PASS,P1=0/P2=0. It independently validated
+123 current/snapshot files and report/observation/installed source fingerprints,
+fixed normative references and all six v3 changed files. Exact accepted final/
+paused plus authenticated physical stop now preserves immutable target and C07
+closure regardless of observed transport reason; strict identity/private root/
+head/pointers and prepared/stage/mismatch exclusions remain. Prior original goal
+pause/cache/ASK card invariants remain intact in current290 GREEN.
+
+Root has re-triggered the same independent QUALITY reviewer, after SPEC PASS.
+Complete source remains fixed. Planned installed fixture's original close receipt,
+exit status and transport stop cause must be assessed against actual postpair
+poll behavior; no runtime assertion may be relaxed merely to obtain GREEN.
+Current native child proof cannot assert stock cleanup or Linux. Actual new-session
+restart409 remains explicitly incomplete. No fresh build/native/commit window,
+Task4 runtime acceptance, Task5 start or C08 checkbox follows this SPEC verdict.
+
+
+## C08 Task4 SOURCE QUALITY v3 PASS; fresh runtime resumed — 2026-10-04
+
+- The same independent QUALITY reviewer returned PASS, P1=0/P2=0 after SPEC
+  v3 PASS. Root recovered the active unbounded goal after the user reported a
+  system restart and independently matched SOURCE v3 and both fixed normative
+  SHA256 values. No source acceptance was expanded into runtime acceptance.
+- Sole implementer build handle32463 completed naturally with exit0. Fresh
+  context `/private/tmp/c08-task4-v3-e0c6280a504c` and six wheels produced runner
+  `sha256:403832d5b70256046441e6106ce5aabfb0f05e6cd59949eddaa9723eccd2c968`.
+  Receipt `.local/fleet-evidence/c08-task4/task4-runtime-build-v1.json`; this is
+  an implementer report pending Root inventory verification. Installed-byte
+  probe handle24756 is owned only by the implementer. B image is unchanged.
+- Four mandatory full/delta × normal/original ASK-pause lifecycle cases remain
+  unproved. Original close completion receipt, cumulative120-second deadline,
+  normal exit/ExitCode0 and safe raw Docker State remain required. The known
+  postpair finishing-poll409/lease_lost interaction must be tested rather than
+  hidden by loosening assertions. Same-session native proof does not establish
+  installed close or new-session Node restart recovery.
+- Task4 acceptance, OpenSpec8.1–8.4, Task5/6 and full C08 remain pending. No
+  competing build/container session, commit, push or activation was initiated.
+
+
+## C08 Task4 first fresh installed matrix: compatibility fixture failure — 2026-10-04
+
+- Build32463 and installed probe24756 completed naturally with exit0. Root
+  independently compared all779 non-RECORD members across six wheels and all43
+  frozen production targets against installed hashes: no mismatch. This verifies
+  installed bytes, not lifecycle correctness.
+- Actual required matrix7502 completed naturally exit1:4 failures/0 errors/0
+  skips, XML10.516 seconds. All four fail at original
+  `AgentContainers.compatibility(image)` with trusted-bootstrap failure before
+  Runner launch. Receipt `task4-stock-linux-run-v1.json` and unique
+  `stock-linux-v1-a1095ddb01f0.xml`/log are preserved. Root read all four failures.
+- Implementer diagnosed missing selected stock factory worker_compatibility
+  declaration. This is a fixture precondition failure, not a business RED and
+  not proof of terminal cleanup. Root authorized only minimal fixture-contract
+  repair with preflight RED/GREEN and a new complete source freeze.
+- SOURCE v3 remains provenance for image403832; any repaired source must pass
+  SPEC then QUALITY before another fresh build. No lifecycle assertions or
+  production compatibility guards may be relaxed to obtain GREEN. Task4 and
+  OpenSpec/full C08 acceptance remain pending.
+
+
+## C08 Task4 fixture contract SOURCE v4 SPEC PASS — 2026-10-04
+
+- Minimal source delta is only stock Linux fixture compatibility delegation
+  and its original selected-factory reader regression. Fixture contract
+  RED1 (1.213 seconds) and affected GREEN5 (1.840 seconds,1PG/4neutral) verify
+  the missing declaration repair; production compatibility guards unchanged.
+- Complete SOURCE v4 final SHA
+  `fd233e3a12d973d0e0173dac54f45d7743e7765c615bd138c210d6047e23a7f7`:123
+  source files/101 Python/43 targets,81 reports,42 goal/2 stop observations.
+  Root independently verified all current/snapshot/report hashes and exactly
+  two source changes. Both normative references remain fixed.
+- Root and SPEC found stale generic report classifications and an obsolete
+  collect-only statement. Implementer corrected evidence only before final
+  SPEC PASS; no frozen source changed. All actual first-image failures are now
+  identified as compatibility preconditions with no Runner launch. Sourcev3
+  image779/43-byte verification is preserved as v3 evidence.
+- Independent SPEC final v4 PASS, P1/P2=0. The same independent QUALITY reviewer
+  now re-reviews v4. No second image, lifecycle acceptance, Task5, commit or
+  activation is authorized before dual SOURCE review.
+
+
+## C08 Task4 SOURCE v4 dual review PASS; second fresh runtime authorized — 2026-10-04
+
+- Independent QUALITY final v4 PASS, P1/P2=0 after SPEC final PASS. Exact final
+  freeze SHA fd233e3a12d973d0e0173dac54f45d7743e7765c615bd138c210d6047e23a7f7
+  remains fixed; original compatibility guard and strict lifecycle assertions
+  are preserved.
+- Root authorized sole implementer to use a new nonexistent context for six
+  wheels/provider/runner, full installed-byte inventories and actual four
+  mandatory lifecycle cases. Reusing SOURCEv3 image for repaired v4 evidence
+  is prohibited. Original B image unchanged; no Task4 commit/Task5/activation.
+- Failure evidence remains retained and accurately classified. Runtime review
+  must proceed SPEC then QUALITY on actual final source/build/evidence bytes
+  before Task4 acceptance; source dual review alone is insufficient.
+
+
+## C08 Task4 second fresh installed matrix: actual subagent checkpoint failure — 2026-10-04
+
+- SOURCEv4 build67689 naturally exit0, fresh context
+  `/private/tmp/c08-task4-v4-cd59521ab433`, runner
+  `sha256:1232e79a9b4468c4cf7cabacd7791df61e3a7b99d34648d2800c6ca7ef85657e`.
+  Probe79302 naturally exit0; Root independently compared six wheels779
+  non-RECORD members and43 production targets against installed hashes, all equal.
+- Mandatory matrix28802 naturally exit1:4 failures/0 errors/0 skips, XML70.607
+  seconds. Unlike first bootstrap failure, all4 actually launched installed
+  AgentRunner. Root read all failure XML and raw safe failure observations.
+- Each Docker State is physically exited/Running=false/ExitCode137 and daemon
+  reports lease_lost/statefailed. Actual error point was preserved by the
+  already-reviewed immutable-outcome fix. No normal exit or complete original
+  close receipt is proved; actual result cannot be relabeled GREEN.
+- First actual runner cause is installed original subagent executor astream
+  encountering `AsyncPregelLoop._put_checkpoint_fut` AttributeError. Subsequent
+  original six-writer ancestry assertion fails because child writers did not
+  start. Same author is investigating actual inherited remote sync durability
+  and child checkpointer=False before any source repair.
+- Runtime-only read-only exception-frame observer
+  `.local/fleet-evidence/c08-task4/runtime_diagnostics_v2.py` preserves only
+  existing observed Id/Image/State/Config.User and daemon result. It does not
+  alter lifecycle/expected values/assertions and must be included in runtime
+  input freeze for independent review. Unique v2 logs/XML/observations retained.
+- No new source fix, build, acceptance, Task5 or commit yet. The separate
+  finishing poll409/original-cleanup interaction remains unproved; source
+  changes require full SOURCE SPEC then QUALITY before another fresh runtime.
+
+
+## C08 Task4 actual child durability root cause and native GREEN — 2026-10-04
+
+- Actual installed/host LangGraph1.2.9, LangChainCore1.4.9, LangChain1.3.14
+  provenance and main/loop hashes are recorded.1.2.6 describes the prior known
+  namespace behavior boundary, not this actual runtime version. Original child
+  compile(checkpointer=False) inherits remote root sync via copied ContextVars;
+  sync loop awaits a checkpoint future absent with no saver. Only one original
+  child astream invocation exists; execution entrypoints converge there.
+- Native40446 preparation2 failures (XML1.924 seconds, missing configured model)
+  are distinct from actual7002 business RED2 (XML1.821 seconds) through original
+  copied-context isolated-loop executor and real PG parent sync root/child
+  compiled graph. Both full/delta reproduce actual AttributeError. Root read XML.
+- Minimal production fix sets child durability=async only with server-owned
+  current_remote_mutation_context; original Local omission, copied namespace/
+  identity/callback boundaries and persistent root sync stay unchanged. Existing
+  subagent guide is updated briefly; strict installed four-case assertions remain.
+-44480 naturally exit0, actual PG GREEN2 XML1.777 seconds. Real child tool executes
+  once, nested namespace and owner identity retained; parent messages exclude
+  child frames.59901 naturally exit0, affected105=2PG+103 original neutral/Local
+  neighbors. Root independently read GREEN2 XML; counts overlap, not added.
+-87821 full affected gate is running under sole implementer; new complete
+  SOURCEv5 freeze/review and another fresh image/runtime still required. No
+  installed normal close, Task4 acceptance or Task5 start is claimed.
+
+
+## C08 Task4 SOURCE v5 dual review PASS; third fresh runtime authorized — 2026-10-04
+
+- Independent SPEC then QUALITY both PASS, P1/P2=0 on exact complete SOURCEv5
+  SHA7f2b889f9aa35d0c91a557667dec52d8a95497acc204616563412f7d420a38fb.
+  Root verified126 source/copies,87reports,50goal/3stop observations with no
+  mismatch. Actual child no-saver remote-onlyasync fix preserves original
+  Local/namespace/identity/callback and persistent parent sync behavior.
+- Sole implementer now authorized third fresh six-wheel/image/context,
+  installed-byte inventory and actual four mandatory cases. Exact frozen
+  normative/source and B image remain fixed. Strict normalexit0/originalclose/
+  cumulative120/sixwriters/partial reopen/pointers remain required.
+- Both prior failed installed matrices and preparation/native business RED
+  evidence retained. No Task4 runtime acceptance, Task5, commit or activation.
+
+
+## C08 Task4 third actual matrix: partial progress, no complete lifecycle — 2026-10-04
+
+-37587 naturally buildexit0, uniquecontext
+  `/private/tmp/c08-task4-v5-41270b0c4e18`, image
+  `sha256:1a06535b582304f84f1eb7b3be95b3672b146e04caf5bdf91112ebcbb1dc605d`.
+  Probe35980 naturally exit0. Root independently compares sixwheel779
+  non-RECORD and43directtargets with installed probe: all match SOURCEv5.
+-40455 naturally pytestexit1, actual required4 matrix XML72.372 seconds,
+  4 failures/0errors/0skips. All safe raw stopped states retain ExitCode137;
+  full-success daemon recovery_required, other3failed. No completeclose receipt.
+- Earlier child absent-future error no longer appears. Both full cases actually
+  observe original sixwriters Popen0/pipejoins before first SQL and first
+  acceptedpartial/reopening. Root read original receipts: each joined1/partial1.
+  Delta2 each joined0/partial0 and finalprepared1 before failure; fullpause
+  finalprepared1, fullsuccess0. All4 closecompleted0. These facts are partial
+  progress, not normal/pause lifecycle acceptance.
+- Delta2 scriptedprovider hits accepted-count/gate assertion; fullpause reaches
+  original graph recursion100; fullsuccess stops after first partial without
+  final completion. Same author is locating provider/tool-round control and
+  actual saver callback/mode timing, source remains fixed/no activehandle.
+  Recursion limit or strict writer/close/exit assertions may not be relaxed.
+- Unique v3 logs/XML/projection retained. No SOURCE repair accepted, no Task4
+  runtime acceptance, Task5, commit or public activation.
+
+
+## C08 Task4 delta callback forwarding actual RED/GREEN; full diagnosis open — 2026-10-04
+
+- Root and independent SPEC diagnosis confirm original make_checkpointer(delta)
+  wraps the committing FencedSaver in CachedHistorySaver. Callback assignment
+  writes only wrapper instance attribute; wrapper aput delegates inner, whose
+  callback stays None. Cache materialization is not the demonstrated root cause.
+-96748 setup failure (invalid cache property) is retained separately.39934 actual
+  original stock full/delta RED2:full passes,delta fails despite two actual success
+  presents with only finalpoint, XML2.899 seconds.93688 original cached callback
+  replacement contract actualRED1 XML1.806 seconds: callback invocation empty.
+- Minimal CachedHistorySaver explicit after_root_commit read/write forwarding
+  and brief runtime guide preserve cache/sync/Local; no generic __setattr__.
+ 6121 naturally exit0, actualPG GREEN4 XML3.266:full/delta two partial+final,
+  replacement exactlyonce outside original TX/connection/locks, independent
+  committed SQL, nonrootzero and unsetNone. Root independently reads XML.
+- Full fixture protocol simulation2PASS uses original model reply/stream,
+  add_messages and Dangling middleware with simulated tool/gate inputs. It
+  cannot prove physical tools/SQL or explain installed full failure; no full
+  lifecycle repair is inferred. Preparation ValidationError is retained.
+- Root authorized only safe fixture telemetry in next SOURCE:message type/id/
+  name/tool_call_id/status,returned call name/id and chosen branch,callback
+  checkpoint/ns/pending IDs/accepted count. No content/args/env/private config,
+  new SQL reads, expected-value fabrication or lifecycle assertion changes.
+- Source freeze, affected neighbors/whole gate and SPEC→QUALITY still required
+  before fourth fresh build. Task4 acceptance/Task5 remain pending.
+
+
+## C08 Task4 cached callback affected whole gate GREEN — 2026-10-04
+
+-26875 naturally exit0, cached-publication-neighbors-green.xml182 passes/
+ 0failure/error/skip24.933 seconds. Counts overlap and are not cumulative.
+  Protocol observation49671 XML actual1.133 seconds; earlier1.400 message was
+  unverified and corrected, not frozen evidence.
+-62084 naturally exit0, task4-cached-coherent-v14.xml574 passes/0failure/error/
+ skip76.536 seconds. Actual fixtureclosure collection97777 exit0 identifies
+ 274PG+300neutral/source/Local; C05 contributes128PG+2neutral. First collection
+ missing PYTHONPATH failed separately; no business test result inferred. Root
+ independently reads final whole XML.
+- New SOURCEv6 inventory/static/guidance assembly in progress, no active test
+ or build handle, no fourth image. Will inherit all126 SOURCEv5 paths/87reports
+ and add explicit cached saver forwarding, original cache neighbors, native
+ cached publication tests and pure safe stock fixture observations. New
+ cached saver production target requires fresh installation comparison.
+- Full installed secondpresentation/normalclose root cause remains unproved;
+ native574 GREEN is insufficient for Task4 acceptance. Whole SOURCE SPEC then
+ QUALITY and fresh runtime are still required.
+
+
+## C08 Task4 SOURCEv6 frozen; SPEC review started — 2026-10-04
+
+- Complete freeze task4-source-freeze-v6.json SHA
+  aa3cb135713db97ca9b21254442691456cc97535dfed8ba34689d93c0eee451a;
+  fileinventory7dbfdfced1ea50c52299b5dce881e0af764b2c4987d44c79c07f2b2678e6f91a.
+ 133files/110Python/97reports/44installedtargets/50goal/3stop observations.
+  Root independently matches all current/copy/report/observation hashes; all
+  SOURCEv5 paths/reports retained and both normative references unchanged.
+- Minimal production addition is CachedHistorySaver callback property forwarding.
+  Runtime guide synchronized; stockfixture only adds safe identity/branch
+  receipts and pure protocol regression. No content/args/private configuration,
+  control changes or strict lifecycle assertion relaxation.
+- Whole574 test gate274PG+300neutral; affected182 scope133PG+49neutral by actual
+  fixtureclosure. Final cosmetic imports covered90576 affected8 pass3.129 seconds
+  (4PG/4neutral); no unnecessary repeat of whole gate. Static110 allpass; guidance
+ 0errors and unchanged prior warnings/budgets.
+- Independent SPEC v6 now reviewing; QUALITY must follow. Third-image failures
+  are retained separately from new SOURCEv6 (not built/run). Full installed
+  secondpresentation/normalclose cause remains open; no acceptance/Task5/commit.
+
+
+## C08 Task4 SOURCEv6 dual review PASS; fourth runtime authorized — 2026-10-04
+
+- Independent SPEC then QUALITY both PASS, P1/P2=0 on exact133-file freeze
+  aa3cb135713db97ca9b21254442691456cc97535dfed8ba34689d93c0eee451a.
+  Root authorized sole implementer fourth uniquecontext sixwheel/image and
+  full installed member/44directtarget verification, followed mandatory actual4.
+- Cached property fix is not asserted to solve full installed secondturn
+  failure. Pure safe receipts are diagnostic input; no changed expectations.
+  Actual original close/normalexit0/cumulative120/twopartials remain required.
+- Historical three image attempts and all raw evidence retained. Task4 runtime
+  acceptance, Task5, whole C08, commit and activation remain pending.
+
+
+## C08 Task4 fourth actual matrix: delta fix proved, fixture step budget suspect — 2026-10-04
+
+-40041 build naturally exit0; context/private/tmp/c08-task4-v6-f6dd8fd33ade,
+  image490fa3fe68825f318b72a8ee8b0d03a4b36e9867a05084271986df4a2932be6b.
+ 4922 installed verification exit0; Root independently779nonRECORD/44targets
+  match source. B image remains unchanged.
+-25123 mandatory4 matrix naturally exit1, XML76.220 seconds,4fail/0error/skip.
+  All rawState137 retained, no originalclose/normalexit0 acceptance. Actual
+  delta2 each firstpartial1/reopen: callback fix is proved installed for this
+  exact stage only. Full2 likewisefirstpartial1, not completed second/final.
+- Safe identity observations rule out guessed missingname/duplicate AI-loop
+  explanations for3 cases: originalC04 six tools success then firstpartial,
+  actual secondbashsuccess, model chooses secondMCP; parent8 rounds but102root
+  callbacks precede original GraphRecursionError100. Fourth full-ASK observed
+ 83callbacks/model7 then lease_lost/recovery_required without logged error.
+  These two failure classes are not conflated.
+- Original test request fixes recursion_limit100, below actual UI/scheduler
+  default1000. Root authorized only diagnostic proof of finite legitimate
+  graph steps/model/tool upperbound before considering minimal fixture budget
+  alignment with actual production default. Raising a limit to hide a loop
+  remains forbidden; any source change needs whole freeze dual review/freshimage.
+- Same author locating full-ASK HTTP/lease durable facts and finite step count;
+  no activehandle/newsource/build/Task5/acceptance/commit.
+
+
+## C08 Task4 bounded original protocol budget and missing lease diagnosis — 2026-10-04
+
+- Actual fourth-image safe identities in three cases show unique sequential
+  parent AI0..5/stock6/stock7, successful ToolMessages0..7 strictly growing,
+  and GraphRecursionError at original graph100-step cap. Root independently
+  reads these receipts. Original UI hooks2233/2355 use1000. Expanded original
+  six-tool protocol adds three legitimate turns; no duplicate-model-loop
+  evidence supports retaining fixture100 as a production contract.
+- Root authorized fixture-only budget alignment1000 with bounded actual
+  model/tool rounds and existing260wall deadline/strict close/exit0/sixwriters.
+  Normal parent10models/9tools; ASK adds asktool but CommandEND should prevent
+  another modelcall. Earlier suggested ASK11 is only loose upper bound and
+  must not become permission for a post-ASK turn. Child counts remain separate.
+- Full-ASK lease_lost cause cannot be reconstructed: original fixture already
+  destroyed its owned PG; retained logs lack exact HTTP rejection/SQL-at-stop.
+ 120lease setting alone cannot justify calling the13second stop expiry.
+- Next SOURCE may add safe op/status/monotonic/whitelisted stopreason HTTP
+  observation and original before-cleanup SQL whitelist statuses/pointers/
+  lease/deadline plus raw stopped State. No credential/header/grantbody or
+  writes. These read-only diagnostic queries are separate from callback
+  telemetry and must run outside publication/terminal TX.
+- No limit or diagnostic change built/run before wholeSOURCE SPEC→QUALITY.
+  Fifth fresh image remains pending. Normal/pause lifecycle not accepted.
+
+
+## C08 Task4 SOURCEv7 fixture-only freeze; SPEC review started — 2026-10-04
+
+- Complete task4-source-freeze-v7.json SHA
+ 85561a38f0c87c7c3a75efe860d8cfd9bd938c474e6b89ce353c97308e0dc8f7:
+ 135files/112Python/101reports/44targets/50goal/3stop observations.
+  Root independently matches all current/copies/reports/observations and
+  all44 production targets are byte-identical to dual-reviewed SOURCEv6.
+  Allv6 paths/reports retained; both normative hashes unchanged.
+- Exactdelta fivefixture/diagnostic files. Requestbudget1000 aligns actual UI;
+  parent10/child3 models and root9normal/10ASK/child2tools exact and bounded,
+  no post-ASK model. Existing260 deadline/close120/normalexit0/sixwriters remain.
+  SafeHTTP and precleanup11-column SQL/rawState observers are read-only and
+  do not replace original errors/cleanup.
+- Newfixture guard/sourcecontract RED3 XML1.394 is not productionloop/PGRED.
+ 57856 affected12 GREEN2.166=2PG/10neutral.76185 final15 GREEN3.294=5PG/10neutral.
+  Old574 is correctly historical v6, not a fresh installedv7 result.
+  Static112 check/format/diff0, guidance0errors prior warnings/budgets unchanged.
+- Fourth-image actual failure/inputhelpers/observer/probe/rawsafeStates retained.
+  SOURCE SPECv7 now reviewing; then QUALITY required. No fifthimage or
+  Task4 acceptance/Task5/commit/activation.
+
+
+## C08 Task4 SOURCEv7 dual review PASS; fifth fresh runtime authorized — 2026-10-04
+
+- Independent SPEC then QUALITY both PASS P1/P2=0 on final
+ 85561a38f0c87c7c3a75efe860d8cfd9bd938c474e6b89ce353c97308e0dc8f7.
+ 44productiontargets byte-identical to v6; exact135source/101reports validated.
+- Root authorizes sole implementer fifth uniquecontext sixwheel/provider/runner
+  build, whole installed779/RECORD/44target+fixture/fixed/skills comparison then
+  strict actual4 full/delta normal/ASK matrix. Safe HTTP/precleanupSQL observers
+  are included actual inputs; no source/normative/expected changes during run.
+- Normalclose/exit0/cumulative120budget/sixwriters/twopartials/pointers and
+  exact finite model/tool counts remain required. Unknown previous fullASK
+  lease_lost needs actualHTTP/SQL evidence, not an inferred timeout.
+- Task4runtime acceptance, Task5, C08/OpenSpec, commit and activation pending.
+
+
+## C08 Task4 fifth actual matrix: both partials/final, typed409 closure fault — 2026-10-04
+
+-39237 naturally buildexit0, context/private/tmp/c08-task4-v7-f3f3b311eaab,
+  imageb3c0df4db5fb109c965a2b5d65195306b08349455b6556105dc1340921b867e2.
+ 31533 installed verification exit0, Root independent779nonRECORD/44targets
+  match exactSOURCEv7. B image unchanged.
+-15546 mandatory4 naturally exit1, XML88.151 seconds,4fail/0error/skip, each
+  raw stopped137; strictoriginalclose/exit0 stillnotproved. No activehandle.
+- Root reads safe runtime facts:normal2 each2 acceptedpartials+final1, core
+  success/task-placement-attemptsucceeded and equalfinal/acceptedpointers;
+  originalclosecomplete0. Fullnormalworkspacepoll409, deltanormalclaim409.
+- Pausefull firstpartial1/delta2, nofinal/core running before physicalstop
+  then recovery_required/attemptunknown. HTTP workspaceclaim409. Actual
+  precleanup core/attemptlease deadlines remain about119seconds ahead, so
+  leaseexpired is not the demonstrated reason for these observations.
+- Root/source author read original node workspace state authentication and
+  WorkspaceRequests.claim. Candidate diagnoses:finishingpoll rejected after
+  exactfinal; stale preparedpoll→claim raced with acceptedpartial. Must prove
+  each precise typedserver409 rather than blanketignore409 or loosen general
+  identity/session/lease/writable fences. Alreadyaccepted final result survives
+  physicalstop, but this does not establish originalclose completion.
+- No source repair/Task4runtime acceptance/Task5/commit/activation yet. Same
+  author isolates production cause and will prepare native actualRED before
+  minimal scoped repair, wholeSOURCE dualreview and another freshruntime.
+
+
+## C08 Task4 original workspace idle typed business RED — 2026-10-04
+
+-11828 naturally exit1, workspace-idle-red.xml2actualfail/0error/skip1.960
+  seconds. Root independently reads XML. These use original NodeClient/ASGI/
+  PG services with observational delegates capturing original typedexceptions,
+  not another installed run or a substituted publication implementation.
+- Exact finalpair→finishing poll rejects HTTP409 with original attempts auth
+  ValueError('Stale Agent generation'); preparedpoll→original acceptedpartial
+  commit→same exactclaim rejects HTTP409 with original
+  ValueError('Original workspace request cannot be claimed'). Lease remains
+  valid and immutablepoint exists. This is actual typed proof beyond prior
+  fifth-image status-only candidates.
+- Same author preparing minimal scoped read-only idle: finishing requires
+  exactacceptedfinal/core/privatehead/bothpointers; prior acceptedclaim requires
+  immutable samepoint/request/candidate/owner/nonce/epoch proof. Token/session/
+  generation/lease/revocation fences retained, no new grants/writes or generic
+  ignore409. Node idle returns before any extraquiesce/copy.
+- Legitimate same-run advancement need not force oldpartialcheckpoint equal
+  currenthead. Final-finishing still requires exactcurrent final; no historical
+  partial grants terminal authority. No SOURCE repair accepted/build/Task5 yet.
+
+
+## C08 Task4 automatic approval rejected idle production patch — 2026-10-04
+
+- Automatic approval review rejected proposed three-file production patch and
+  subsequent GREEN execution before mutation. Stated reason: persistent
+  ownership/authentication and terminal workspace-claim security boundary
+  requires explicit human authorization for exact scope. No bypass/indirect
+  application or alternate checkout is permitted.
+- Root and author independently verify workspace.py, mutation.py and original
+  worker/workspace_publication.py still equal frozen SOURCEv7. Actual native
+  typedRED2 remains valid; no production fix or GREEN is claimed.
+- Original broad B→C/continue authorization and accepted Task4plan were
+  inspected. Exact proposed diff will be prepared as a review-only artifact
+  (not applied/executed) before asking for the additional authorization required
+  by automatic review. Read-only fifth-image catalog/provenance can continue.
+- Goal stays active, no component/whole acceptance or commit. Do not label this
+  pause as user-requested paused or premature blocked; authorized independent
+  evidence work remains available.
+
+
+## C08 Task4 concrete patch prepared; exact human approval pending — 2026-10-04
+
+- Root read complete171-line proposed three-file diff and checked current
+  productionbytes remain SOURCEv7. Patchartifact SHA
+  a388ccccfaec042848efbab16961d3efbfd5cc67f163ffd5fd46e9e2337ded22.
+  No apply, GREEN or newimage occurred.
+- Root requested explicit human approval via async question for this exact
+  finishing/acceptedrequest readonlyidle boundary and subsequentverification,
+  explaining automaticapproval rejection. No answer yet; independent fifth
+  runtime evidencecatalog continues.
+
+
+## C08 Task4 fifth-runtime catalog finalized while approval pending — 2026-10-04
+
+- task4-runtime-attempt-v5-catalog.json SHA
+ 24b9bd1cde273d02ba30b97bbd37e7051300f1325c7816df388d162b4bfc59c2
+  preserves27freshbuildinputs/sixwheels,779members/RECORD/44targets, original
+  helpers/observers and allfourcases log/census/HTTP/precleanupSQL/rawstopped
+  observations, typedRED2, rejectionreason and proposedpatch unapplied status.
+- All135SOURCEv7 currentbytes remain fixed, no activehandle or production
+  mutation. Independent evidencework is complete; required human approval
+  remains pending before productionpatch/GREEN/newbuild.
+
+
+## C08 Task4 pending approval revalidated; proposed SPEC read-only review — 2026-10-04
+
+- Previous goalturn made concreteprogress:actualfifthruntime/nativetypedRED/
+  sourcefreezes/reviews/catalog and unapplied patch. Automaticcontinuation
+  now revalidates live authoritative state; no human approval has arrived.
+  All135current sourcebytes stillmatchSOURCEv7; proposedpatch/catalog SHAs
+  a388cccc.../24b9bd1...unchanged. Allagents were terminal; no liveprocess wait
+  or runtime handle was claimed. Goalremainsactive.
+- Independent proposedpatch SPECread-only review completed:no P1/P2 found,
+  explicitly not SOURCEPASS/implementationacceptance. Verified immutable
+  candidate canonicalhash/privateowner/epoch/nonce/stampedancestry and
+  finishingexactguard/no newgrant plus Nodebothidleearlyreturns. No apply/test.
+- Same QUALITY reviewer now checks only this unappliedpatch artifact and
+  original source. Staticreview cannot replace humanexactscope approval or
+  actualsourceGREEN/freshinstalled lifecycle. No workaround/indirectexecution.
+
+
+## C08 Task4 proposed patch read-only dual review complete; approval still pending — 2026-10-04
+
+- Independent proposedpatch SPEC then QUALITY both found no P1/P2 in static
+  artifactreview. This is not a SOURCE/runtimePASS, application or implementation
+  acceptance. QUALITY independently checks70catalog artifacts and current135
+  sourcebytes, allmatch; idleearlyreturns retain realcopy/save tasks and joins.
+- Both reviews explicitly preserve current humanapproval requirement and
+  actualGREEN/fullnegative/newSOURCE dualreview/freshinstalled4 prerequisites.
+  Root has completed available unaffected catalog and proposalreview work.
+- Required humanexactscope permission stillunanswered; automaticgoalmessage
+  is not authorization. Sameblocker observed in originalturn and this first
+  automaticcontinuation(two consecutivegoalturns); blockedthreshold notyet met.
+  Goalremainsactive, no paused/complete/blocked update. No liveprocess handle
+  claimed, no productionmutation/GREEN/newbuild/Task5/commit.
+
+
+## C08 Task4 exact idle patch authorization received — 2026-10-04
+
+- Human explicitly replied: “允许应用这三处补丁并继续验证”, after the
+  three production files, finishing/accepted read-only receipt boundary and
+  out-of-root escalation requirements were explained. The previous approval
+  blocker is resolved; goal is active again.
+- Sole original implementer resumes application of exact proposed patch SHA
+  a388ccccfaec042848efbab16961d3efbfd5cc67f163ffd5fd46e9e2337ded22,
+  actual native GREEN and meaningful permission/identity/lease negatives.
+  Human authorization does not substitute for tests or source/runtime review.
+- Complete new SOURCE freeze must pass SPEC then QUALITY before fresh image
+  build and actual four-case runtime verification. Task4/full C08/OpenSpec8.1–8.4
+  remain unaccepted. No Task5, commit, deployment or activation yet.
+- Original cumulative final cleanup budget remains120 seconds.
+
+
+## C08 Task4 approved idle repair native GREEN and regression — 2026-10-04
+
+- Exact approved three-file patch applied after frozen135/current and proposal
+  SHA matched. Original typed business RED2 remains retained. Owned37116
+  naturalexit0:workspace-idle-green-v1.xml2 native HTTP/PG passes,0errors/skips,
+  2.166 seconds. Root independently read this XML.
+- Owned8082 naturalexit1:expanded-v1 XML27 tests,21passes/6fixture failures,
+  7.465 seconds. Four corrupting UPDATE attempts rejected by original immutable
+  evidence triggers; two credential detail case expectations were wrong.
+  No triggers were disabled and these were not classified as new business RED.
+- Owned93952 naturalexit0:expanded-v2 XML29 passes,0errors/skips,8.691 seconds.
+  Includes real fenced same-run root advancement, four finishing outcomes
+  poll/claim, sixteen invalid identity/nonce/epoch/lease/revocation rejects,
+  four immutable DB update rejection contracts and two original NodeClient/
+  HTTP/PG/NAS/stager races. Native census adapters are explicit, not Linux proof.
+  First accepted-claim race produces zero census/copy; second produces one
+  each and no second census/prepared request. SQL snapshots remain unchanged
+  on rejection and valid idle; original writers/join ownership retained.
+- Owned91050 naturalexit0:neighbors-v1 XML129 passes,0errors/skips,36.688
+  seconds. Root independently read both expanded-v2 and neighbors XML.
+  Previous intentionally stale-409 native child positive now observes actual
+  natural exit; expired-lease physical-stop negative preserved separately.
+  It remains a same-session native fixture, not stock Docker/new-session proof.
+- Sole original implementer owns38049 coherent window, expected604 cases; no
+  new image/build started. Counts overlap and are not added. New complete
+  SOURCE freeze/reviews and fresh installed lifecycle still pending.
+
+
+## C08 Task4 complete regression exposed native ASGI cancellation — 2026-10-04
+
+- Actual collection is605 cases,304 fleet_database PG and301 neutral/source/
+  Local; earlier604 was only an estimate. Owned38049 naturally exited1.
+  task4-idle-coherent-v15.xml:604 passes/1 failure,0errors/skips,91.634 seconds.
+  Root independently parsed counts and the failing native daemon case [False].
+- Actual failure is original stopped-handler credential SQL authentication
+  raising asyncpg InterfaceError(connection is closed). Full captured log
+  includes AsyncAdaptedQueuePool connection termination and Starlette
+  BaseHTTPMiddleware cancellation of the in-process ASGI server coroutine.
+  Neither a3-second wait timeout nor cross-fixture engine sharing is proven.
+  Earlier affected129 passed, but this failed605 is not GREEN.
+- Sole implementer narrows only this native held-child transport to original
+  existing c04 integration node_server TCP service; client cancellation then
+  has the actual HTTP server boundary. No production change, trigger disabling,
+  extended deadline, child exit fabrication or assertion weakening authorized.
+  Affected cases then fresh whole regression must prove the fixture correction;
+  no SOURCE freeze/review/build has started. Original failure is preserved.
+
+
+## C08 Task4 final approved repair regression GREEN — 2026-10-04
+
+- Owned33226 naturally exited0; workspace-idle-tcp-native-green.xml2passes,
+  0errors/skips,3.026 seconds. Original same-loop TCP node_server isolates
+  client cancellation from server SQL coroutine. Held native child valid-idle
+  natural exit0 and true expired-lease409/physical stop remain asserted.
+  This is native TCP/PG evidence, not installed stock Runner or Linux proof.
+- Owned58353 naturally exited0; task4-idle-coherent-v16.xml605passes,
+  0failures/errors/skips,83.935 seconds; actual collected scope304PG and301
+  neutral/source/Local. Root independently read this and earlier failed v15.
+  Native transport fixture correction is the only behavioral fixture delta
+  between failed v15 and passing v16. Original failed report is preserved.
+- Single workspace.py import-order lint correction is nonsemantic and occurred
+  after module load of the broad window. Owned43570 naturalexit0 final-current
+  affected29passes,0errors/skips,7.389 seconds proves current bytes.
+  Root independently parsed final-current XML. No unnecessary repeated whole
+  run and no claim that pre-cosmetic605 tested identical final import bytes.
+- Corrected affected129 actual node closure125PG/4neutral; scopes overlap and
+  are not summed. SQL snapshots include12tables including checkpoint_writes.
+- New v8 inventory must add original unmodified c04_integration_fixture.py:
+  prior v7 inventory135 did not list it, contrary to an initial author report.
+  No previous v7 transitive-helper completeness claim is strengthened.
+- Complete SOURCE review and fresh wheel/image/runtime remain pending.
+  No live native handle, no new build, no Task4/Task5/full C08 acceptance.
+
+
+## C08 Task4 SOURCEv8 accepted; fresh installed window dispatched — 2026-10-04
+
+- SOURCEv8 SHA72d2af83c40d9f31a810929aa25c7134a94b813015555fe37bfa73fea3e7b671
+  passed complete independent SPEC then QUALITY, P1/P2=0. Root independently
+  verifies137current/snapshot SHA,111XML SHA/counts, prior135paths/101reports
+  retained and fixed normative hashes. Production delta exactly approved3;
+  guides/tests and original newly inventoried native TCP helper explicit.
+- Human explicit approval resolved original automatic review blocker. Read-only
+  idle remains fenced by original private identity/current final/point/canonical
+  manifest/nonce/epoch/private stamped ancestry/fresh credential/lease. Finishing
+  no grant, no writer authority; Node two early returns retain actual copy/save
+  ownership and joins. Immutable evidence triggers were never disabled.
+- Historical fifth catalog mixed a post-run nativeRED source with runtime
+  inputs. New freeze separates true27build inputs and exact hash-restored4254
+  byte historical RED source prefix from current new tests, preserving old
+  catalog bytes and recording recovery method. No historical v7 transitive
+  completeness claim is added. Five original failed images remain historical.
+- Sole implementer dispatched new unique six-wheel image build, installed
+  payload/44targets/entrypoints checks and original strict four-case runtime.
+  Raw State and original close observations required on success and failure.
+  SOURCE acceptance does not accept runtime/Task4/fullC08/Task5 or commit.
+  Original B image and cumulative120 cleanup budget remain unchanged.
+
+
+## C08 Task4 sixth installed attempt removes HTTP races but exits1 — 2026-10-04
+
+- Owned63819 naturalexit0 fresh image build, unique context
+  /private/tmp/c08-task4-v8-3f229101d0ec. Immutable Runner image
+  sha256:3463064273e90fd84ae8f08acb7db9d6d0b3c6e9dd2fd13b4556d7362846c8d7.
+  Source137 before/after fixed; original B image unchanged.
+- Owned35200 naturalexit0 installedprobe. Root independently compares all
+  six wheel hashes/payloads against779unique non-RECORD installed members and
+  all44direct production source targets; zero mismatches/no duplicate paths.
+  Original wheel and installed RECORD inventories, fixed inputs/skills/stock
+  fixtures/prepared inputs, installed runtime guide and hostfixture hashes
+  are separately preserved. Three new orchestration helpers independently
+  read by Root only delegate originalbuild/probe/strictpytest and compare
+  actual bytes; no test or lifecycle assertion replacement.
+- Owned34765 naturalexit1:stock-linux-v6-1e5c33c96039.xml4failures,0errors/skips,
+  91.239 seconds. Root independently parsed XML and source137 hashes unchanged.
+  All4 rawDocker State Running=false,ExitCode1,OOMKilled=false,Status=exited;
+  daemon stop_reason=exit/report_pending=false, normalstate=succeeded and
+  pausestate=cancelled. Root independently reads these safe observed fields.
+- All four HTTP observation sets have zero status>=400; exact response counts
+  fullsuccess185,deltasuccess194,fullpause195,deltapause196. Approved idle repair
+  removed previous HTTP409 races in this actual window. Normal core success
+  and pause core interrupted/input_required with accepted exact final pointers
+  reported by author still do not satisfy original strict ExitCode0/close gate.
+- Sole author reads original Runner first closing exception. No new sourcefix,
+  build or live testhandle; whole Task4 runtime/full C08 remains unaccepted.
+  Preserve six failed image attempts and strict lifecycle assertions; no Task5,
+  commit or activation. One cumulative120-second close budget unchanged.
+
+
+## C08 Task4 original service-stop typed diagnosis and C08 fixture repair — 2026-10-04
+
+- Original six-image privacy-hardened logs expose only generic trusted bootstrap
+  failure, not a typed installed trace. Actual native67675 naturally exited0:
+  original unchanged Service.check succeeds with private model, two SQL
+  definition stores and real stdio SDK; real controller finalclose and
+  same-epoch poolfreeze/positive join plus original Repo exactfinalpair follows.
+  Original Service.stop then fails at original writer controller reserve with
+  OwnershipRejected(Workspace writer gate is closed). Metadata reads precede
+  the rejection and pass. This proves a native original component chain, not
+  installed typedfirstcause, new Linux GREEN or production cleanup defect.
+- Sixth full catalog SHA
+  62c2c0c052549f9c03800db6661a52a6b9f928ce9effc982ac801ade4d63413e
+  preserves27fresh context inputs,17helpers/reports,4case20raw State/HTTP/
+  SQL/census/log artifacts, exact137v8source hashes and all natural exits.
+  Native diagnostic sources/XML/JSON/log are copied separately with explicit
+  native scope. No source or historical runtime fact was rewritten.
+- Root authorizes only C08-stock test fixture finalclosed probe adaptation:
+  original Service.stop and its original terminalreceipt remain unchanged;
+  non-C08/nonfinal originalcheck remains complete. Final probe calls original
+  private check and accepts only exact original reserve closed-gate denial,
+  with original context/controller, frozen epoch and nonempty positively joined
+  original SDK owners/no pending resources. No production authority widening,
+  writer reopening, teardown reordering or closed-error blanket swallowing.
+  Originalcheck restored in closefinally; fixture module labels this adaptation.
+- Owned75610 naturalexit1:stock-service-close-red.xml1actualbehaviorfailure,
+  0errors/skips,2.572 seconds; original closed stop fails before terminalreceipt.
+  Setup failures26488/91790/2630 remain retained separately as native fixture
+  owner-capture/RunEventRow registration failures, not new business RED.
+- Owned95368 naturalexit0:green-v4 XML14passes,0errors/skips,10.910 seconds,
+  actual9PG/5neutral. Original finalstop twice gives one originalfenced event
+  row and only initial SDK echo; no-C08/nonfinal actual echo2. Wrong private
+  context/credential, unjoined owner and unrelated error fail closed. Artificial
+  contradictory unclosed state is explicitly a fixture-unit guard fault.
+- Owned6253 naturalexit0 final-current XML65passes,0errors/skips,24.008 seconds;
+  exact reserve frame self is now bound to original controller; original
+  success/paused/error/timeout Service.stop/fenced receipt and pairedC07 retained.
+  Root independently parsed RED/14/39/65 XML. Counts overlap and are not summed.
+- Owned2748 naturalexit1:neighbors39tests35passes/4failures,0errors/skips,
+  16.117 seconds. Four C06 old positives directly update core terminal status
+  without paired point. Root requires narrow testfixture migration, preserving
+  all four positive assertions and idempotence via original same-TX paired
+  setup, adding explicit core-only negatives. Wrong-association8 must also
+  begin from legal pair before perturbation so missingpoint does not mask
+  intended rejection. No defer/delete known failure to claim wholeC06 GREEN.
+- New SOURCEv9/reviews then fresh image required; v8 production44/normative
+  remain unchanged. No runtime/Task4/fullC08/Task5/commit acceptance.
+
+## C08 Task4 SOURCEv9 paired fixture regression freeze — 2026-10-04
+
+- Original four C06 terminal positive cases preserve outcome, idempotence,
+  no public SQL/session capability and generic write rejection assertions.
+  Original prepared_pair and RunRepository accept the point in the same TX;
+  no manual point/stamp/pointer insertion. Eight negatives start from legal
+  accepted pairs, perturb original target/outcome/active/token/owner/context/
+  payload, then compare all12 SQL table digests and no terminal events.
+- Owned20289 naturalexit1:73cases72pass/1fixturefailure. Original accepted
+  request composite FK rejects direct token_hash mutation; constraint remains.
+  Narrow token negative instead supplies an actually wrong private token via
+  original FleetMutationCapability and terminal operation, without changing DB.
+- Owned43407 naturalexit0:stock-service-close-paired-final-current.xml73passes,
+  0failures/errors/skips,27.919 seconds (59PG/14neutral). Four additional
+  core-only terminal negatives reject twice with unchanged12table digests and
+  no events. These reports overlap previous windows and are not summed.
+- SOURCEv9 inventory SHA
+  06edc7780ac2fbecafee1cdddb88f29fa3c38ee276524cc276171853a6b96c7c;
+  138sources/115Python/122reports/44targets. Root current/snapshot/report
+  checks pass, v8 paths/reports retained, production targets identical and
+  both normative SHA unchanged. Three test/fixture deltas reviewed by Root.
+  Static115ruff/checkformat/diff and guidance exit0 reported and frozen.
+  Sixth failed runtime catalog and exact historical inputs remain intact.
+- Complete SOURCE SPEC then QUALITY precede seventh fresh image and actual
+  strict full/delta normal/ASK matrix. No runtime, Task4 or fullC08 acceptance.
+
+## C08 Task4 SOURCEv9 full reviews passed; seventh runtime dispatched — 2026-10-04
+
+- Full SOURCE SPEC then QUALITY independently PASS, P1=0/P2=0. Root also
+  verifies138 current/snapshot hashes,122report hashes/counts, inherited137/111,
+  unchanged44 productiontargets and normative hashes. Historical catalog source
+  references resolve to original frozen snapshots/RED archives, not currentbytes.
+- QUALITY nonblocking wording: installed_matrix mentions affected65 historical
+  window; final_current_native_report/current_gate_scope separately preserve
+  exact final73(59PG/14neutral). Frozen manifest not rewritten after reviews.
+- Seventh fresh unique sixwheel/image/probe/full installed779+44/fixedinput
+  checks and mandatory full/delta normal/ASK4 dispatched to sole owner after
+  both SOURCE reviews. No Task4/runtime acceptance from SOURCE/native reports.
+  Original strictclose/Exit0 and cumulative120 budget remain mandatory.
+
+## C08 Task4 seventh fresh installed strict four-case GREEN — 2026-10-04
+
+- Owned91193 build naturalexit0; unique context
+  /private/tmp/c08-task4-v9-88bc55b52a19; immutable image
+  sha256:2d423f3b18b1f5838648702809d94b1821ee055b4b3a35890a8728b703f2bf68.
+  SOURCEv9 138 before/after unchanged; accepted B image unchanged.
+- Owned90960 probe naturalexit0. Root independently compares six wheel hashes
+  and all archived members,779unique nonRECORD installed bytes and44 production
+  source targets:0 mismatches. RECORD inventories, fixed bootstrap/collector/
+  contracts/skills/preparedinputs and original/newC08 stock fixture bytes match.
+  New C08 finalclosed probe is installed from fresh wheel, not host replacement.
+- Owned21321 matrix naturalexit0:stock-linux-v7-eddbbbb2e624.xml4passes,
+  0failures/errors/skips,90.866 seconds. Root independently parses XML,
+  original run receipt and four rawDockerState positive stopped artifacts:
+  Running=false,ExitCode0,OOMKilled=false, oneactualstart and exactimage/id.
+- Root independently verifies eachcase2partial+final/paused,2accepted reopens,
+  firstSQL before publication6physicalabsent writer identities,2originalPopen
+  returncodes0/pipe thread join and partial budget notstarted;6zero extraPID
+  census/CLIexit0. Original committedterminal core success/interrupted with
+  task/placement finishing and bothpointers equal; physical stop state
+  succeeded/cancelled,stopreasonexit/reportpendingfalse.
+- Eachcase actual original SDK owners joined/no new tool admission and complete
+  originalclose deadline preserved. Before/after deadline identical; remaining
+  delta-pause119.256154208,delta-success119.178722667,
+  full-pause119.180404375,full-success119.259099542 seconds. One cumulative120
+  final budget unchanged. No inference of actual new-sessionrestart acceptance.
+- Complete runtime freeze and independent SPEC then QUALITY still required
+  before Task4 acceptance/Task5. Six historical failedimages/catalogs retained;
+  no fullC08/OpenSpec8.1–8.4/commit/activation acceptance yet.
+
+## C08 Task4 accepted after both SOURCE and RUNTIME reviews — 2026-10-04
+
+- RUNTIMEv7 manifest SHA94998d9ddf2682d4bda0d674a89d9fd23c3b15d44415edd376f39e133b1ee122
+  complete SPEC then QUALITY PASS P1/P2=0. Root independent source/current/
+  snapshot/report/probe/wheel/importsource and original strictcase assertions
+  match. Task4 accepted; plan Task4 four boxes now checked after freeze reviews.
+- Normative plan acceptance annotation is a new post-review documentation
+  baseline, not a rewriting of historical source snapshots. Task5/6 and
+  OpenSpec8.1–8.4 remain incomplete; no fullC08/commit/restart/activation claim.
+- Continue original Task5 with fresh sole implementation subagent under
+  Superpowers and OpenSpec: accepted ownerfile API, verified newattempt clone,
+  shared failclosed recovery/admission guard. No additional human approval
+  needed for already-authorized implementation and reversible test work.
+
+## C08 Task5 actual recovery admission RED — 2026-10-04
+
+- Fresh sole implementer c08_task5_impl owns source/tests/native handles.
+  Root revalidates acceptedTask4 RUNTIMEv7 manifest unchanged and current
+  production delta initially only AgentContainers acceptedclone preparation.
+  Task4 plan acceptance annotation is post-review Root documentation.
+- Proposed trusted neutral durable owner/thread/backend binding is written
+  only by server-owned admission transaction. Shared host guard covers Local,
+  Fleet and mutations; Fleetcallback locks originaltask, persistedbinding with
+  missingplugin failsclosed. Legacy server-owned core run ancestry is examined
+  before backfill; client fields cannot assign/clear routing. Same-original
+  idempotency remains narrow; finishing/recovery keep exclusion despite leases.
+- Root independently parses native recovery-red-v2.xml:4actualbusinessfailures,
+  0errors/skips,1.779seconds. Original manager admits Local run and artifact/
+  checkpoint/branch mutation despite existing Fleetrecovery/coreterminal.
+  Original recovery-red.xml4fail2.445 retained:run invokedwrongAPI(ValueError),
+  other3 mutation businessfailures. No complete Task5 acceptance from RED.
+- Initial acceptedclone unit contract reportedGREEN1 covers3category copies,
+  independent inode/nlink1 and retry revalidation/deletion rejection; no claim
+  of actual host-authorized grant or persistentrecovery from this native scope.
+  Original authorize_start/immutablepoint grant wiring and realHTTP/SQL tests
+  still required; no Runner starts or toolreplay on mismatch allowed.
+
+## C08 Task5 initial shared admission implementation GREEN — 2026-10-04
+
+- Sole author implemented trusted neutral ThreadExecutionBindingRow with0018
+  migration and original repository transaction advisory thread lock/backfill.
+  App callback locks original Fleet tasks, independent of expiredlease or
+  coreterminal. Current code still requires complete SOURCE review.
+- Root independently parses current recovery-green.xml:4passes,
+  0failures/errors/skips,2.014seconds(timestamp15:35:56), preserving four
+  original manager actual run/artifact/checkpoint/branch recovery rejections.
+  Author reported natural exit0; reported timing2.17 versus currentXML2.014
+  is queried for exact final provenance, not silently equated or rerun.
+- Original core run and durable binding paths remain under actualSQL tests;
+  HTTP routes/finishing/pluginabsent/legacyancestry/clientforging/reads/strict
+  idempotency and trusted acceptedgrant+persistentrecovery remain in progress.
+  InitialGREEN4 is not wholeTask5/fullC08 proof. Task6/newsessionrestart/BC
+  remain incomplete; no commit or activation.
+
+## C08 Task5 original HTTP artifact partial descriptor first GREEN — 2026-10-04
+
+- Root independently parses guard-regression.xml18cases/15failures16.197s
+  (first callback unavailable wiring and cancellation fixture regression),
+  retained separately. guard-regression-green.xml22passes8.719s comprises
+  original C02 eighteen and initial recoveryfour. Author naturalexit0.
+- artifact-http-red.xml actual original production partialaccept + SQL then
+  original GET404:1businessfailure/0errors/skips3.082s. New owner service reads
+  descriptor-held fully verified private spool, never FileResponse reopening
+  mutableNAS path; current positive returns actual206/acceptedbytes/textplain,
+  exact immutablepoint/checkpoint/manifest headers andpartialmetadata.
+- Root independently parses artifact-http-green.xml1pass2.487s,0errors/skips;
+  author naturalexit0. Wrongowner404 included. This is native realHTTP/PG/files,
+  not wholeAPI/Task5 acceptance; race/cleanup/.skill/finalstablepartial coverage
+  remains required. No new installed Task5 image/runtime proof yet.
+- queued-red.xml4PASS2.757s:existing original routing already rejectsLocal;
+  filename does not make these businessRED. Actual requestedFleet queuedtask
+  unfinished rejection still needs isolated meaningfulnegative coverage.
+- Shared guard moving before participant preparation with original strict
+  idempotency reuse first and original thread lock/freshclock preservation;
+  no new queuedtask may mask initial admission. Sourcepoint selection and
+  actual authorize_start verify/freshfence/recovery/noRunner proof in progress.
+  Optional sourcepoint field must preserve old frozenLaunchSpec canonical
+  bytes/digests; Root flagged actual original persistedpoint backward tests.
+- Complete Task5 source/runtime reviews/Task6/newsessionrestart/BC remain
+  incomplete. No commit/push/activation or shrinking overallB→C→BC goal.
+
+## C08 Task5 trusted new-C source binding and first startup gate GREEN — 2026-10-04
+
+- Root independently parses accepted-start-red.xml:1actualbusinessfailure,
+  0errors/skips5.475s. LegalTask4 final acceptance and original physicalstop
+  followed by original services newC admission lacks source_workspace_point_id.
+- New field is server-selected in original Fleet admission transaction from
+  actual accepted point and original checkpoint selector/root private stamp.
+  Serializer drops absent optionalfield to preserve originalinitial canonical
+  bytes and launchspec digest; actualoldpersisted-byte regressions still required.
+  authorize_start verifies immutable NAS outside SQL locks, then reauthenticates
+  under original locks/fresh clock before grant; originalfenced failures persist
+  recovery without start. Current implementation not yet frozen/reviewed.
+- Owned22208 naturalexit0 per author; Root independently accepted-start-green.xml
+  14PASS12.716s:1 actualnewC sourcegrant,1 actualHTTPpartial,12manager recovery/
+  finishing/queued run/artifact/checkpoint/branch scopes. Counts overlap earlier
+  windows; no sum and no wholeTask5 acceptance.
+- Next original nodeHTTP/samegrant originalAgentContainers clone+retry and3bad
+  NASsource cases attempted15 window. accepted-start-http.xml4fixturefailures+
+  11passes4.050s,0errors/skips:IssuedCredential object indexed as dict before
+  intendedgrant. Retained asfixturefailure, not new businessRED. Sole owner
+  fixed propertyaccess and runs v2 withhandle60826; no competingRootrun.
+- initial-retry-red.xml1 actualbusinessfailure0.878s:original markerretry fails
+  to reject missing initialsource. Original source revalidation added without
+  overwriting legitimate runtime files; adjacent C04/initial contracts required.
+- Sharedguard now uses explicit fourterminal taskstates; queued isunfinished.
+  Guard precedes participantprepare, trusted sameoriginal strictidempotency
+  precedesguard, originaladvisory thread lock beforetask locks; freshDB clock
+  refreshed afterwaiting. Task5 legacy/HTTP/race/compatibility fullscope pending.
+
+## C08 Task5 actual node HTTP source verification and clone/retry GREEN — 2026-10-04
+
+- Soleowner reports original accepted-start-http-v2 naturalexit0(6.633s wall).
+  Root independently parses XML15PASS4.166s,0failures/errors/skips; exactscope:
+  four newC originalnodeHTTP sourcegrant scenarios(normal/delete/digest/manifest),
+  two realAgentContainer preparation/initial retry cases and originalC04 nine
+  manifestcopy owner/digest/hash/symlink/hardlink/targetsymlink/budget contracts.
+- Normal actual nodeHTTP grants exactserverselected acceptedpoint; samegrant
+  original AgentContainers clonesallcategories and revalidatesretry. Native
+  preparation does not start an installedRunner and is labeledaccordingly.
+  Missing/digest/manifestbadsource yieldsHTTP409+persistedrecovery_required;
+  start_authorized_at/started_at/process_ref remainNone in neworiginalattempt.
+  No actualRunner starts or toolreplay is inferred merelyfrom grantmetadata.
+- Source serializer omitsabsent optionalpointer for originalspec digest; final
+  oldpersistedcanonical regression and fullSOURCE reviews remain outstanding.
+  Task6 must exercise actual freshinstalled newCrun fromacceptedsource/oldroot
+  materialization, owneddirectory/isolation, currentrunprivate stamp and normal
+  loop, separate from genuine automaticreplay/newNodesession/C09 resume claims.
+- Actual regenerate/stateHTTP routes RED currently ownedhandle16898; shared
+  readguard must reject beforeunnecessarygraphaccess while final originalSQL
+  mutationguard stillcloses races. Task5 wholeacceptance/source/runtime/Task6
+  remain incomplete; goalactive, no commit/push/activation.
+
+## C08 Task5 actual recovery HTTP and routing inheritance GREEN; healthy branch gap — 2026-10-04
+
+- Root independentrecovery-http-red.xml1businessfailure2.528s:regenerate enters
+  graph lookup andreturns404 instead of recovery409. recovery-http-green.xml
+  1PASS2.630s actualregenerate/state first409,ownerthreadread200. Author reports
+  respective naturalexit1/0. New early neutral manager guard runs before graph
+  access; original reservedmutation SQLguard remains final atomicrace fence.
+- routing-inheritance-red.xml2businessfailures2.660s:pluginabsent persistedmarker
+  alreadyrejects but legacychild routing permitsLocal; client branch/backend
+  metadata retained. routing-inheritance-green.xml2PASS2.329s independently
+  parsed; completeparent/childownhistory conflict/cycle/owner closure and legacy
+  trustedcheckpoint proof still required before fullSOURCEacceptance.
+- Root/author find realcapabilitygap:requestedbackendLocal for allhost reservations
+  currently permanentlyblocks healthy terminalFleet state/branch operations.
+  KeepLocalrun routing blocked andallnonterminal tasksblocked; immutableNAS
+  output PUT rejected separately. Healthy terminal host checkpoint/branch must
+  preserve originalvalid capability without an unsafe Localworkspace fallback.
+- Root authorizes within originalTask5 fullscope actualC branch materialization:
+  original explicitbranch route underreservation; trustedparent/childbinding,
+  owner/parentcheckpoint+acceptedpoint immutable; clone acceptedC data into
+  childowneduser-data/no hardlinks/LocalBalias; server-selected source identity
+  in original frozennew launchspec/grant; oldsource point/root never rewritten.
+  User input remainsmessage/title, not authoritativebranch/backend metadata.
+  Nativeactualbranch source/recovery required now, installedwholebranch runtime
+  still Task6 afterSOURCEreviews. No C09newNodesession bypass or automaticreplay.
+- These are aligned missingcapabilities, not reason to weaken acceptance or
+  shrinkTask5 to passing negatives. Task5/6/fullC08/BC remainincomplete.
+
+## C08 Task5 terminal Fleet branch behavior RED and normative clarification — 2026-10-04
+
+- Root independently parses branch-red.xml1actualbusinessfailure2.743s,
+  0errors/skips. Owned17581 naturalexit1 (4.770wall):original actual branch
+  endpoint rejects healthy terminal/physicallystopped Fleet parent with409.
+  Sole implementer continues durablechild sourcebinding+fencedrecovery and
+  firstpublication-before artifact exactimmutableorigin view. No Localcopy.
+- Root reads terminal_pair fixture changes against acceptedTask4 snapshot:
+  optionalmessages/files for actualbranch/nativeartifact cases and yieldversions;
+  originaldefaults/acceptancepath/assertions remain unchanged. FullTask5 source
+  freeze must include allsuchchanges and nativeclosure verification.
+- Before Task5freeze, Root clarifies originalTask5 planned branch/state routing
+  boundaries in Superpowers plan and OpenSpec 'C08 trusted branch source and
+  recovery admission'. Allnonterminaltasks remainexclusive; healthyterminal
+  trustedhost operations valid; Localrun cannot take overFleetbinding and
+  acceptedNASoutputs immutable. Exactchild/sourcepoint/ownerdirectory/noalias
+  identity/provenance/retry/recovery semantics are explicit. Arbitrary ancestor
+  point queries are not authorized; originalsource view never rewritten.
+- openspec validate add-ecs-remote-agent --strict naturallyexit0:changevalid.
+  HistoricalTask4 normative snapshots/hashes stayimmutable; updatednormative
+  becomes currentTask5source input. NewinstalledC/branch/materialization/runstamp
+  and legalnewinput evidence remainsTask6; newNodesessionC09 stillunresolved.
+  No Task5/fullC08 acceptance, commit/push/activation or goalcompletion.
+
+## C08 Task5 actual healthy Fleet branch first GREEN — 2026-10-04
+
+- branch-green.xml retains1implementationfailure2.136s/0errors/skips:
+  newproduction restoreclosure uses unbounddestination, not a passinggate or
+  originalbusinessRED/testfixture failure. Sole author fixed originalcloneclosure.
+- Owned28760 branch-green-v2 naturalexit0 (wall8.160/log6.71s reported);
+  Root independently XML20PASS6.603s/0failures/errors/skips. Exactcaseclosure:
+  1realterminalCbranch/4nodeHTTP sourcegrant variants/12manager state-operation
+  rejection cases/1recoveryHTTP/2routingmetadata contracts. Counts overlap earlier
+  nativewindows; not additive and not installedRunnerwholeproof.
+- Actualhealthy parentterminal/stopped branch clones3categories independently,
+  persists childsource routing/recovery/origin and firstchild acceptedartifact
+  default reads exacttrustedimmutable source. Cross-thread optionalsource fields
+  absent from legacy serialization preserve originalinitialspec shape; complete
+  actualoldfrozenbytes/provenance tests remain pending beforefreezeacceptance.
+- Currentgenericguard rejects sourcebinding recovery before taskpredicate, all
+  nonterminal tasksretainexclusion; healthyterminal hostoperations distinguished
+  from newLocalrun andimmutable acceptedNASartifact writes. Parentacceptedpoint
+  andoriginalsource remainimmutable. Branch failure/recovery/cleanup, cross-thread
+  Node/source stamp andimmutablefile readrace/MIME tests stillinprogress.
+- No Task5/fullC08 acceptance or commit; goalcontinues B→C→BC inoriginalscope.
+
+
+### C08 Task5 resumed branch and source selection audit — 2026-10-04
+
+- Root revalidated the active B → C → C/B/C goal, feature worktree and sole Task5 implementer ownership. Task4 remains accepted; Task5 and whole C08 remain incomplete.
+- Implementer reported branch-native handle 88154 naturally exited 1 (wall 3.538s): healthy branch now traverses actual child admission, original Node start HTTP and original AgentContainers cross-thread clone/retry. The negative assertion queried nonexistent attempt.thread_id; this is a fixture failure, not a business RED. Its replacement joins placement and is being verified.
+- Root found origin fallback could override an explicit conflicting checkpoint selector. Exact origin checkpoint validation and explicit source-thread provenance must be covered before freeze.
+- Implementer found a normal new C turn without an explicit checkpoint still selected initial input. This requires a meaningful business RED and trusted accepted-pointer/source-checkpoint freezing while preserving the original None/latest selector semantics; no fabricated child accepted point or modified user selector.
+- Branch cancellation must settle any background clone and clean failed destination while preserving durable recovery. Native source verification and complete SOURCE SPEC → QUALITY still precede installed runtime verification.
+
+
+### C08 Task5 affected regression and default-source RED — 2026-10-04
+
+- Root independently parsed branch-native-v2.xml: 20 tests, 19 pass / 1 fail, 4.340s XML. Author reports handle 42712 naturally exited 1. Failure is a misplaced accepted variable in initial-marker retry, a fixture mistake retained as failed evidence.
+- Root independently parsed task5-native-current-v2.xml: 128 tests, 116 pass / 12 fail, zero error/skip, 16.499s XML. Author reports handle 31996 naturally exited 1, wall 18.032s. Twelve original Local artifact direct-handler tests fail at the new routing lookup with KeyError app; scope-safe compatibility must retain original assertions and actual HTTP Fleet fail-closed behavior. This window is not passing acceptance.
+- default-source-red.xml is an actual business RED: 1 fail, zero error/skip, 1.858s XML, missing source_workspace_point_id for an implicit/latest new turn. Author reports handle 82395 naturally exited 1, wall 3.149s. Trusted accepted workspace default selection is now being corrected without changing the user's checkpoint selector.
+- Task5 remains implementation-in-progress; no source freeze, formal acceptance, installed-runtime acceptance or commit is claimed.
+
+
+### C08 Task5 default-source and Local compatibility GREEN audit — 2026-10-04
+
+- Root independently parsed default-source-green.xml: 42 pass, zero failure/error/skip, 5.034s XML. Implementer confirmed original handle 64237 naturally exited 0, wall 6.492s. Scope: eight explicit/implicit new-C accepted-source grant/recovery cases, two actual branch/source-provenance cases, and 32 original Local artifact MIME/owner/.skill regressions. This supersedes the failing default-source and direct-handler compatibility windows only within that exact scope.
+- Root inspected current admission source and found branch origin resolution still precedes the child's own accepted pointer. After a child publishes a newer version, its next implicit new turn must use that owned point. A meaningful child-publication/new-turn test and implementation correction are required before source freeze. Explicit historical source views retain their original immutable provenance.
+- Root requested a bounded self-audit of healthy nested branching through trusted origin target/source checkpoints; no fabricated accepted points or arbitrary ancestor access is authorized. Cancellation/fault cleanup, complete static inventory and formal SOURCE SPEC → QUALITY remain outstanding.
+- Current OpenSpec 8.1–8.4 remain unchecked. Task4 acceptance does not establish Task5/full C08, installed sequential new-turn success, C09 reconciliation or any later C/BC delivery.
+
+
+### C08 Task5 child publication and same-host cache business RED — 2026-10-04
+
+- Actual child branch/grant, original FencedSaver current-run stamp, original workspace seal/prepared, original terminal pair TX and physical stopped now drive the second new user turn. No child accepted point or pointer is fabricated.
+- child-own-default-red.xml: Root parsed 1 actual failure, 1.996s XML. Implementer confirmed handle 76447 naturally exited 1, wall 3.324s. The same RunManager retained a stale store_only pending cache record after SQL terminal/physical stopped and returned HTTP409 before source selection. This is a production admission-cache regression, not a fixture mistake.
+- The narrow correction delegates store_only records to trusted transactional store admission while retaining actual Local executor same-worker protection. Root requested positive completed and negative still-active/queued/finishing/recovery coverage without fixture cache refresh.
+- child-own-default-red-v2.xml: Root parsed 1 actual failure, 2.138s XML. After clearing the production cache obstacle, the actual second new turn freezes task4-final instead of the owned child-final. This directly proves the origin-before-own-point priority defect. Its correction and verification remain in progress.
+- These REDs extend the exact native acceptance scope; no Task5 or full C08 acceptance follows from the earlier 42-pass window.
+
+
+### C08 Task5 own-point GREEN, read/nested-branch RED and guide update — 2026-10-04
+
+- Implementer confirmed child-own-default-red-v2 original handle 7027 naturally exited 1, wall 3.625s; Root exact XML is 1 business failure / 2.138s, parent task4-final instead of child-final.
+- child-own-default-green.xml: Root independently parsed 10 pass / zero failure/error/skip / 4.119s XML. Implementer confirmed original 42721 naturally exited 0, wall 5.505s. Eight explicit/implicit new-turn source-grant/recovery cases plus two branch cases; the healthy case includes original child final publication, physical stop and second new turn using its own point. Digest failure preserves child recovery with zero attempts.
+- accepted-read-edge-red.xml: 5 tests / 4 pass / 1 actual business failure / 1.960s XML; original 96131 naturally exited 1, wall 3.333s. Matching If-Range incorrectly returned 200 rather than 206.
+- branch-origin-red.xml: 1 actual business failure / 1.825s XML; original 91078 naturally exited 1, wall 3.091s. Healthy prepublication child nested branch returned 409. The fixes and original-handle 83293 combined verification are in progress, not accepted.
+- Root added docs/ecs-fleet-c08-runtime.md and synchronized README, backend/runtime guides and Fleet development contracts. Links and scoped diff check pass. New depth document SHA 3540ea6f18fe4b7dedf886468039b8883f3f7a4f0d10966bf6ad936197383d21; Task5 freeze must include these current guide bytes, without rewriting accepted Task4 history.
+- Root flagged cancellation cleanup that launches an unowned task from a callback: production must settle copy/cleanup before relinquishing the operation, retain recovery and avoid relying on a test sleep. Complete source/static verification and SPEC → QUALITY still precede source acceptance and installed Task6 work.
+
+
+### C08 Task5 nested/read GREEN and owned-cancellation/source-stamp RED — 2026-10-04
+
+- branch-read-edge-green.xml: Root parsed 7 pass / zero failure/error/skip / 2.371s XML. Implementer confirmed original handle 83293 naturally exited 0, wall 3.783s. Two nested-branch/child-publication/recovery cases, one actual accepted-file HTTP case (Range/If-Range/MIME/.skill/service-absent), four clone/race/cancellation tests. The cancellation subcase was initially too weak to establish owned settlement.
+- Original 26032 naturally exited 0, wall 1.630s, but its cancellation pass is explicitly not sufficient acceptance: waiting for a later cleanup event allowed the detached predecessor to pass.
+- Root required event-synchronized copy ownership, second cancellation after the handler begins settlement, and cleanup already complete when CancelledError returns. Against the old detached predecessor, cancellation-owned-business-red.xml failed at observer timeout (1 fail / 2.726s XML; 73735 Exit1 wall3.702s). The direct cancellation-owned-business-red-v2.xml is the stronger business proof: 1 fail / 0.635s XML, Cancel escaped while the original copy worker still owned the clone (14326 Exit1 wall1.541s). Final owned implementation verification remains pending.
+- original-source-stamp-red.xml: Root parsed 1 actual business failure / 1.961s XML. Bad original private checkpoint identity correctly prevents start authorization but leaves task running / placement claimed instead of recovery_required. Authenticated fenced recovery must persist without rollback; fixing this cannot relax credential/owner fences.
+- Root synchronized Task5 plan and OpenSpec scenario with implicit selector preservation, own-point default precedence, trusted nested branches, SQL authority for store-only cache and owned cancellation settlement. Strict OpenSpec validation and scoped diff check naturally pass. These current normative bytes must enter the next complete source freeze; accepted Task4 snapshots remain immutable.
+- Task5/full C08 source and runtime acceptance remain unproven. No whole-slice checkbox or commit is made.
+
+
+### C08 Task5 contract GREEN and scoped formatting review — 2026-10-04
+
+- task5-contract-green.xml: Root independently parsed 36 pass / zero failure/error/skip / 8.023s XML. Implementer confirmed original handle 88337 naturally exited 0, wall 9.523s. Scope includes the five Task5 contract files, strengthened owned cancellation, explicit/implicit private-root identity recovery and same-manager cached active task rejection. This replaces overlapping contract windows rather than adding their counts.
+- original-source-stamp-red.xml original 71457 naturally exited 1, wall 3.123s, exact XML1 failure/1.961s. The correction treats source-identity failure as a verification fault and persists recovery in the fresh originally authenticated transaction; invalid credentials or owners still fail first authentication.
+- Final source verification still requires affected original Local/multitask/heartbeat/artifact and C neighbors. Historical launch canonical compatibility will use exact Task4 v9 model bytes as a fixture for cross-version canonical/digest proof plus original Node replay of persisted initial shape; no original historical persisted payload was available, so this is explicitly a cross-version fallback rather than historical-payload replay. Actual isolated host Alembic 0017→0018 upgrade/downgrade without Fleet imports/operator config is also pending.
+- Auto-review rejected broad Ruff autofix/format mutation across the complete accepted Task4 plus Task5 source inventory: potential modification of frozen Task4 source/canonical bytes exceeds narrow Task5 scope. Author reports no mutation executed. Root informed the user. The safe alternative is complete read-only Ruff check/format --check and necessary narrow formatting on identified Task5 deltas; no wrapper or justification change may bypass the rejected broad operation.
+- Read-only checks, native current regression and source inventory remain available. This is not a goal blocker and does not require pausing or shrinking B → C → C/B/C. Complete freeze, formal source SPEC → QUALITY and whole C08 installed acceptance remain pending.
+
+
+### C08 Task5 historical-model and migration proof audit — 2026-10-04
+
+- Root independently compared backend/tests/fleet/fixtures/c08-task4-launch-spec/launch_spec.py with the accepted Task4 SOURCEv9 launch_spec.py snapshot: exact byte equality, both 8158 bytes, SHA12aa1b1b3347090eb25624efe9dd2000225440a110ead6863a54b491b67d7e9c. This is an authenticated old-model fixture for cross-version canonical/digest comparison. Current SQL payload creation is explicitly not a historical persisted-payload replay. Cross-version/native original-grant results must enter the final current scope.
+- Root inspected test_migration_0018_thread_execution_bindings.py: the initial implementation performs actual SQLite subprocess Alembic 0017→head→downgrade→head, verifies columns/default/preserved row and no Fleet imports. It does not yet establish PostgreSQL migration, despite the earlier author description. Root requested separate actual random-schema PG proof with the Alembic schema pinned, retaining SQLite evidence as its own scope.
+- Original migrations/env.py reads configured extension declarations through AppConfig.resolve_config_path even without importing Fleet. An inherited backend cwd/environment therefore does not prove no operator config. The subprocess must isolate cwd/environment and positively observe unavailable config resolution without printing configuration. These are concrete proof gaps under correction, not acceptance failures inferred from missing files.
+- Source/native writer remains the sole Task5 implementer. Root has not run competing tests or build processes. Full freeze and source SPEC → QUALITY remain pending; whole C08 and later C/BC scope stay active and incomplete.
+
+
+### C08 Task5 full native window and legacy source audit — 2026-10-04
+
+- task5-native-final-v1.xml: Root independently parsed 650 tests / 640 pass / 10 failure / zero error/skip / 162.609s XML. Implementer confirmed original handle 99642 naturally exited 1 with persisted natural receipt, wall 166.028s. No passing full gate or source freeze follows.
+- The ten exact failures are four original C06 memory-middleware worker ownership_lost assertions, one original events-terminal lock-wait TimeoutError, and five original C08 workspace-protocol current-root/run mismatch rejections. Root requires exact accepted-v9 fixture/dependency byte comparison and real lock/ownership evidence before classifying cause; no weakened original assertions, arbitrary longer wait or production authority relaxation may substitute for correction.
+- Root independently inspected and matched passing XML entries for actual SQLite absent-plugin migration (1.363s testcase) and actual PostgreSQL absent-plugin/config migration (2.058s testcase). The PG subprocess uses a fresh random schema, pins Alembic and inspection search_path, positively asserts config resolution is absent, checks exact columns/default/preserved row and executes actual 0017→head→downgrade→head without importing Fleet. These narrow migration checks pass inside the failing larger window; they do not establish the full current gate.
+- Root identified a valid legacy branch backfill with parent binding but no source_workspace could be mistaken for a genuinely new root thread and use initial files. Author confirmed this concrete source gap. It must fail closed before new attempts, with a meaningful missing-origin negative; current native source was left unchanged until handle 99642 naturally exited.
+- Author reports narrow formatting of 28 identified Task5 deltas was approved; the whole 137-Python inventory was only read-checked. Historical model fixture remains exact accepted-v9 bytes. Complete source static/current verification, inherited report inventory and SPEC → QUALITY remain pending before any fresh installed Task6 image.
+
+
+### C08 Task5 exact accepted-baseline counterfactual audit — 2026-10-04
+
+- Original counterfactual handle 55559 naturally exited 1, wall 0.401s, during collection because c07_proof_plugin was absent. This setup failure is preserved separately and is not a business RED or baseline behavior proof.
+- task4-baseline-counterfactual-v2.xml: Root parsed 20 tests / 10 pass / 10 failure / zero error/skip / 12.507s XML. Author confirmed original 69456 naturally exited 1, wall 14.170s; Root independently read its natural receipt. It reproduces the ten full-window failure names/mechanisms using exact HEAD3d920 plus accepted Task4 v9 source overlay.
+- Root independently checked all 427 actual import-origin hashes: zero mismatches, sole owned source root /private/tmp/c08-task4-source-baseline-probe-v2. Each unique imported file independently matches either accepted-v9 snapshot (27) or HEAD3d920 bytes (400), with zero unmatched files. The overlay also has 135 exact full snapshot file copies; only three nonexecuted docs/normatives are absent. No current Task5 editable-source contamination was observed.
+- The ten failures therefore pre-exist Task5. Source inspection identifies protocol fixtures lacking the new current-run root proof, memory-worker RunContext lacking final workspace pairing, and events-terminal setup manually changing core status without a legal pair, which rejects before target-lock wait. Author will restore legal original checkpoint/prepare/terminal baselines while preserving all original drain, observer, ownership_lost, status, physical-stop and lock-clock assertions. No production authority relaxation or larger timeout substitutes for this proof.
+- The independently confirmed legacy missing-origin admission gap still requires its own meaningful RED/correction. Current full gate and complete freeze remain pending. Accepted Task4 source/runtime history is not rewritten or relabeled by this broader later fixture audit.
+
+
+### C08 Task5 unaffected current gate and concrete test-patch approval — 2026-10-04
+
+- legacy-missing-origin-red.xml is 1 business failure / 2.047s XML; original 10915 naturally exited 1, wall3.440s. Earlier author 2.122 timing was log timing, not XML. The shared guard correction yields legacy-missing-origin-green.xml 23 pass /5.059s XML; original78875 naturally exited0 wall7.123s.
+- Actual verify-complete→private-root-change source race was added for both selectors. Original32575 RED naturallyExit1 wall3.583s (2failure/2.230s XML). First green78194 naturallyExit1 wall6.666s (14tests/12pass2fail/5.247s XML), because authenticating again after setting recovery rolled that transaction back. The narrow correction retains original locks/authentication, flushes, then checks fresh database leases/deadlines without widening credentials. Final59903 naturallyExit0 wall6.325s, 14pass/4.976s XML including expired-lease cases.
+- task5-contract-current-v2.xml: Root independently parsed44pass, zero failure/error/skip,12.691s XML. Author confirmed original42951 naturallyExit0 wall14.409s. This is the current seven-file new-contract plus PG/SQLite migration scope, not the full failing-neighbor window. Whole current inventory165files/138Python read-only Ruff check and formatcheck pass; original old fixtures remain unapplied.
+- Auto-review explicitly rejected proposed existing C06/C08 fixture rewrites and terminal-behavior injection: beyond narrow Task5 authority and potentially masking baseline regressions. No refused mutation executed. Root explained the rejection to the user; the safe path prepares a concrete proposal and requests human authorization rather than bypassing review.
+- /private/tmp/c08-task5-fixture-alignment-proposed.patch final SHA51844b0a52a4ad6a73d08a1cc29e996501cf6829ee95f6d24decd900ab006c7a. Exactly three test files: new c08_native_terminal_pair.py, C08 workspace_protocol, C06c remote_profiles. Root applied the diff only in memory, parsed AST and verified all original assertions:43/43 protocol and193 original profiles preserved (194after one additional assertion). Original production FencedSaver and seal/prepared/terminal transaction APIs provide the legal baseline; native composition does not establish installed120 proof. Execution deadline remains original; cumulative cleanup starts once at first terminal preparation and is reused across late cancellation.
+- Proposal is not applied. Human authorization is required before old-fixture mutation and modified-fixture native execution. Goal-generated continuation is not that authorization. Current44pass, read-only static checks and counterfactual427imports are complete; full affected native, complete finalfreeze/SPEC→QUALITY and installed Task6 remain unproven. No C08 checkbox/commit or whole-goal completion is claimed.
+
+
+### C08 Task5 explicit human approval and resumed execution — 2026-10-04
+
+- After Root presented the exact three-test-file proposal, the human explicitly authorized: “给你权限，同意进行”. This approval resolves the previously repeated auto-review/authorization blocker for that concrete patch. Root observed the original full goal active again; no goal scope is recreated or narrowed.
+- Root independently rechecked /private/tmp/c08-task5-fixture-alignment-proposed.patch SHA51844b0a52a4ad6a73d08a1cc29e996501cf6829ee95f6d24decd900ab006c7a and confirmed the helper is still absent before applying. The same Task5 implementer resumes as sole source/native writer under this explicit authorization.
+- Required sequence: exact patch applicability/application, original failing-neighbor fixture verification preserving every assertion, complete affected current native gate, narrow formatting/read-only full static inventory, then complete SOURCE freeze and Root SPEC → QUALITY. Historical refusal records and failed reports remain unchanged.
+- No Docker build, whole C08 acceptance, commit or later task follows merely from approval. Task6 installed sequential/branch execution, full C08 and later C/BC delivery remain required.
+
+
+### C08 Task5 authorized fixture alignment and complete source gate — 2026-10-04
+
+- The explicitly approved three-test-file patch was applied by the sole Task5 implementer. Root independently compared actual applied AST assertions to the accepted Task4 source: all original 43 protocol and 193 profile assertions remain exact; profiles add one success assertion. The helper uses the original checkpoint saver and workspace terminal transaction APIs.
+- task5-fixture-alignment-neighbors-v1.xml: 25 pass, zero failure/error/skip, 17.470s XML; original 17821 naturally exited 0, wall19.633s.
+- task5-native-final-v2.xml: Root independently parsed 653 pass, zero failure/error/skip, 155.467s XML and its natural receipt exit0/wall158.768s, original95738. This complete affected scope includes the original650 plus missing-origin1 and source-race2; overlapping gates are not summed.
+- Task5 SOURCEv1 freeze SHA4e51d7b9315a6c61c9e06940e0fc6ec39ae91a1cdbc12a0f11f7154f26e4437a includes166source/139Python,54productiontargets and235reports. Root independently checked573 live/snapshot/report/input path entries with zero SHA/size mismatch. Read-only Ruff/format and scoped diff checks pass according to their frozen receipts.
+- Fresh independent SOURCE SPEC review is dispatched before QUALITY. No installed build, Task5 final acceptance, whole C08 checkbox, commit or C09 acceptance is claimed. Task6 installed new-C/branch execution remains pending.
+
+
+### C08 Task5 independent SOURCE SPEC v1 requires correction — 2026-10-04
+
+- Fresh independent SPEC reviewer completed full SOURCEv1 audit: NOT PASS, three P2 findings. Freeze/report/native integrity and original assertion preservation were independently reconfirmed; 653 passing tests do not close missing behavior coverage.
+- workspace_files.py selected() preserves explicit origin point but not explicit origin manifest selection after child own publication: a previously working child manifest URL becomes404. Preserve exact trusted historical manifest URL while own publication remains the default, and reject conflicting selectors.
+- prepare_branch() checks bounded ancestor ownership/backend/recovery but validates only the immediate target/source mapping. Verify each server-owned intermediate branch origin, target checkpoint and parent mapping before cloning; test missing/conflicting intermediate mappings in deeper branches.
+- Original HTTP branch route finally awaits an unshielded deletion worker after copy. Repeated cancellation can escape while deletion is unsettled. Retain owned cleanup through settlement and add actual post-copy route cancellation proof, separately from cancellation inside restore_branch.
+- Root compressed only its newly added backend guide paragraph:28666bytes within original28672budget, preserving the detailed runtime document link. The original SOURCEv1 guide bytes are superseded and the accepted Task4 snapshots remain unchanged. Author reports guidance tests12pass/.786s XML, natural89808Exit0/wall1.752s. An additional nonstandard strict-warnings command exits1 on6 existing chain soft warnings and remains historical; the prescribed validator is run without raising budgets.
+- Same Task5 implementer owns TDD repairs and complete affected native/static/source refreeze. QUALITY is not dispatched until repaired source passes SPEC. No Docker build, Task5 acceptance, whole C08 checkbox or commit is made.
+
+
+### C08 Task5 SPEC findings reproduced by actual route tests — 2026-10-04
+
+- Root persisted the fresh independent NOTPASS review as task5-source-spec-v1-review.json, retaining all3P2 requirements and source references for subsequent complete freeze inheritance.
+- task5-spec-p2-red-v1.xml: Root independently parsed9tests/3pass/6failure/zeroerror/skip/4.660s XML; natural receipt original95482Exit1/wall6.278s. Production was unchanged for this RED.
+- Actual unchanged origin manifest HTTP URL after own child publication returns404 instead of200. Four separately corrupted intermediate mappings (missing origin, source checkpoint conflict, target checkpoint ancestry conflict, parent-map conflict) each still create the great-grandchild via actualHTTP200 and clone instead of rejecting409 before clone.
+- The post-copy original HTTP branch test holds thread metadata after real clone, cancels, holds actual deletion worker and cancels again. At caller cancellation return the cleanup_done event remains unset, directly proving unsettled deletion without waiting for detached cleanup to compensate before assertion. Existing digest/thread-metadata failure and legacy cases pass in the same9-case window.
+- Same Task5 implementer now repairs these exact3source issues and must retain meaningful RED, verify samecases GREEN, run complete affected native/static gates and refreeze before independent SPEC thenQUALITY. The root goal remains full B→C→BC; no Task5/wholeC08 acceptance, installed build or commit is implied.
+
+
+### C08 Task5 first SPEC repair window and cancellation database follow-up — 2026-10-04
+
+- Author narrowed production changes to workspace_files.py origin selector/each-ancestor mapping verification/owned remove_branch and threads.py final cleanup delegation. This remains unaccepted until full refreeze and independent review.
+- task5-spec-p2-green-v1.xml: Root independently parsed14tests/13pass/1failure/zeroerror/skip/4.582s XML; author original45516 naturallyExit1/wall6.705s. Historical manifest and four intermediate mapping behavior now pass; post-copy cancellation physically settled/deleted clone assertions pass before the subsequent SQL check fails with InterfaceError connection closed. The whole window is not GREEN.
+- Author investigates original session factory/connection-pool cancellation behavior. Required evidence includes independent original isolated PostgreSQL observation of durable recovery row and actual subsequent original app/pool HTTP/SQL use. Simply switching observer connections must not hide a production pool problem; fixture-bound connection topology must also be inspected before assigning cause. Original failure/log/receipt is retained.
+- Root independently checked branch-test AST against SOURCEv1: all34originalassertions preserved,52currentassertions with zero removed. Full native, new freeze, SPEC re-review and QUALITY remain pending.
+
+
+### C08 Task5 original reservation cleanup cause confirmed — 2026-10-04
+
+- Root independently inspected fleet_database: real pooled create_async_engine(pool_size=8) and async_sessionmaker(engine), not a shared held fixture connection or StaticPool.
+- task5-http-cancel-pool-red.xml1failure/2.275s; original naturalreceiptExit1/wall3.532s. Independent PostgreSQL recovery observation alone does not fix the original app: its next manifest request still fails on the original pool connection.
+- task5-owned-reservation-red.xml2failure/2.013s; original99290naturalExit1/wall3.348s. Actual HTTP original delete_thread_operation observer records entered→failedCancelledError; independent asyncpg confirms the durable recovery row. A neutral Local real-PG reservation held in original deletion also returns cancellation before SQL release settles. This establishes an original host-reservation cancellation issue rather than masking it by a new pool.
+- Author corrects only the original reservation-finally ownership: original delete/retry/auth and cache unindex remain together in a retained cleanup task, shielded against scope/repeated cancellation. Preserve body exceptions, lease-loss conflicts and cancellation first arriving during cleanup; a successful body must not swallow new cleanup cancellation. Actual Local and HTTP proof must observe original SQL release and subsequent original-pool availability.
+- Root synced the runtime depth document with this required copy/destination/reservation settlement contract; complete refreeze must capture its current bytes. Full acceptance remains pending.
+
+
+### C08 Task5 SPEC repairs and original cancellation release current GREEN — 2026-10-04
+
+- task5-spec-p2-green-v2.xml: Root independently parsed104tests/103pass/1failure/7.323s XML. Author original25929naturalExit1/wall8.937s. Actual HTTP physical cleanup, independent durable recovery, next original app manifest200 and original session factory reservation release pass; the final Local assertion used nonexistent has_active_run and failsAttributeError. This report stays failed, not relabeled.
+- Corrected actual has_inflight assertion plus Local cleanup-only first/repeated cancellation variant yields task5-spec-p2-green-v3.xml105pass/zero failure/error/skip/7.398s XML, independently parsed by Root; its persisted natural receipt exit0/wall8.732s. Author original23052 owns confirmation of natural process completion.
+- Narrow neutral manager cleanup retains original SQL deletion/retry/captured owner/user/cache unindex; owned shield task settles before propagating original body errors or cancellation first arriving only during cleanup. Source SPEC, complete affected gate and refreeze remain required.
+- Root raised an additional self-audit question on intermediate ancestor accepted-manifest row identity/completeness checks versus final selected() checks. Author must assess the actual trigger, add meaningful evidence if required and avoid widening authority; this is not an accepted finding or reason to skip complete independent SPEC re-review. No installed build, whole C08 acceptance or commit follows the105-case window.
+
+
+### C08 Task5 complete repair gate and descriptor self-audit — 2026-10-04
+
+- Root independently confirmed prescribed guidance command (without strict-warnings): task5-guidance-validator-established-v2-receipt.json naturalExit0/wall0.253s,24guides/zeroerror/6existing chain soft warnings; individual budgets remain unchanged. Extra strict failure is retained separately.
+- Author confirms original30759 live on complete660-case repair scope, without modifying tested source during execution. Final additional different-source intermediate-ancestor regression is prepared only after natural exit: legal child-owned accepted source remains valid while an ancestor source checkpoint stamp conflicts, requiring rejection before clone. It is guard regression, not a fabricated new business RED.
+- Root independently compares extracted _accepted_manifest plus selected conditions with frozenv1 selected: all5original accepted lookup/descriptor conditions remain exact; new explicit manifest-missing rejection is added. Each ancestor now uses the same descriptor checks as final selection. Root inspected original f0009 immutable UPDATE/DELETE triggers and composite point→manifest ownership foreign key, unchanged. No trigger disabling or invented accepted point is authorized.
+- Complete661current scope (actual final XML authoritative), final current docs/static/report inventory freeze and independent SPEC→QUALITY remain required. No new installed image or whole-slice acceptance is inferred from105case or prior653case windows.
+
+
+### C08 Task5 full660 gate and explicit selector combination correction — 2026-10-04
+
+- task5-native-final-v3.xml: Root independently parsed660pass/zero failure/error/skip/153.346s XML and natural receipt original30759Exit0/wall156.614s. This verifies the complete repaired scope at that source before the final additional selector regression correction.
+- Extra different-source intermediate-ancestor case uses lawful child-owned accepted publication and physical stop; no immutable point/manifest mutation or disabled trigger. Initial subset additionally exposed conflicting explicit selectors: query priority for point ignored conflicting checkpoint/manifest.
+- task5-selector-combinations-red.xml: exact2tests/1pass1failure/2.387s XML, independently parsed by Root, original30179naturalExit1/wall3.775s. Earlier author wording two failures is corrected to actualXML; the failure is DIDNOTRAISE LookupError. This is selector businessRED, not a new ancestor guard businessRED.
+- Narrow correction must check every provided selector against the final resolved point, including checkpoint+manifest combinations, without widening origin authorization or Local fallback. Latest task5-selector-and-different-source-green.xml11pass/zero failure/error/skip/5.413s and natural receiptExit0/wall6.997s were independently parsed; implementer owns original handle confirmation.
+- Final complete current scope, full source/static/report freeze and independent SOURCE SPEC→QUALITY remain pending.660 prior source and overlapping11case subset do not replace the final current gate.
+
+
+### C08 Task5 extra different-source coverage correction — 2026-10-04
+
+- Author confirms original20266naturalExit0/wall6.997s for11case selector/branch/artifact window. Actual selector RED remains2tests/1pass1failure, not2failures.
+- Self-audit found ancestor-private-source variant was incorrectly captured by the early mutation.startswith('ancestor-') block, so it passed a preexisting ancestor-negative path before reaching lawful child-owned publication/different-source setup. That11case GREEN does not prove the new different-source requirement.
+- Original86687 currently owns full661scope with unchanged tested source. It must naturally exit before fixture editing; any passing window at that coverage is historical and cannot become the final source gate. No process restart is authorized merely because observation waits expire.
+- Required fixture correction excludes the new variant from early four-negative routing. An observer wraps the unchanged original _accepted_manifest to record actual point IDs, proving lawful child-owned final source and then distinct ancestor-origin verification before409/zero clone. Observer cannot replace validation or invent derived facts. Test-only correction then subset and final complete661current gate are necessary; production source bytes remain unchanged across that correction. All histories and coverage limitations must enter complete refreeze.
+- SPEC re-review and QUALITY remain closed until complete current freeze/evidence exists. Whole C08/later C/BC remain unaccepted; no build or commit.
+
+
+### C08 Task5 actual different-source path is now observed — 2026-10-04
+
+- Original86687naturalExit0/wall158.667s, task5-native-final-v4.xml661pass/154.444s. Its prior coverage limitation is retained: ancestor-private-source took the wrong early fixture branch, so v4 is historical rather than the final current gate.
+- Test-only correction precisely separates the four early ancestry damage cases from ancestor-private-source. Production workspace_files/threads/manager bytes remain unchanged across the correction according to author receipts.
+- task5-different-source-actual-green.xml: Root independently parsed2pass/zero failure/error/skip/2.373s XML and natural receipt original78664Exit0/wall3.541s. Root inspected observer source: it records actual point.id and invokes the unchanged original _accepted_manifest, never replaces validation. Actual ordered checked points are child-owned accepted point followed by distinct original ancestor point; child source remains valid, ancestor stamp conflict produces409 and zeroclone.
+- This closes the specific different-source coverage gap; final complete current661gate and complete SOURCEv2 remain pending. The two passing subset cases are not added to historical counts or substituted for the final scope. No source SPEC acceptance, QUALITY, installed build or commit yet.
+
+
+### C08 Task5 final current native gate before SOURCEv2 — 2026-10-04
+
+- task5-native-final-v5.xml: Root independently parsed661pass/zero failure/error/skip/162.931s XML and persisted natural receipt original53234Exit0/wall166.267s. Author confirms no live handle remains and complete source freeze is in progress.
+- Root independently confirms this final XML includes corrected ancestor-private-source actual path, post-copy-cancel HTTP branch, and both neutral Local reservation cancellation variants (False/True). All original affected scope and selector checks are included. Earlier661v4 remains historical coverage-unmet; it is not substituted for v5.
+- Complete SOURCEv2 must inherit acceptedTask4/sourcev1 histories, independent SPEC NOTPASS report, all RED/GREEN and coverage limits, current guides/normatives, input snapshots and54productiontargets. Root will verify live/snapshot/report bytes then request same SPEC reviewer to examine complete repaired implementation before fresh QUALITY. No Task5 final acceptance or whole C08/installed acceptance yet.
+
+
+### C08 Task5 complete SOURCEv2 and independent SPEC re-review — 2026-10-04
+
+- Complete SOURCEv2 SHA188efd3674ab298ed3f482183290796b9861f15f4c28b0b885c29909e60648ea:166source/139Python,54productiontargets,160Task5reports+122inheritedTask4reports=282,10current+6v1input snapshots. Root independently verified all632unique hashed live/snapshot/report/input/reference paths with zero SHA or size discrepancy, including inherited source/runtime freeze pointers.
+- Root compared complete source inventories v1→v2: no added/removed source paths, exactly7changed files (backend guide/runtime depthdoc; workspace_files/threads/manager; accepted_branch/recovery tests). Sourcev1 independent3P2 NOTPASS, all historical failures/API error/strict-warning failure and v4coverage-unmet are retained. Current final gate points only to actualv5XML661PASS/naturalExit0.
+- Same fresh original SPEC reviewer is re-dispatched for complete repaired implementation and requirements, including original findings, selector combinations, per-ancestor accepted descriptor identity and physical/durable/original-pool cancellation evidence. Full review is not limited to the7-file delta. QUALITY remains closed until SPEC PASS; no new test/build handle exists.
+- Task5 final source acceptance, installed Task6, wholeC08 and laterC/BC remain pending; no checkbox/commit/activation is claimed.
+
+
+### C08 Task5 SOURCEv2 SPEC PASS; fresh QUALITY starts — 2026-10-04
+
+- Same independent SPEC reviewer completes full166-source Task5 re-review: PASS P1/P2=0 against SOURCEv2 SHA188efd3674ab298ed3f482183290796b9861f15f4c28b0b885c29909e60648ea. All3original findings close; selectors, per-ancestor source provenance and original neutral cancellation release are independently checked. Original43protocol/193profile assertions and original guide budget retained.
+- Reviewer independently checks630source/snapshot/report/input references and54productiontarget hashes; confirms currentv5XML661PASS/162.931s/naturalExit0/wall166.267s. Root preserves actual completed verdict as task5-source-spec-v2-review.json after the immutable source freeze; SOURCEv2 itself is unchanged.
+- Fresh independent c08_task5_quality reviewer now audits complete Task5 architecture/auth/SQL/ownership/cancellation/error handling/compatibility/test scope. This follows SPEC PASS, does not substitute author self-review and does not advance Task6 yet.
+- Task5 final source acceptance, actual installed Task6/newC/branch, wholeC08 and laterC/BC remain pending. No build/commit/checkbox/activation.
+
+
+### C08 Task5 SOURCEv2 independent QUALITY finds owned lifecycle gap — 2026-10-04
+
+- Fresh independent complete QUALITYv2: NOTPASS P1=0/P2=1, no other concrete findings. Report task5-source-quality-v2-review.json SHA3ef17d4eaf29ac0b8122d90f4823c7a7a52c43e017878214dec9e36773cc9f6e is preserved after SOURCEv2 immutable freeze. Reviewer independently verifies632hashedreferences and actual661native gate; no tests/Docker/source edits.
+- threads.py:952 untitled branch sibling lookup awaits thread_store.search after accepted clone is created at937, before lifecycle cleanup try/finally starts965. Cancellation or store/SQL exception here bypasses remove_branch, leaving child clone despite recovery binding. Root independently inspects this exact control flow. Existing post-copy-cancel test blocks later metadata work inside protected region, so661PASS does not cover this failure window.
+- Same Task5 implementer is authorized to reproduce real untitled HTTP sibling-query cancellation/failure and move owned lifecycle protection around clone and all subsequent awaits. Preserve cancellation/error behavior, immutable source, server-owned recovery, captured ownership and original SQL reservation release; do not delete data not owned by the current branch.
+- Complete current native/static/guide gates and SOURCEv3 inherit allv2history plus SPECv2PASS/QUALITYv2NOTPASS/newRED/GREEN; sameSPEC then sameQUALITY re-review are required. No Task5 acceptance, Task6 build, whole C08 checkbox, commit or activation.
+
+
+### C08 Task5 QUALITY sibling lifecycle finding actual RED/GREEN — 2026-10-04
+
+- task5-quality-sibling-red.xml: Root independently parsed2tests/2businessfailure/zeroerror/skip/2.835s XML; naturalreceipt original32949Exit1/wall5.455s. Real untitled HTTP sibling lookup cancellation and actual isolated PostgreSQL missing-table query failure each return with an owned clone still present; direct directory-existence assertions fail. No cleanup-entry timeout is substituted for this evidence.
+- Narrow threads.py correction retains restore_branch's existing copy-failure ownership and places all code after successful restore (time/metadata/title/sibling lookup/owner kwargs plus checkpoint/thread/history/finish) inside the existing cleanup try/finally. No uncreated or foreign destination is newly removed on prepare/copy failure; source/auth/Local branches remain original.
+- task5-quality-sibling-green.xml: Root independently parses2pass/zero failure/error/skip/2.262s XML, naturalreceipt original30239Exit0/wall3.659s. Both actual failure paths now clean the owned clone. Author adds repeated-cancellation physical cleanup regression and original Local/branch/state/manager neighbors before complete current native/static/sourcev3.
+- This closes behavior tests only; complete SOURCEv3 then sameSPEC→sameQUALITY acceptance remains required. No Task5 acceptance, installed build, whole C08 checkbox or commit.
+
+
+### C08 Task5 final SOURCEv3 and current664 after QUALITY repair — 2026-10-04
+
+- Corrected neighbor window task5-quality-neighbors-v2:120pass/9.937s XML, original12951naturalExit0/wall12.734s according to author; final current task5-native-final-v6.xml independently parsed byRoot664pass/zero failure/error/skip/187.706s XML and original70026naturalreceiptExit0/wall191.948s. All3untitled sibling cancellation/fault/repeated-cancellation cases join the original661scope.
+- Prior47017 attempt failed to reliably collect test results: receipt write ENOSPC,0byte log/noXML; also two guessed test paths were absent. This is unavailable infrastructure/collection evidence, not businessRED orGREEN. Corrected real original test_thread_state_promoted/branch_history_seed neighbors pass. Root independently observed Data392MiB available/100percent, Task5evidence12MB/Task4evidence45MB/pytesttmp2.8MB. No shared data/source/evidence/images were cleaned.
+- SOURCEv3 SHAfecca3d56157b50e45ae88697a800b7e2aba557dbdf0cdb40e97fa12a3bec1bf:166source/139Python/54targets,184Task5+122Task4=306reports,22inputs. Root independently checks all662unique hashed references and zeroSHA/size discrepancy. Exactv2→v3source delta is threads.py plus accepted_branch test, noadded/removedpaths; all prior frozen versions/history remain unchanged.
+- Root independently verifies61originalv2branch assertions retained (74current,zero removed). ProductionCall/Raise AST multisets unchanged; only lifecycletry placement broadens owned protection after successful restore. Guide budgets remain unchanged and current12guidance/.904s/prescribedvalidatorExit0/.205s and wholeinventoryreadonlyRuff/format/diff pass.
+- Same independent SPEC is re-dispatched for completeTask5source/native compliance after the QUALITY repair, then sameQUALITY must re-review. No Task5 acceptance, installed Task6 build, wholeC08checkbox or commit yet.
+
+
+### C08 Task5 SOURCEv3 SPEC PASS; QUALITY re-review — 2026-10-04
+
+- Same independent SPEC reviewer completes full Task5 SOURCEv3 review: PASS P1/P2=0,662uniquehashedrefs/54targetsourcehashes, exact2source delta. Existing cleanup lifecycle begins immediately after successfulrestore and covers untitledsiblinglookup, preserving original auth/exception semantics. All61priorbranchassertionsretained/current74. Current664pass187.706s/naturalExit0wall191.948s independently confirmed.
+- Root records actual completed SPEC verdict in task5-source-spec-v3-review.json after immutable SOURCEv3 freeze, then re-dispatches same independent QUALITY reviewer for complete Task5 quality and the previously identified lifecycle gap. Source and histories remain unchanged; no active native handles.
+- Task5 final source/native acceptance awaits QUALITY PASS. Task6 fresh installed newC/branch materialization/current-run stamp/legalnewinput and laterC/BC remain pending; no Task6 build or C08 commit yet.
+
+### C08 Task5 Root source/native acceptance — 2026-10-04
+
+Root independently matches QUALITYv3 receipt SHA
+1e533985e57ed012c88a5a01a1755cdab1df9a87e5ee1a15dfa956e51d30cc76,
+SPECv3 SHA8c4483e2e9b905e7f424ac5ce6b85c46146b82b77da14f15bbe452eb6d4deaf3,
+and all662 unique frozen references against SOURCEv3 SHA
+fecca3d56157b50e45ae88697a800b7e2aba557dbdf0cdb40e97fa12a3bec1bf.
+Both full reviews PASS P1/P2=0. Root accepts Task5 source/native only and checks
+its three detailed-plan tasks; current664 native successes do not establish
+fresh installed new-C/branch execution. All prior failures and counterfactual
+histories remain retained. Task6 begins with a fresh sole implementer; whole
+C08/OpenSpec8 remains pending. No commit or activation.
+
+### C08 Task6 source preparation and disk preflight — 2026-10-04
+
+Fresh sole Task6 implementer began after Root Task5 acceptance. Root independently
+parsed current Task6 XML: image inventory RED4tests/1failure/.760s and GREEN4pass/.583s;
+continuation policy initial missing-module scaffold2fail/.628s and GREEN2pass/.566s;
+continuation build-input RED5tests/1failure/.787s and GREEN7pass/.712s. All windows
+zero errors/skips. Counts overlap and are not summed. These are source/build/policy
+checks, not installed restoration or production behavior acceptance. Source-ready
+freeze, independent SPEC then QUALITY and fresh installed runtime remain pending.
+The original FencedSaver is unchanged; installed continuation must prove actual
+source history/files, current-run stored stamp and legal new input/tool execution.
+
+Data space observed282MiB/100percent. Supported `uv cache prune --offline` was
+approved but reported cache in-use; Root cancelled original83768, naturalExit130,
+no removal reported. Persistent uvtool/uvx Blender MCP processes remain untouched.
+Other-project Go caches /private/tmp/h3-admin-go-cache821MiB and
+/private/tmp/assetforge-setup-review-gocache1.2GiB require separate human confirmation;
+async question pending, no deletion. Source preparation continues independently.
+All evidence, raw contexts and historical/accepted images remain retained.
+
+### C08 Task6 full native fixture gap and safe validation refinement — 2026-10-04
+
+Author full C08 native-v1 has450passes/2setup errors/zero skips (pytest116.51s),
+original27888 natural wrapperExit0/testExit1. Errors are historical producer
+fixtures: native C07 Path relocation cannot provide the new fixed installed
+workspace-contract file; their native runner also lacks the Linux Node publication
+consumer/collector. Root authorizes migration to required actual installed Linux
+scenarios, preserving original positive/kill/HTTP/recovery/no-replay assertions.
+No native collector is fabricated and errors are retained; this gate is not PASS.
+Representative C07 producer regressions must be probed before freeze.
+
+Automatic approval rejected broad makeformat's whole-backend rewrite. Root
+adopts narrow formatting plus complete readonly Ruff check/format--check (actual
+makelint recipe), documents the planned-command substitution and prohibits claiming
+makeformat executed. Existing1513readonlyformat/ruff checks pass per author;
+guidance24guides/0errors/6existing soft-chain warnings, unchanged28672/40960budgets.
+Safer exclusive creation of a new fault-test file was approved after a separate
+ambiguous overwrite rejection; existing helper was preserved.
+Data free space has naturally risen to7GiB per author, no cleanup by this task.
+No two other-project Go caches were deleted; their permission is unnecessary for
+current capacity. Full source and runtime acceptance remain pending.
+
+### Task6 C07 compatibility disposition — 2026-10-04
+
+Representative C07 original handoff environment probe reproduces missing fixed
+workspace-contract setup error; preliminary plugin/distribution-environment failures
+are retained separately and do not prove business failure. Reuse the existing real
+C07 InstalledScenario/NodeDaemon/Docker/Redis adapter for historical producer tests,
+with honest physical-process fields and original claim/start/renew/stop ownership.
+Source/native C08 old producer fixtures migrate to required Linux installed proof.
+
+Root correction after direct production source inspection: the initial
+claim that writer-seal insertion shares the core-terminal/final-pair transaction
+was incorrect and is withdrawn. Workspace after_transition commits core terminal
+with the accepted final pair; writer_seal opens a separate transaction. The old
+C07 stream-seal-fault success/no-seal assertion was never changed and remains
+valid when the exact final pair exists. Preserve the real SQL trigger, physical
+exit and held original stopped RPC; add both final pointers, exact checkpoint
+binding and finishing assertions before acknowledgment. After fault removal,
+original physical-stop recovery can seal success/END for that pair; prove the
+point is unchanged and tool/start counts remain unchanged. Unpaired success
+continues to require recovery/no END in separate C08 negative tests. No production
+change follows from this correction. Full source/installed acceptance is pending.
+
+
+### Task6 full source/native v2 failed window — 2026-10-04
+
+Root independently parsed source-native-full-v2.xml: 524 tests, 504 passed,
+20 failures, 0 errors, 0 skips; XML 134.197 seconds. The retained original
+receipt records natural exit1 and wall136.806850208 seconds. All failed cases
+belong to test_c07_stream_reader. Positive legacy setup directly marks core
+success through SQL without the accepted C08 final workspace/checkpoint pair,
+so original stream-seal authority rejects it. This is a failed regression
+window, not source acceptance; counts from overlapping windows are not additive.
+Authorized fixture correction uses NativeTerminalPreparation and the original
+fenced RunRepository terminal transition, preserving stream/retention assertions
+and raw-SQL unpaired-success negative tests. No direct point/pointer insertion
+or production seal bypass is allowed. Final source/native rerun and independent
+SPEC then QUALITY gates remain pending; no new image has been built.
+
+Root separately rechecked all 54 Task5 accepted installed production source
+targets against SOURCEv3: zero mismatches. The Task6 C07 installed adapter now
+maps injected propagated writer-seal exceptions to expected Docker exit1 with
+the retained actual exception receipt, preserving logical success/exact final
+pair/finishing/no-seal before stopped acknowledgment and same-pair success/END
+after actual physical-stop recovery.
+
+
+### Task6 confirmed finishing read gap — 2026-10-04
+
+Root inspected both FleetStreamReader.identity and _original_pointer_query:
+their read state guards omit C08 finishing. After positive fixtures switched to
+the original paired transition, this became a read-authority failure rather than
+an unpaired-seal setup failure. The targeted cleanup/stream window remains failed
+(cleanup8 pass, stream10 pass/18fail as reported by author), not acceptance.
+Root independently parsed finishing-read-red-v1.xml: tests7/failures7/errors0/
+skips0, XML2.756 seconds; original receipt is retained. These are actual assertion
+failures after a valid pair and held reservation, not scaffolding failures.
+Root authorizes an events.py-only shared exact finishing read predicate under
+the detailed plan refinement above. No fixture physical-stop workaround, new
+write grant, released capacity, recovery event widening or changed existing
+active/accepted/unknown semantics is authorized. Complete production inventory,
+native/source reviews and fresh installed build/runtime must use the corrected
+bytes. No source freeze or new image has yet been accepted.
+
+
+### Task6 finishing proposal awaiting explicit human authorization — 2026-10-04
+
+Automatic approval rejected the proposed events.py mutation before execution:
+security-sensitive stream-reader/publisher read-authority expansion; broad task
+authorization did not clearly approve this exact behavior. Root's code-scope
+review approves the proposal technically, but is not human authorization. Do not
+retry through another tool or indirect write. Original production SHA remains
+42d71aa2bc7837148adb9e3f2d83456c09f51fc177841f1fadbfa8762fe17bd7.
+Concrete unapplied v2 patch: .local/fleet-evidence/c08-task6/
+events-finishing-proposed-v2.patch, SHA256
+240c1989d8de7e91f834e473e978301dd3509541496ea22a2d7278eee31a1ac0.
+Root independently verified patch/full proposed source hashes and complete diff.
+It adds only the exact-pair finishing read predicate at the three existing read
+state guard sites; v2 also binds original attempt frozen payload and aligns
+publisher formatting. It does not grant writes or release capacity. v1 remains.
+Full proposed source SHA256:
+567f74c1eb91303352eb747341235aaaaaeebc8d0ab5b892cc61e74f1f23d1b3.
+No source freeze, fresh build or full Task6 acceptance follows from this proposal.
+
+Unaffected cleanup sensitivity evidence is retained: Root parsed the actual
+serial-cleanup counterfactual XML, tests8/failures7/errors0/skips0, XML0.591s.
+These are meaningful downstream-settlement/original-error assertions, separate
+from the earlier missing-module scaffold. Final helper and production source
+were not changed by that counterfactual. The prior targeted window named
+cleanup-stream-fixture-green-v1 is not globally GREEN: actual XML36 tests/
+18failures/0errors/0skips, XML10.072s (cleanup8 and stream10 pass, stream18 fail).
+Keep honest outcomes regardless of historical artifact filenames.
+
+
+### Task6 unapplied finishing proposal v2 independent SPEC NOTPASS — 2026-10-04
+
+The automatic goal continuation did not supply human approval. Production
+events.py remains SHA42d71aa2bc7837148adb9e3f2d83456c09f51fc177841f1fadbfa8762fe17bd7.
+Root independently verified terminal unaffected checks: cleanup8/0fail/error/skip
+(XML0.628s), whole Ruff check plus format--check1517, guidance24/0errors/6soft
+warnings, diff check and installed collection49 all natural exit0. Collection
+is not installed runtime proof. Root report:
+/private/tmp/c08-task6-root-unaffected-verification-v1.json.
+
+Fresh independent proposal-only SPEC reviewed exact unapplied v2/source/base
+hashes before and after; NOTPASS with one P2. seal() validates identity then
+awaits another SQL SELECT lacking the exact finishing pair predicate. A changed
+pointer/request/root between those operations can return a stale seal/END. This
+is a static interleaving finding, not executed proposed-code evidence. Reports:
+/private/tmp/c08-finishing-proposal-spec/review.json and review.md.
+Root confirms the finding. The earlier Root technical approval of v2 is
+superseded by NOTPASS; v2 must not be applied. Same author is refining only the
+unapplied proposal and adding an owned-PG legacy-active-to-invalid-finishing
+query-time race regression against current production, without fake identity or
+SELECT results. Preserve old artifacts. Independent SPEC then QUALITY of the
+refined proposal remain required; this is neither full SOURCE acceptance nor
+human authorization, and no fresh build/runtime has started.
+
+
+### Task6 unapplied finishing proposal v3 ready for explicit approval — 2026-10-04
+
+Same author refined the exact query-time finishing guard at FOUR read sites,
+including actual seal SELECT with frozen spec/digest binding. Production remains
+baseSHA42d71aa2bc7837148adb9e3f2d83456c09f51fc177841f1fadbfa8762fe17bd7.
+V3 patch SHA dac44aa45371fe56b52d8f34fbfb8ae0b1c2f89790cf2fbf2a06317cead32b4a.
+Independent proposal-only SPEC then QUALITY both recommend proposal-ready with
+no P1/P2/P3. Root verified all23 frozen refs after QUALITY: zero mismatches;
+exact production-to-proposal unified diff equals saved patch. Reports copied
+into .local/fleet-evidence/c08-task6/finishing-proposal-{spec,quality}-v3-review.*;
+Root record finishing-proposal-root-review-v3.json. Final formatted-test race
+rerun naturally fails3/passes1/errors0/skips0; three actual query-time seal leaks
+and original accepted-request immutable-trigger rejection PASS. It proves old
+behavior, not corrected-code GREEN. V2 NOTPASS and all failed windows retained.
+
+Automatic review's production authorization blocker remains unresolved. The
+automatic goal continuation is not human approval; do not apply/retry indirectly.
+No live handles, production change, proposal execution, full SOURCE freeze, fresh
+image build or Task6/C08 acceptance. On explicit approval, apply the exact v3
+patch after base hash verification, rerun full native/source SPEC then QUALITY,
+then build fresh immutable inputs/images and execute complete required runtime
+and neighboring/full gates. Whole B→C→BC scope and OpenSpec8.1–8.4 remain intact.
+
+
+### Task6 repeated authorization blocker audit — 2026-10-04
+
+The original automatic-review rejection turn and two automatic goal continuation
+turns retain the same unresolved need for explicit human approval of the
+finishing-read authority change. Prior continuation made concrete progress:
+v2 NOTPASS was fixed in unapplied v3, actual owned-PG race proof was strengthened,
+and independent SPEC then QUALITY plus Root exact-diff/invariance reviews
+completed. This continuation revalidated authoritative state: all23 frozen refs
+match, production remains baseSHA42d71aa2bc7837148adb9e3f2d83456c09f51fc177841f1fadbfa8762fe17bd7,
+v3 patch remains SHAdac44aa45371fe56b52d8f34fbfb8ae0b1c2f89790cf2fbf2a06317cead32b4a,
+and author/SPEC/QUALITY agents are terminal with no live process/build handles.
+No human reply approving this exact behavior has arrived; automatic goal prompts
+are not authorization. All necessary independent proposal preparation is done.
+Further native/full SOURCE/build/runtime progress requires applying the blocked
+patch; skipping that gap or advancing C09/BC would violate the accepted sequence.
+The three-consecutive-turn blocked threshold is satisfied; Root now marks the
+full unchanged goal blocked pending human approval, not complete or paused.
+On human resume, treat the blocked audit as fresh and continue the approved exact
+v3 application plus all outstanding full-source/runtime/C/BC requirements.
+
+
+### Task6 explicit v3 human approval and resumed implementation — 2026-10-04
+
+Human message “同意修改” directly approves Root's immediately preceding request
+to apply events-finishing-proposed-v3.patch and continue complete verification.
+Goal is ACTIVE again. The same sole Task6 author resumes exact application after
+base/patch/proposed-source hashes and an original-base snapshot check, retaining
+historical proposal-only manifests/reviews unchanged. Production change is not
+claimed before the natural application receipt and after-hash are inspected.
+No new confirmation is needed for this approved finishing behavior or necessary
+routine validation. On any actual new failure, use original TDD/debugging and
+source review loops. Full native/SOURCE SPEC→QUALITY precede all fresh builds;
+whole runtime/final acceptance, remaining C09–C12 and BC stay pending.
+
+
+### Task6 exact v3 applied and focused verification — 2026-10-04
+
+The approved patch applied naturally with exit0. Root independently checked the
+production events.py SHA2344a59f912c37362a8b9d4cbab6517b18ce3e1950c2c72605babcd488596435
+against the reviewed proposed source; the original base remains preserved.
+The first focused window retained queued-reader failures because its fixture
+omitted Gateway startup's original checkpointer schema initialization. The narrow
+fixture correction uses original make_checkpointer and asserts zero checkpoint
+rows; original queued and actual-claim assertions remain intact. No checkpoint
+history, ownership grant, or production fallback was invented.
+Root independently parsed finishing-approved-v3-green-v3.xml:47 tests,47 PASS,
+0 failures/errors/skips, XML16.549s; natural receipt exit0/wall18.350s. This covers
+finishing reads, actual seal-query races, C07 queued readers and owned cleanup.
+Full native source verification is running under the sole author; installed
+runtime remains pending. This focused result does not accept Task6 or C08, and
+full SOURCE SPEC then QUALITY must precede fresh builds.
+
+
+### Task6 main native gate verified — 2026-10-04
+
+Root independently parsed source-native-full-v3.xml and its natural receipt:
+543 tests,543 PASS,0 failures/errors/skips, XML143.289s, natural Exit0/wall145.773s,
+46 selected source/native targets. The focused47 window overlaps and is not
+added to this total. Required installed scenarios remain explicitly pending;
+source/native success does not prove Linux/container lifecycle or whole C08.
+The sole author is running complementary accepted Task5 neighbors before final
+source checks and immutable SOURCE freeze. No fresh Docker build has started.
+
+
+### Task6 complementary source neighbors verified — 2026-10-04
+
+Root independently checked source-neighbors-v3.xml and the natural receipt:
+517 tests,517 PASS,0 failures/errors/skips, XML106.011s, natural Exit0/wall108.702s,
+17 complementary accepted Task5 targets. These are separate windows; no cumulative
+unique-test total is claimed without item-level deduplication. Final source checks
+and immutable complete SOURCE freeze remain pending; no installed runtime result,
+whole Task6 acceptance, OpenSpec checkbox or C08 commit follows from these tests.
+
+
+### Task6 full SOURCEv2 SPEC NOTPASS and repair — 2026-10-04
+
+Manifest SHAe104187026d5c5d3aa1edf1ed4286a8376029161f6121a38d778d0538163a1a0
+freezes184 sources/773 six-wheel inputs/765 installed targets/197 reports.
+Root and independent SPEC each matched2127 current/snapshot/evidence references;
+prior accepted Task5 166 snapshots also match and only approved events.py changed
+among its54 production targets. SPEC report SHAe7f27d9f948ea7143fa3bdd080f67727338ee27c6a10720ec02e3716833fed4a
+is NOTPASS:0P1,3P2,0P3. No QUALITY or build follows this failure.
+Three actual cleanup callers can abort later owned actions or mask the primary
+error: C07InstalledScenario.close diagnostics/stop/remove; original stock C07
+InstalledScenario.close barrier/execution/writer/stop/remove; required reused
+staged Linux gate serial finally. The third source was unchanged since Task5;
+its historical accepted snapshot remains intact, while Task6 reuse needs repair.
+The same author must first demonstrate caller-level faults, then independently
+settle each owned action preserving primary error first, run appropriate gates,
+and freeze complete fresh SOURCE for SPEC then QUALITY again. Existing helper
+fault tests do not replace caller coverage. All frozen v2 refs/reports remain
+historical; post-review progress changes are next-freeze inputs. Required runtime,
+whole acceptance, OpenSpec8.1–8.4, C08 commit, C09–C12 and BC remain pending.
+
+
+### Task6 cleanup caller and late-owned-resource repair — 2026-10-04
+
+Root independently parsed actual caller baseline cleanup-callers-red-v1.xml:
+42 tests/42 behavioral failures/0 setup errors or skips, XML1.590s, natural
+pytest1/wall2.829s; the logs fault genuinely skips original stop/remove. The
+later owned-resource races are separately retained: staged4 failures/0errors
+or skips XML0.962s and two C07 actual-close4 failures/0errors or skips XML1.523s.
+These prove missing late-container/late-grant cleanup, not physical Docker stop.
+Root independently parsed final cleanup-callers-green-v3.xml and receipt:
+64 tests/64 PASS/0 failures/errors/skips, XML1.263s, natural0/wall2.155s.
+The window covers48 caller faults,4 staged pending/late-reference cases,
+4 actual C07 close late-grant/cancel cases, and8 helper tests; other focused
+windows overlap and are not added. Caller-return task/observer and primary-error
+snapshots are retained. Three actual cleanup entry points independently settle
+each owned action. C07 stop/remove read the grant when their actions execute;
+staged cleanup rediscovers this unique owned node after bounded execution,
+then stops/removes late references. Discovery failure does not bypass known
+reference removal, patch/context restoration or remaining owners.
+Fixture execution settlement retains125 seconds plus a new bounded5-second
+cancellation wait; physical observer cancellation is also bounded5 seconds.
+This fixture cap is distinct from the unchanged Runner cumulativeFINAL120-second
+protocol budget. Cancellation-resistant tasks cause explicit cleanup failure,
+with later actions still attempted; tests release and reclaim their own tasks.
+Production events.py remains the exact approved SHA2344a59f912c37362a8b9d4cbab6517b18ce3e1950c2c72605babcd488596435.
+Complete refreshed native gates and full SOURCE freeze/re-SPEC then QUALITY are
+required before any build. No installed physical/restart or whole C08 acceptance
+is inferred; OpenSpec8.1–8.4, C08 commit, C09–C12 and BC remain pending.
+
+
+### Task6 repair complete native windows verified — 2026-10-04
+
+Root independently parsed source-native-full-v4.xml:599 tests/599 PASS,
+0 failures/errors/skips, XML137.189s, natural0/wall139.681s. Complementary
+source-neighbors-v4.xml:517 tests/517 PASS,0 failures/errors/skips,
+XML109.770s, natural0/wall112.484s. Final focused103 window also passed,
+0 failures/errors/skips, XML16.414s, natural0/wall19.069s; it overlaps main.
+Root compared every original Assert AST and before/after source hash in the
+three caller files against frozen v2:5/15/43 assertions remain exactly equal.
+Latest lint found only a missing import-section blank line in the new test;
+retain that failure. Root permits only whitespace correction with exact full
+file AST equivalence, fresh whole lint and focused final-byte test coverage.
+The599/517 windows can remain behavioral evidence if all other gate sources are
+unchanged and the whitespace-only equivalence is recorded; any semantic delta
+requires the affected complete gate to rerun. Final static/focused checks and
+complete fresh SOURCE freeze/re-SPEC then QUALITY remain pending. This does not
+accept Task6/runtime, change OpenSpec checkboxes or authorize premature build.
+
+
+### Task6 SOURCEv3 SPEC PASS and full QUALITY NOTPASS — 2026-10-05
+
+Root independently checked v3 manifestSHA4ca32b7969008d48b999e1a09f03601107950ddc49866f94ecb2204df3ac6751:
+185 sources/773 six-wheel inputs/765 targets/532 reports,2464 unique current
+references all match. Final focused103 actually ran final formatted test bytes
+with0failures/errors/skips XML15.669s/natural0wall16.981s. The import-only blank
+line preserved entire AST; Root independently matches other1517 Python SHAs.
+Main599 and neighbors517 are linked by that semantic-equivalence receipt, not
+claimed to rerun after formatting. Root item-dedup confirms1116 unique cases,
+no main-neighbor overlap, and all103 focused cases are included in599.
+Full SPEC passed P1/P2/P3=0, reportSHA158b833a90b0a1dfd149e15d8407a9e823fb78bb99a2315cc286663d1a47db45.
+Independent complete QUALITY is NOTPASS,0P1/3P2/0P3, reportSHA4d59cd8ece2bea7ca34ab1c34fea2adb23074c8736e8b25c7a3afbe9f54d5489,
+with2464 refs unchanged through both reviews. The original three SPEC caller
+repairs remain closed; QUALITY finds additional complete-scope boundaries:
+stock and continuation cleanup have unbounded execution settlement; neither
+rediscover late owned containers after settlement; migrated C07 outer finally
+can skip user/config/Fleet cleanup and mask original primary/group.
+The same author must use actual-caller RED/GREEN fault tests, existing authorized
+125+5 fixture settlement, scoped two-stage discovery with child-run/attempt
+filtering (never stop the parent), and independent outer owner settlement with
+original primary preserved. Runner cumulativeFINAL120 remains unchanged.
+Preserve frozen v3/source reports as history; post-review docs are next-freeze
+inputs. Complete refreshed native/source gates and full new SPEC then QUALITY
+must pass before fresh builds. No Docker/build/runtime acceptance, OpenSpec
+checkbox, C08 commit, activation, C09–C12 or BC advancement is inferred.
+
+
+### Task6 full QUALITY caller repair and final native gates — 2026-10-05
+
+Root independently parses outer-cleanup-callers-red-v2.xml:47 cases,46 actual
+behavior failures/1 record-None safety PASS/0errors/skips, XML2.329s,
+natural pytest1/wall3.731s. Initial hung test-owner recovery was interrupted
+and is not a complete business RED. Strengthened already-running sequence RED
+is retained separately. Repaired actual stock/sequence/C07 inner-outer finalbody
+and helper55 window passes0failure/error/skip XML1.438s/wall2.330s; original
+receipt lacks a natural flag, so original receipt is retained and a separate
+original-tool/subprocess natural-classification sidecar is added.
+Stock and sequence now use bounded execution and owned container discovery
+before/after settlement, independent stop/remove, and primary-first cleanup.
+Sequence positively filters actual child run/attempt/grant identity, excludes
+parent/other tasks, and reads no journal when no child record exists. Migrated
+C07 inner and outer cleanup independently settle every owner and preserve the
+original primary/group. Existing125+5 fixture cap remains distinct from Runner
+cumulativeFINAL120. Root compares v3 to current stock/sequence/C07 entire Assert
+AST lists:42/26/89 are exactly preserved. Production events remains approved
+SHA2344a59f912c37362a8b9d4cbab6517b18ce3e1950c2c72605babcd488596435.
+The first complete646 window had544PASS/102FAIL; Root verifies every102failure
+reports FileExistsError from mistakenly reused focused proof paths. Retain it as
+failed harness evidence, not business RED or acceptance. Each rerun phase uses
+unique new proof/race directories and never overwrites prior receipts. The new
+outer test also had two I001 import issues; narrow correction changes AST, so
+affected main and focused gates actually rerun final bytes rather than claiming
+whitespace equivalence. Final independent Root XML/receipt verification:
+- focused150/150PASS,0failure/error/skip XML15.878s/natural0/wall19.719s;
+- main646/646PASS,0failure/error/skip XML138.102s/natural0/wall141.718s;
+- neighbors517/517PASS,0failure/error/skip XML106.063s/natural0/wall108.776s.
+Root item-dedup verifies1163 unique main/neighbor cases, zero intersection and
+all150 focused cases included in646. Root checks other1518 Python hashes against
+pre-import-fix provenance:all unchanged; neighbors are linked to unchanged
+participating sources, not falsely described as rerun after the import edit.
+Final checks record whole lint/1519 formatted, guidance24/0errors/6existingsoft
+warnings at unchanged budgets, diff0 and49collection-only0. All handles ended.
+Full fresh SOURCEv4 freeze and independent SPEC then QUALITY remain required;
+no fresh images, installed runtime, whole C08 acceptance, OpenSpec checkboxes,
+C08 commit, activation, C09–C12 or BC advance follows from native results.

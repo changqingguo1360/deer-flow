@@ -83,6 +83,14 @@ async def write(item, operation):
     return await item.events.delete_by_thread(thread, user_id=item.spec.user_id)
 
 
+async def prepare_original_terminal(item, directory, status, *, error=None, stop_reason=None):
+    from .c08_native_terminal_pair import NativeTerminalPreparation
+
+    preparation = NativeTerminalPreparation(item, directory)
+    await preparation(SimpleNamespace(status=status, error=error, stop_reason=stop_reason))
+    return preparation
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("operation", ["completion", "status", "progress", "model", "display", "thread_status", "metadata", "put", "batch", "singleton", "delete_run", "delete_thread"])
 @pytest.mark.parametrize("stale", ["token", "owner", "expiry"])
@@ -99,10 +107,17 @@ async def test_primary_repositories_reject_stale_execution_without_row_or_sequen
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("operation", ["completion", "status", "progress", "model", "display", "thread_status", "metadata", "put", "batch", "singleton", "delete_run"])
-async def test_original_execution_primary_writes_are_supported(mutations, operation):
+async def test_original_execution_primary_writes_are_supported(mutations, operation, tmp_path):
+    if operation in {"completion", "status"}:
+        await prepare_original_terminal(mutations, tmp_path / "primary-terminal", "success")
     before = await durable_rows(mutations.engine)
     await write(mutations, operation)
     assert await durable_rows(mutations.engine) != before
+
+    if operation in {"completion", "status"}:
+        from .c08_native_terminal_pair import assert_original_terminal_pair
+
+        await assert_original_terminal_pair(mutations)
 
 
 @pytest.mark.asyncio
@@ -165,14 +180,18 @@ async def test_missing_ambient_auth_uses_bound_owner_for_thread_and_event_writes
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("terminal", ["success", "error", "interrupted", "timeout"])
-async def test_original_terminal_bookkeeping_is_narrow_and_consistent(mutations, terminal):
+async def test_original_terminal_bookkeeping_is_narrow_and_consistent(mutations, terminal, tmp_path):
     item = mutations
+    await prepare_original_terminal(item, tmp_path / "bookkeeping-terminal", terminal, error="original-error", stop_reason="original-stop")
     await item.runs.update_status(item.spec.run_id, terminal, error="original-error", stop_reason="original-stop")
     await item.runs.update_status(item.spec.run_id, terminal, error="original-error", stop_reason="original-stop")
     await item.runs.finalize_if_not_cancelled(item.spec.run_id, status=terminal)
     await item.runs.update_run_completion(item.spec.run_id, status=terminal, total_tokens=17)
     await item.threads.update_status(item.spec.thread_id, "idle" if terminal == "success" else terminal)
     await item.threads.update_checkpoint_display_name(item.spec.thread_id, "checkpoint-derived title")
+    from .c08_native_terminal_pair import assert_original_terminal_pair
+
+    await assert_original_terminal_pair(item)
     before = await durable_rows(item.engine)
     for mutation in (
         lambda: item.runs.update_status(item.spec.run_id, "running"),
@@ -186,7 +205,7 @@ async def test_original_terminal_bookkeeping_is_narrow_and_consistent(mutations,
         lambda: item.events.put_batch([dict(thread_id=item.spec.thread_id, run_id=item.spec.run_id, event_type="run.end", category="lifecycle")]),
         lambda: item.events.put_if_absent(thread_id=item.spec.thread_id, run_id=item.spec.run_id, event_type="run.delivery", category="outputs"),
     ):
-        with pytest.raises(RuntimeError, match="ownership|terminal"):
+        with pytest.raises(RuntimeError, match="ownership|terminal|Original final preparation outcome rejected"):
             await mutation()
         assert await durable_rows(item.engine) == before
 
@@ -475,7 +494,7 @@ async def test_actual_manager_rejection_is_nonretryable_and_marks_even_staged_te
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("lose_owner", [False, True])
-async def test_real_worker_terminal_order_and_lost_owner_finalization(mutations, lose_owner):
+async def test_real_worker_terminal_order_and_lost_owner_finalization(mutations, lose_owner, tmp_path):
     from unittest.mock import AsyncMock
 
     from langchain_core.messages import AIMessage, HumanMessage
@@ -505,12 +524,15 @@ async def test_real_worker_terminal_order_and_lost_owner_finalization(mutations,
     graph.set_entry_point("answer")
     graph.set_finish_point("answer")
     compiled = graph.compile(checkpointer=item.writer)
+    from .c08_native_terminal_pair import NativeTerminalPreparation
+
+    preparation = NativeTerminalPreparation(item, tmp_path / "worker-terminal")
     bridge = SimpleNamespace(publish=AsyncMock(), publish_end=AsyncMock(), cleanup=AsyncMock())
     await run_agent(
         bridge,
         manager,
         record,
-        ctx=RunContext(checkpointer=item.writer, event_store=item.events, thread_store=item.threads, app_config=item.private),
+        ctx=RunContext(checkpointer=item.writer, event_store=item.events, thread_store=item.threads, app_config=item.private, prepare_terminal=preparation),
         agent_factory=lambda *, config: compiled,
         graph_input={"messages": [HumanMessage(content="primary worker request")]},
         config={"configurable": {"thread_id": item.spec.thread_id}},
@@ -525,6 +547,11 @@ async def test_real_worker_terminal_order_and_lost_owner_finalization(mutations,
         assert not record.ownership_lost and record.status.value == status == "success"
         assert title == "actual checkpoint title" and thread_status == "idle"
         assert any(event["event_type"] == "run.delivery" for event in await item.events.list_events(item.spec.thread_id, item.spec.run_id))
+
+    if not lose_owner:
+        from .c08_native_terminal_pair import assert_original_terminal_pair
+
+        await assert_original_terminal_pair(item)
 
 
 @pytest.mark.asyncio

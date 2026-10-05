@@ -15,6 +15,7 @@ from .test_c03_remote_agent_admission import owner_environment as owner_environm
 from .test_c05_remote_agent_runtime import checkpoint_owner as checkpoint_owner
 from .test_c06_remote_agent_runtime import mutations as mutations
 from .test_c06_remote_agent_runtime import secondary_mutations as secondary_mutations
+from .test_c08_terminal_pair import prepared_pair as prepared_pair
 
 
 @pytest_asyncio.fixture
@@ -368,15 +369,31 @@ async def test_remote_memory_factory_rejects_before_configured_constructor(memor
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("outcome,core_status", [("completed", "success"), ("failed", "error"), ("failed", "timeout"), ("aborted", "interrupted")])
-async def test_extension_terminal_receipt_is_narrow_original_operation(extension_profile, outcome, core_status):
+@pytest.mark.parametrize(
+    "outcome,core_status,prepared_pair",
+    [
+        ("completed", "success", {"kind": "final", "core": "success", "task": "succeeded", "placement": "succeeded"}),
+        ("failed", "error", {"kind": "final", "core": "error", "task": "failed", "placement": "failed"}),
+        ("failed", "timeout", {"kind": "final", "core": "timeout", "task": "timed_out", "placement": "timed_out"}),
+        ("aborted", "interrupted", {"kind": "paused", "core": "interrupted", "task": "input_required", "placement": "cancelled"}),
+    ],
+    indirect=["prepared_pair"],
+)
+async def test_extension_terminal_receipt_is_narrow_original_operation(extension_profile, prepared_pair, outcome, core_status):
     from deerflow.persistence.models.run_event import RunEventRow
     from deerflow.runtime.execution.mutation_context import OwnershipRejected
 
     item = extension_profile
+    from deerflow.persistence.run.sql import RunRepository
+
+    from .test_c08_terminal_pair import participant
+
+    assert prepared_pair.item is item
     async with item.engine.begin() as conn:
-        await conn.run_sync(lambda sync: RunEventRow.__table__.create(sync))
-        await conn.execute(text("UPDATE runs SET status=:s"), {"s": core_status})
+        await conn.run_sync(lambda sync: RunEventRow.__table__.create(sync, checkfirst=True))
+    repository = RunRepository(item.env[1], mutation_capability=prepared_pair.capability, terminal_participant=participant(prepared_pair))
+    with prepared_pair.scope():
+        await repository.update_status(item.spec.run_id, core_status)
     operation = item.service.deps.terminal_operations
     receipt = await operation.record_task_stop(task_id=item.spec.run_id, outcome=outcome)
     assert receipt["event_type"] == "run.extension.task_stop"
@@ -394,30 +411,75 @@ async def test_extension_terminal_receipt_is_narrow_original_operation(extension
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("rejection", ["target", "outcome", "active", "token", "owner", "missing", "wrong", "sql-payload"])
-async def test_extension_terminal_receipt_rejects_wrong_association_without_effect(extension_profile, rejection):
+async def test_extension_terminal_receipt_rejects_wrong_association_without_effect(extension_profile, prepared_pair, rejection):
     from dataclasses import replace
 
     from deerflow.persistence.models.run_event import RunEventRow
+    from deerflow.persistence.run.sql import RunRepository
     from deerflow.runtime.execution.mutation_context import OwnershipRejected, _current_mutation_context
 
+    from .test_c08_node_workspace_idle import sql_digests
+    from .test_c08_terminal_pair import participant
+
     item = extension_profile
+    assert prepared_pair.item is item
     async with item.engine.begin() as conn:
-        await conn.run_sync(lambda sync: RunEventRow.__table__.create(sync))
-        await conn.execute(text("UPDATE runs SET status='success'"))
-        if rejection in {"active", "token", "owner"}:
+        await conn.run_sync(lambda sync: RunEventRow.__table__.create(sync, checkfirst=True))
+    repository = RunRepository(item.env[1], mutation_capability=prepared_pair.capability, terminal_participant=participant(prepared_pair))
+    with prepared_pair.scope():
+        await repository.update_status(item.spec.run_id, "success")
+    async with item.engine.begin() as conn:
+        if rejection in {"active", "owner"}:
             await conn.execute(text({"active": "UPDATE runs SET status='running'", "token": "UPDATE fleet_attempts SET token_hash='" + "b" * 64 + "'", "owner": "UPDATE runs SET owner_worker_id='other'"}[rejection]))
-    token = _current_mutation_context.set(None if rejection == "missing" else replace(item.capability.context, attempt_id="other") if rejection == "wrong" else item.capability.context)
+    operation = item.service.deps.terminal_operations
+    current_context = item.capability.context
+    if rejection == "token":
+        # Original composite request FK forbids mutating accepted token_hash.
+        # Supply an actual wrong original private token to the original fence.
+        from app.fleet.mutation import FleetMutationCapability
+        from deerflow.extensions.gateway import _TerminalExtensionOperations
+
+        stale = FleetMutationCapability(replace(item.identity, token_stamp="b" * 64), item.spec)
+        operation = _TerminalExtensionOperations(item.env[1], stale)
+        current_context = stale.context
+    before = await sql_digests(prepared_pair)
+    token = _current_mutation_context.set(None if rejection == "missing" else replace(item.capability.context, attempt_id="other") if rejection == "wrong" else current_context)
     try:
         if rejection == "sql-payload":
             with pytest.raises(TypeError):
-                await item.service.deps.terminal_operations.record_task_stop(task_id=item.spec.run_id, outcome="completed", sql="UPDATE runs SET status='running'")
+                await operation.record_task_stop(task_id=item.spec.run_id, outcome="completed", sql="UPDATE runs SET status='running'")
         else:
             with pytest.raises(OwnershipRejected):
-                await item.service.deps.terminal_operations.record_task_stop(task_id="other" if rejection == "target" else item.spec.run_id, outcome="failed" if rejection == "outcome" else "completed")
+                await operation.record_task_stop(task_id="other" if rejection == "target" else item.spec.run_id, outcome="failed" if rejection == "outcome" else "completed")
     finally:
         _current_mutation_context.reset(token)
+    assert await sql_digests(prepared_pair) == before
     async with item.engine.connect() as conn:
         assert (await conn.execute(text("SELECT count(*) FROM run_events"))).scalar_one() == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome,core_status", [("completed", "success"), ("failed", "error"), ("failed", "timeout"), ("aborted", "interrupted")])
+async def test_extension_core_only_terminal_receipt_rejected_without_sql_effect(extension_profile, outcome, core_status):
+    from types import SimpleNamespace
+
+    from deerflow.persistence.models.run_event import RunEventRow
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+    from .test_c08_node_workspace_idle import sql_digests
+
+    item = extension_profile
+    async with item.engine.begin() as conn:
+        await conn.run_sync(lambda sync: RunEventRow.__table__.create(sync, checkfirst=True))
+        await conn.execute(text("UPDATE runs SET status=:s"), {"s": core_status})
+    projection = SimpleNamespace(sf=item.env[1])
+    before = await sql_digests(projection)
+    for _ in range(2):
+        with pytest.raises(OwnershipRejected, match="Checkpoint ownership fence"):
+            await item.service.deps.terminal_operations.record_task_stop(task_id=item.spec.run_id, outcome=outcome)
+        assert await sql_digests(projection) == before
+    async with item.engine.connect() as conn:
+        assert await conn.scalar(text("SELECT count(*) FROM run_events")) == 0
 
 
 @pytest.mark.asyncio
@@ -690,7 +752,7 @@ async def test_actual_memory_enqueue_on_isolated_subagent_loop_keeps_original_au
 @pytest.mark.parametrize("revoke_late_result", [False, True])
 @pytest.mark.parametrize("queued_observer", [False, True])
 @pytest.mark.parametrize("late_cancel", [False, True])
-async def test_actual_worker_normal_memory_middleware_drains_before_terminal(memory_profile, mutations, extension_profile, revoke_late_result, queued_observer, late_cancel, monkeypatch):
+async def test_actual_worker_normal_memory_middleware_drains_before_terminal(memory_profile, mutations, extension_profile, revoke_late_result, queued_observer, late_cancel, monkeypatch, tmp_path):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
@@ -774,13 +836,16 @@ async def test_actual_worker_normal_memory_middleware_drains_before_terminal(mem
 
             assert await RunRepository(item.env[1]).request_cancel(item.spec.run_id, action="interrupt") == "interrupt"
 
+    from .c08_native_terminal_pair import NativeTerminalPreparation
+
+    prepare_terminal = NativeTerminalPreparation(item, tmp_path / "memory-terminal")
     bridge = SimpleNamespace(publish=AsyncMock(), publish_end=AsyncMock(), cleanup=AsyncMock())
     try:
         await run_agent(
             bridge,
             manager,
             record,
-            ctx=RunContext(checkpointer=item.writer, event_store=item.events, thread_store=item.threads, app_config=item.private, before_terminal_mutations=drain),
+            ctx=RunContext(checkpointer=item.writer, event_store=item.events, thread_store=item.threads, app_config=item.private, before_terminal_mutations=drain, prepare_terminal=prepare_terminal),
             agent_factory=lambda *, config: graph,
             graph_input={"messages": [HumanMessage(content="remember my preference")]},
             config={"configurable": {"thread_id": item.spec.thread_id}},
@@ -1202,7 +1267,7 @@ async def test_actual_memory_update_row_wait_expiry_rolls_back(memory_profile):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("domain", ["store", "agent", "managed", "thread", "events", "events-batch", "events-singleton", "events-terminal"])
-async def test_actual_existing_durable_target_wait_expiry_cannot_commit(secondary_mutations, domain):
+async def test_actual_existing_durable_target_wait_expiry_cannot_commit(secondary_mutations, domain, tmp_path):
     from deerflow.persistence.managed_subagents.base import ManagedSubagentDefinition
     from deerflow.runtime.execution.mutation_context import OwnershipRejected
 
@@ -1241,10 +1306,19 @@ async def test_actual_existing_durable_target_wait_expiry_cannot_commit(secondar
             loop.call_soon_threadsafe(pid_future.set_result, session.execute(text("SELECT pg_backend_pid()")).scalar_one())
         return original_sync(session, **kwargs)
 
+    if domain == "events-terminal":
+        from types import SimpleNamespace
+
+        from deerflow.runtime.execution.mutation_context import remote_mutation_scope
+
+        from .c08_native_terminal_pair import NativeTerminalPreparation
+
+        prepare_terminal = NativeTerminalPreparation(item, tmp_path / "events-terminal")
+        with remote_mutation_scope(cap.context):
+            await prepare_terminal(SimpleNamespace(status="success", error=None, stop_reason=None))
+            assert await item.runs.update_status(item.spec.run_id, "success")
     cap.validate_cursor, cap.validate_async, cap.validate_sync = observed_cursor, observed_async, observed_sync
     async with item.engine.begin() as conn:
-        if domain == "events-terminal":
-            await conn.execute(text("UPDATE runs SET status='success'"))
         await conn.execute(text("UPDATE runs SET lease_expires_at=clock_timestamp()+interval '1 second'"))
         await conn.execute(text("UPDATE fleet_attempts SET lease_expires_at=(SELECT lease_expires_at FROM runs)"))
     before = (await secondary_rows(item.engine), await durable_rows(item.engine))
@@ -1526,7 +1600,7 @@ def test_public_execution_configuration_strips_private_memory_backend_config(mon
         ("native-memory-stop-observer-roundtrip", "native-queue", "host"),
     ],
 )
-async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(extension_profile, monkeypatch, entry, dispatch_path, caller):
+async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(extension_profile, monkeypatch, entry, dispatch_path, caller, tmp_path):
     from contextlib import asynccontextmanager
     from types import SimpleNamespace
 
@@ -1556,8 +1630,11 @@ async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(exte
     monkeypatch.setattr(host, "validate_model_bindings", lambda *args: None)
     monkeypatch.setattr(host, "validate_runtime_configuration", lambda *args: None)
     monkeypatch.setattr(host, "validate_secret_bindings", lambda *args: (set(), {}))
-    monkeypatch.setattr(host, "runtime_bundle", lambda: (b"{}", {}))
-    monkeypatch.setattr(host, "installed_compatibility", lambda: SimpleNamespace(runtime_digest=item.spec.runtime_digest, skill_snapshot=item.spec.skill_snapshot, plugin_snapshot=item.spec.plugin_snapshot))
+    from .c08_contract_fixture import install_empty_workspace_contract
+
+    installed_bundle = install_empty_workspace_contract(monkeypatch, tmp_path, private)
+    monkeypatch.setattr(host, "runtime_bundle", lambda: installed_bundle)
+    monkeypatch.setattr(host, "installed_compatibility", lambda: SimpleNamespace(runtime_digest=item.spec.runtime_digest, skill_snapshot=item.spec.skill_snapshot, plugin_snapshot=item.spec.plugin_snapshot, workspace_contract_version=1))
     original_read = Path.read_bytes
     monkeypatch.setattr(Path, "read_bytes", lambda path: b"{}" if str(path) == "/opt/deerflow/model-bindings.json" else original_read(path))
     monkeypatch.setattr(extensions_api, "load_extensions", lambda *args: (item.extensions, []))
@@ -1696,9 +1773,9 @@ async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(exte
             monkeypatch.setattr(item.service, "stop", stop_enqueue)
         environment, pending = None, None
         if entry == "native-memory-build-failure":
-            closer = asyncio.create_task(host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={}))
+            closer = asyncio.create_task(host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant))
         else:
-            environment = await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={})
+            environment = await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant)
             if roundtrip:
                 manager = environment.private_memory_manager
 
@@ -1803,7 +1880,7 @@ async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(exte
         token = _current_mutation_context.set(None)
         try:
             with isolated_cleanup_policy(observed.append, lambda: pytest.fail("ordinary host must not abort")):
-                builder = asyncio.create_task(host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={}))
+                builder = asyncio.create_task(host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant))
         finally:
             _current_mutation_context.reset(token)
         try:
@@ -1857,7 +1934,7 @@ async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(exte
         monkeypatch.setattr(checkpoint_api, "make_checkpointer", fail_checkpoint)
         monkeypatch.setattr(AsyncEngine, "dispose", fail_dispose)
         with pytest.raises(ValueError) as caught:
-            await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={})
+            await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant)
         assert caught.value is original and caught.value.__cause__ is secondary
         assert effects == ["async-engine-dispose", "sync-engine-dispose", "failure-release"]
         assert item.capability.context not in host._pending_agent_teardowns
@@ -1879,7 +1956,7 @@ async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(exte
         monkeypatch.setattr(gateway, "start_services", fail_after_start)
         monkeypatch.setattr(item.service, "stop", fail_stop)
         with pytest.raises(ValueError) as caught:
-            await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={})
+            await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant)
         assert caught.value is original and caught.value.__cause__ is secondary
         assert "service-stop" in effects and "store-exit" in effects and "checkpointer-exit" in effects and "async-engine-dispose" in effects
         assert item.capability.context not in host._pending_agent_teardowns
@@ -1946,7 +2023,7 @@ async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(exte
             monkeypatch.setattr(runner, "build_environment", build_environment)
             monkeypatch.setattr(runner.AgentRunner, "run", run_agent)
             monkeypatch.setattr(runner.os, "readlink", lambda path: "pid:[test-owner-loop]")
-            payload = {"bootstrap": {"schema_version": 1, "identity": asdict(item.identity), "operator_config": private.model_dump()}, "grant": {"launch_spec": item.spec.canonical_payload()}}
+            payload = {"bootstrap": {"schema_version": 1, "identity": asdict(item.identity), "operator_config": private.model_dump()}, "grant": item.grant}
             bootstrap_task = asyncio.create_task(runner._bootstrap(payload, "gateway"))
             await asyncio.wait_for(cleaning.wait(), 5)
             try:
@@ -1960,14 +2037,14 @@ async def test_actual_host_teardown_keeps_resources_until_owned_sql_cleanup(exte
             assert not done.is_set()
             early = list(effects)
         elif entry == "close":
-            environment = await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={})
+            environment = await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant)
             await launch_writer()
             monkeypatch.setattr(asyncio, "timeout", lambda budget: original_timeout(0.01 if budget == 30 else budget))
             with pytest.raises(OwnershipRejected) as caught:
                 await environment.close()
         else:
             with pytest.raises(OwnershipRejected) as caught:
-                await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={})
+                await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant)
         if caller == "host":
             rejected = caught.value
             await asyncio.wait_for(cleaning.wait(), 5)
@@ -2060,7 +2137,7 @@ async def test_actual_isolated_bootstrap_deadline_aborts_before_sql_resource_unw
             await conn.execute(text("CREATE TABLE c06_memory(user_id text NOT NULL,agent_name text NOT NULL,fact_id text NOT NULL,content text NOT NULL,PRIMARY KEY(user_id,agent_name,fact_id))"))
         private = AppConfig.model_validate({**private.model_dump(), "memory": {"enabled": True, "manager_class": "deerflow_c04_fixture.memory:PostgresMemory"}})
     trace = tmp_path / "actual-cleanup-process.jsonl"
-    payload = {"bootstrap": {"schema_version": 1, "identity": asdict(item.identity), "operator_config": private.model_dump(mode="json")}, "grant": {"launch_spec": item.spec.canonical_payload()}}
+    payload = {"bootstrap": {"schema_version": 1, "identity": asdict(item.identity), "operator_config": private.model_dump(mode="json")}, "grant": item.grant}
     process = await asyncio.create_subprocess_exec(
         sys.executable,
         str(Path(__file__).with_name("c06_cleanup_process_fixture.py")),
@@ -2187,7 +2264,7 @@ async def test_actual_bootstrap_preserves_original_error_after_pending_cleanup(e
     monkeypatch.setattr(runner, "build_environment", build)
     monkeypatch.setattr(runner.AgentRunner, "run", run)
     monkeypatch.setattr(runner.os, "readlink", lambda path: "pid:[fixture]")
-    payload = {"bootstrap": {"schema_version": 1, "identity": asdict(item.identity), "operator_config": item.private.model_dump()}, "grant": {"launch_spec": item.spec.canonical_payload()}}
+    payload = {"bootstrap": {"schema_version": 1, "identity": asdict(item.identity), "operator_config": item.private.model_dump()}, "grant": item.grant}
     expected = secondary if entry == "settled-close-only" else original
     with pytest.raises(type(expected)) as caught:
         await runner._bootstrap(payload, "gateway")
@@ -2254,7 +2331,7 @@ def test_isolated_watchdog_arms_only_at_teardown_and_finish_disarms():
 
 
 @pytest.mark.asyncio
-async def test_actual_host_stream_phase_retains_original_scope_budget_and_sql_rollback(extension_profile, monkeypatch):
+async def test_actual_host_stream_phase_retains_original_scope_budget_and_sql_rollback(extension_profile, monkeypatch, tmp_path):
     from dataclasses import replace
     from types import SimpleNamespace
 
@@ -2275,8 +2352,11 @@ async def test_actual_host_stream_phase_retains_original_scope_budget_and_sql_ro
     for name in ("validate_model_bindings", "validate_runtime_configuration"):
         monkeypatch.setattr(host, name, lambda *args: None)
     monkeypatch.setattr(host, "validate_secret_bindings", lambda *args: (set(), {}))
-    monkeypatch.setattr(host, "runtime_bundle", lambda: (b"{}", {}))
-    monkeypatch.setattr(host, "installed_compatibility", lambda: SimpleNamespace(runtime_digest=item.spec.runtime_digest, skill_snapshot=item.spec.skill_snapshot, plugin_snapshot=item.spec.plugin_snapshot))
+    from .c08_contract_fixture import install_empty_workspace_contract
+
+    installed_bundle = install_empty_workspace_contract(monkeypatch, tmp_path, private)
+    monkeypatch.setattr(host, "runtime_bundle", lambda: installed_bundle)
+    monkeypatch.setattr(host, "installed_compatibility", lambda: SimpleNamespace(runtime_digest=item.spec.runtime_digest, skill_snapshot=item.spec.skill_snapshot, plugin_snapshot=item.spec.plugin_snapshot, workspace_contract_version=1))
     original_read = Path.read_bytes
     monkeypatch.setattr(Path, "read_bytes", lambda path: b"{}" if str(path) == "/opt/deerflow/model-bindings.json" else original_read(path))
     monkeypatch.setattr(extension_api, "load_extensions", lambda *args: (item.extensions, []))
@@ -2285,7 +2365,7 @@ async def test_actual_host_stream_phase_retains_original_scope_budget_and_sql_ro
         return []
 
     monkeypatch.setattr(mcp_tools, "get_mcp_tools", no_mcp)
-    environment = await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant={})
+    environment = await host.build_agent_environment(bootstrap=SimpleNamespace(identity=item.identity, operator_config=private.model_dump()), spec=item.spec, grant=item.grant)
     cleaning, release, done = (asyncio.Event() for _ in range(3))
     before = await extension_rows(item)
     effects = []

@@ -139,17 +139,24 @@ async def test_agent_stop_requires_matching_physical_proof_before_capacity_relea
     with pytest.raises(ValueError, match="identity"):
         await app.state.fleet_ownership.stopped(**identity, process_ref="fleet-wrong", physical_stopped=True, reason="lease_lost", exit_code=137)
     result = await app.state.fleet_ownership.stopped(**identity, process_ref=grant["process_ref"], physical_stopped=True, reason="lease_lost", exit_code=137)
-    assert result["state"] == "unknown"
+    assert result["state"] == "recovery_required"
     async with engine.connect() as conn:
         assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
+        assert (await conn.execute(text("SELECT state FROM fleet_attempts"))).scalar_one() == "unknown"
+        assert (await conn.execute(text("SELECT state FROM fleet_agent_tasks"))).scalar_one() == "recovery_required"
+        assert (await conn.execute(text("SELECT state FROM fleet_run_placements"))).scalar_one() == "recovery_required"
+        assert (await conn.execute(text("SELECT count(*) FROM fleet_workspace_points"))).scalar_one() == 0
+        assert (await conn.execute(text("SELECT count(*) FROM fleet_stream_seals"))).scalar_one() == 0
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("memory_mode", ["tool", "middleware"])
 @pytest.mark.parametrize("bootstrap_failure,interrupted", [(False, False), (True, False), (False, True)], ids=["parity", "failed-one-shot", "interrupt-before-tools"])
 async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container(tmp_path, bootstrap_failure, interrupted, memory_mode):
+    import asyncio
     import importlib
     import os
+    import sys
     from pathlib import Path
     from types import SimpleNamespace
 
@@ -158,6 +165,8 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
     from deerflow_ecs_fleet.worker.agent_containers import AgentContainers
     from deerflow_ecs_fleet.worker.client import NodeClient
     from deerflow_ecs_fleet.worker.daemon import NodeDaemon
+    from deerflow_ecs_fleet.worker.workspace_publication import AgentWorkspacePublication
+    from deerflow_ecs_fleet.workspace import NASWorkspace
     from deerflow_extension_api import ExtensionRuntimeDeps
     from fastapi import FastAPI
 
@@ -295,6 +304,7 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
         )
         record = await services.start_run(body, "thread-c04", request(core, user), execution_backend=backend)
         refs = []
+        client = stager = execution = None
         try:
             async with node_server(app) as url:
                 client = NodeClient(gateway_url=url, credential=credential.token, claim_kind="agent", compatibility=actual.model_dump(mode="json"))
@@ -303,6 +313,8 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                     return await driver.prepare_workspace(nas.nas_root, claim, grant)
 
                 daemon = NodeDaemon(client=client, containers=driver, state_dir=tmp_path / "agent-state", prepare_workspace=prepare, renew_seconds=1, safety_margin_seconds=0.25, poll_seconds=0.05)
+                stager = AgentWorkspacePublication(client=client, containers=driver, nas=NASWorkspace(nas.nas_root, identity=nas.nas_identity), journal=daemon.journal)
+                daemon.workspace_publications = stager
                 try:
                     await daemon.bootstrap()
                     if bootstrap_failure:
@@ -317,7 +329,10 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                         journal = daemon.journal.records()[0]
                         async with db.engine.connect() as conn:
                             assert (await conn.execute(text("SELECT status FROM runs"))).scalar_one() == "pending"
-                            assert (await conn.execute(text("SELECT state FROM fleet_run_placements"))).scalar_one() == "unknown"
+                            assert (await conn.execute(text("SELECT state FROM fleet_run_placements"))).scalar_one() == "recovery_required"
+                            assert await conn.scalar(text("SELECT state FROM fleet_agent_tasks")) == "recovery_required"
+                            assert await conn.scalar(text("SELECT count(*) FROM fleet_workspace_points")) == 0
+                            assert await conn.scalar(text("SELECT count(*) FROM fleet_stream_seals")) == 0
                             assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
                         output = await prepare(journal["claim"], journal["grant"])
                         started_at = observed["State"]["StartedAt"]
@@ -326,7 +341,8 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                         assert len(await driver.list_managed(node_id)) == 1
                         assert await client.claim() is None
                         return
-                    result = await daemon.execute_one()
+                    execution = asyncio.create_task(daemon.execute_one())
+                    result = await execution
                     refs = [ref for ref, _ in await driver.list_managed(node_id)]
                     diagnostic = Path(f"/private/tmp/c04-runner-{memory_mode}-{bootstrap_failure}-{interrupted}-diagnostic.log")
                     for diagnostic_ref in refs:
@@ -337,7 +353,47 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                         diagnostics = (await diagnostic_conn.execute(text("SELECT status,error FROM runs"))).all()
                         with diagnostic.open("a") as sink:
                             sink.write(str(diagnostics).replace(db.password, "[control credential redacted]"))
-                    assert result["state"] == "succeeded" and not result["report_pending"]
+                    original_journal = daemon.journal.records()[0]
+                    output_root = Path(await prepare(original_journal["claim"], original_journal["grant"]))
+                    assert result["state"] == ("cancelled" if interrupted else "succeeded") and not result["report_pending"]
+                    async with db.engine.connect() as conn:
+                        workspace_points = [
+                            dict(row)
+                            for row in (
+                                await conn.execute(
+                                    text(
+                                        "SELECT p.id,p.checkpoint_id,p.manifest_id,p.kind,p.desired_core_status,m.nas_prefix,r.state AS request_state "
+                                        "FROM fleet_workspace_points p JOIN fleet_workspace_manifests m ON m.id=p.manifest_id "
+                                        "JOIN fleet_workspace_requests r ON r.id=p.request_id WHERE p.run_id=:run ORDER BY p.accepted_at"
+                                    ),
+                                    {"run": record.run_id},
+                                )
+                            ).mappings()
+                        ]
+                        terminal_point = workspace_points[-1]
+                        assert terminal_point["kind"] == ("paused" if interrupted else "final")
+                        assert terminal_point["desired_core_status"] == ("interrupted" if interrupted else "success")
+                        assert all(point["request_state"] == "accepted" for point in workspace_points)
+                        assert await conn.scalar(text("SELECT accepted_workspace_point_id FROM fleet_agent_tasks")) == terminal_point["id"]
+                        assert await conn.scalar(text("SELECT final_workspace_point_id FROM fleet_run_placements")) == terminal_point["id"]
+                        assert await conn.scalar(text("SELECT count(*) FROM fleet_stream_seals")) == 1
+                        assert await conn.scalar(text("SELECT core_status FROM fleet_stream_seals")) == terminal_point["desired_core_status"]
+                        assert await conn.scalar(text("SELECT state FROM fleet_reservations")) == "released"
+                        if interrupted:
+                            assert await conn.scalar(text("SELECT state FROM fleet_agent_tasks")) == "paused"
+                    from deerflow_ecs_fleet.agent_workspace import AgentWorkspaceVersions, WorkspaceManifest
+
+                    original_grant = original_journal["grant"]
+                    versions = AgentWorkspaceVersions(
+                        NASWorkspace(nas.nas_root, identity=nas.nas_identity),
+                        max_input_bytes=original_grant["input_limits"]["max_input_bytes"],
+                        max_output_bytes=original_grant["execution_profile"]["max_output_bytes"],
+                    )
+                    for point in workspace_points:
+                        sealed_root = nas.nas_root / point["nas_prefix"]
+                        manifest = versions.verify(WorkspaceManifest.model_validate_json((sealed_root / "manifest.json").read_bytes()))
+                        assert manifest.manifest_id == point["manifest_id"] and manifest.nas_prefix == point["nas_prefix"]
+                        assert manifest.run_id == record.run_id and manifest.attempt_id == original_journal["claim"]["attempt_id"]
                     assert len(refs) == 1
                     ready = driver.ready[refs[0]]
                     assert ready["pid"] != os.getpid() and ready["host"] != __import__("socket").gethostname()
@@ -350,10 +406,11 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                         async with make_checkpointer(native_private) as checkpointer:
                             snapshot = await checkpointer.aget_tuple({"configurable": {"thread_id": "thread-c04"}})
                             assert snapshot is not None
+                            assert snapshot.config["configurable"]["checkpoint_id"] == terminal_point["checkpoint_id"]
                             messages = snapshot.checkpoint["channel_values"]["messages"]
                             assert any(getattr(message, "tool_calls", None) for message in messages)
                             assert not any(message.type == "tool" for message in messages)
-                        assert not list(nas.nas_root.rglob("parent.txt")) and not list(nas.nas_root.rglob("child.txt"))
+                        assert not list(output_root.rglob("parent.txt")) and not list(output_root.rglob("child.txt"))
                         return
                     async with db.engine.connect() as conn:
                         lifecycle = list((await conn.execute(text("SELECT value FROM c06_extension ORDER BY value"))).scalars())
@@ -369,12 +426,15 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                         else:
                             assert memories and any("c04-result" in fact for fact in memories)
                     assert not list(nas.nas_root.rglob("plugin-lifecycle.json"))
-                    outputs = list(nas.nas_root.rglob("parent.txt"))
+                    outputs = list(output_root.rglob("parent.txt"))
                     assert len(outputs) == 1 and outputs[0].read_bytes() == b"c04-artifact\n"
-                    children = list(nas.nas_root.rglob("child.txt"))
+                    children = list(output_root.rglob("child.txt"))
                     assert len(children) == 1 and children[0].read_bytes() == b"c04-artifact\n"
+                    sealed_root = nas.nas_root / terminal_point["nas_prefix"]
+                    assert (sealed_root / "outputs/parent.txt").read_bytes() == outputs[0].read_bytes()
+                    assert (sealed_root / "outputs/child.txt").read_bytes() == children[0].read_bytes()
                     for role in ("parent", "child"):
-                        probe_paths = list(nas.nas_root.rglob(role + "-probe.json"))
+                        probe_paths = list(output_root.rglob(role + "-probe.json"))
                         assert len(probe_paths) == 1
                         probe = __import__("json").loads(probe_paths[0].read_text())
                         assert probe["pid"] != ready["pid"] and probe["host"] == ready["host"]
@@ -386,7 +446,7 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                     import asyncio
 
                     for role in ("parent", "child"):
-                        marker = next(nas.nas_root.rglob(role + "-probe.ticks"))
+                        marker = next(output_root.rglob(role + "-probe.ticks"))
                         child_identity = __import__("json").loads(marker.with_suffix(".child.json").read_text())
                         assert child_identity["uid"] == ready["uid"] and child_identity["cgroup"] == probe["runner_cgroup"]
                         before_ticks = marker.read_bytes()
@@ -416,13 +476,23 @@ async def test_actual_daemon_runs_real_lead_graph_in_independent_linux_container
                         assert (await conn.execute(text("SELECT count(*) FROM checkpoints"))).scalar_one() > 0
                         assert (await conn.execute(text("SELECT state FROM fleet_reservations"))).scalar_one() == "released"
                 finally:
-                    await client.close()
+                    # Resource owners are settled together below, even if this scope fails.
+                    pass
         finally:
-            for ref, _ in await driver.list_managed(node_id):
-                await driver.command("rm", "--force", ref)
-            await fleet.stop()
-            reset_current_user(token)
-            reset_app_config()
+            from .c08_installed_cleanup import settle_owned_containers
+
+            original_error = sys.exception()
+
+            async def discover_owned():
+                return [ref for ref, _ in await driver.list_managed(node_id)]
+
+            after = []
+            if stager is not None:
+                after.append(("writers", stager.join_writers))
+            if client is not None:
+                after.append(("client", client.close))
+            tail = [("fleet", fleet.stop), ("user-context", lambda: reset_current_user(token)), ("app-config", reset_app_config)]
+            await settle_owned_containers(refs=refs, discover=discover_owned, driver=driver, execution=execution, after=after, tail=tail, original_error=original_error)
 
 
 @pytest.mark.asyncio
@@ -956,7 +1026,29 @@ async def test_selected_installed_provider_preflight_without_gateway_or_harness(
         await driver.checked("run", "--rm", "--network", "none", "--entrypoint", "python", image, "-c", "import importlib.util; assert importlib.util.find_spec('app') is None; assert importlib.util.find_spec('deerflow') is None")
     ).strip() == ""
     if provider == "alternate":
-        actual = await driver.compatibility(image)
+        # This fixture provides metadata introspection, not a C08 workspace runtime.
+        actual = __import__("json").loads(
+            await driver.checked(
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--read-only",
+                "--cap-drop=ALL",
+                "--security-opt=no-new-privileges",
+                "--entrypoint",
+                "python",
+                image,
+                "-I",
+                "-S",
+                "/opt/deerflow/libexec_bootstrap.py",
+                "--compatibility",
+                "--provider",
+                provider,
+            )
+        )
+        with pytest.raises(ValueError, match="Installed workspace contracts required for Agent preflight"):
+            await driver.compatibility(image)
         expected = await driver.checked("run", "--rm", "--network", "none", "--entrypoint", "python", image, "-c", "from deerflow_c04_alternate import compatibility; print(compatibility().model_dump_json())")
         assert actual == __import__("json").loads(expected)
     else:

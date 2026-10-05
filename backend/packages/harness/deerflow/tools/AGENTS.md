@@ -55,3 +55,12 @@ ordinary user `config` arguments and contextvars across loop/thread execution.
 Do not copy arbitrary user annotations into the injected tool contract. Verify
 actual loaded MCP tools, original user/thread/run identity and both async/sync
 invocation; isolated coroutine tests miss the final bridge.
+
+
+For a bound remote workspace, `present_files` records a private trusted
+ExecutionInfo turn and stamps the successful ToolMessage with its stable
+presentation ID. Replaying the same graph task is idempotent; a new root tool
+turn presenting the same path is a new version. Runtime user/thread/run must
+match the original private execution context. Root versus subgraph is determined
+from the graph task namespace structure, independently of the saver namespace.
+Local presentation keeps its original message shape.

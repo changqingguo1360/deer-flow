@@ -30,7 +30,7 @@ async def checkpoint_owner(owner_environment):
     env = owner_environment
     engine, _, user, _, app, record, session_id, _, _ = env
     accepted = await claim(env)
-    await app.state.fleet_ownership.authorize_start(node_id="node-c03", node_session_id=session_id, attempt_id=accepted.attempt_id, token=accepted.token)
+    original_grant = await app.state.fleet_ownership.authorize_start(node_id="node-c03", node_session_id=session_id, attempt_id=accepted.attempt_id, token=accepted.token)
     async with engine.connect() as connection:
         schema = (await connection.execute(text("SELECT current_schema()"))).scalar_one()
     private = AppConfig.model_validate({"sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"}, "database": {"backend": "postgres", "postgres_url": engine.url.render_as_string(hide_password=False), "postgres_schema": schema}})
@@ -55,7 +55,7 @@ async def checkpoint_owner(owner_environment):
     from app.fleet.runner_context import FleetCheckpointFence
 
     async with make_checkpointer(private, write_fence=FleetCheckpointFence(identity, spec)) as writer:
-        yield SimpleNamespace(engine=engine, private=private, identity=identity, spec=spec, writer=writer, config=config, checkpoint=checkpoint, env=env)
+        yield SimpleNamespace(engine=engine, private=private, identity=identity, spec=spec, writer=writer, config=config, checkpoint=checkpoint, env=env, grant=original_grant, accepted=accepted)
 
 
 @pytest.mark.asyncio

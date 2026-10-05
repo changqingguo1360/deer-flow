@@ -281,7 +281,7 @@ async def test_f0006_upgrade_preserves_b_records(fleet_database, tmp_path):
     await fleet.start(ExtensionRuntimeDeps(session_factory=sf))
     try:
         async with engine.connect() as conn:
-            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0008_event_outbox"
+            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0009_workspace_points"
             for table, expected in before.items():
                 assert [dict(row) for row in (await conn.execute(text("SELECT * FROM " + table))).mappings()] == expected
             for table in ("fleet_agent_tasks", "fleet_launch_specs", "fleet_run_placements", "fleet_event_outbox", "fleet_stream_seals"):

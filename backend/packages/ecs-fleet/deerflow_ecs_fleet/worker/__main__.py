@@ -77,21 +77,27 @@ async def run_worker(settings: WorkerSettings):
     await asyncio.to_thread(workspace.validate_root)
     containers = DockerContainers(state_dir=settings.state_dir)
     compatibility = None
+    compatibility_loader = None
     prepare = None
     if settings.kind == "agent":
         from .agent_containers import AgentContainers
 
         operator_config = json.loads(read_file(settings.agent_config_file, private=True, limit=1048576))
         containers = AgentContainers(state_dir=settings.state_dir, operator_config=operator_config, provider=settings.agent_environment_provider)
-        compatibility = await containers.compatibility(settings.agent_image)
+
+        async def compatibility_loader():
+            # Original daemon bootstrap first stops/reports residual attempts.
+            # Only a new claim needs this installed image capability preflight.
+            return await containers.compatibility(settings.agent_image)
 
         async def prepare(claim, grant):
             if grant["execution_profile"]["image"] != settings.agent_image:
                 raise ValueError("Frozen Agent image is not operator-approved")
             return await containers.prepare_workspace(settings.nas_root, claim, grant)
 
-    client = NodeClient(gateway_url=settings.gateway_url, credential=credential, timeout_seconds=settings.timeout_seconds, claim_kind=settings.kind, compatibility=compatibility)
+    client = NodeClient(gateway_url=settings.gateway_url, credential=credential, timeout_seconds=settings.timeout_seconds, claim_kind=settings.kind, compatibility=compatibility, compatibility_loader=compatibility_loader)
     lock = None
+    daemon = None
     installed = []
     try:
         journal = AttemptJournal(settings.state_dir)
@@ -113,6 +119,10 @@ async def run_worker(settings: WorkerSettings):
             safety_margin_seconds=settings.safety_margin_seconds,
             poll_seconds=settings.poll_seconds,
         )
+        if settings.kind == "agent":
+            from .workspace_publication import AgentWorkspacePublication
+
+            daemon.workspace_publications = AgentWorkspacePublication(client=client, containers=containers, nas=workspace, journal=daemon.journal)
         await daemon.run(stop=stop, max_parallel=settings.max_parallel)
         records = await asyncio.to_thread(journal.records)
         if any(
@@ -121,11 +131,19 @@ async def run_worker(settings: WorkerSettings):
         ):
             raise RuntimeError("Worker shutdown requires recovery of unacknowledged stop or completion")
     finally:
-        for sig in installed:
-            asyncio.get_running_loop().remove_signal_handler(sig)
-        if lock is not None:
-            os.close(lock)
-        await client.close()
+        try:
+            if settings.kind == "agent" and daemon is not None and daemon.workspace_publications is not None:
+                await daemon.workspace_publications.join_writers()
+        finally:
+            # join_writers defers repeated cancellation until actual native
+            # completion. Neither flock nor client is released before that.
+            if settings.kind == "agent" and daemon is not None and daemon.workspace_publications is not None and (daemon.workspace_publications.pending_copies or daemon.workspace_publications.pending_saves):
+                raise RuntimeError("Original publication writer ownership remains live")
+            for sig in installed:
+                asyncio.get_running_loop().remove_signal_handler(sig)
+            if lock is not None:
+                os.close(lock)
+            await client.close()
 
 
 def main(argv=None):

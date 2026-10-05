@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import json
 import os
+import sys
 from contextlib import AsyncExitStack
 from pathlib import Path
 from types import SimpleNamespace
@@ -78,21 +79,33 @@ class InstalledScenario(C07Scenario):
         return {"run": list(run), "events": [list(row) for row in events], "attempt": list(attempt), "seal": list(seal), "frames": self.frames, "http": self.http_receipts, "starts": await self.start_receipts(), "container": self.inspected}
 
     async def close(self):
-        if hasattr(self, "execution_task") and not self.execution_task.done():
-            if self.claim is not None:
-                await self.release_model_barrier()
-            try:
-                await asyncio.wait_for(asyncio.shield(self.execution_task), 125)
-            except TimeoutError:
-                if self.grant is not None:
-                    await self.driver.stop(self.grant["process_ref"])
-                self.execution_task.cancel()
-                await asyncio.gather(self.execution_task, return_exceptions=True)
-        if self.grant is not None:
-            await self.driver.stop(self.grant["process_ref"])
-            await self.driver.command("rm", self.grant["process_ref"])
+        from .c08_installed_cleanup import settle_owned_cleanup, settle_owned_execution
+
+        original_error = sys.exc_info()[1]
+
+        async def execution():
+            if hasattr(self, "execution_task"):
+                await settle_owned_execution(self.execution_task)
+
+        async def stop():
+            if self.grant is not None:
+                await self.driver.stop(self.grant["process_ref"])
+
+        async def remove():
+            if self.grant is not None:
+                await self.driver.command("rm", self.grant["process_ref"])
+
+        actions = []
+        if hasattr(self, "execution_task") and not self.execution_task.done() and self.claim is not None:
+            actions.append(("release model barrier", self.release_model_barrier))
+        actions.append(("execution", execution))
+        if getattr(self.daemon, "workspace_publications", None) is not None:
+            actions.append(("writers", self.daemon.workspace_publications.join_writers))
+        actions.extend([("stop", stop), ("remove", remove)])
+        await settle_owned_cleanup(actions, original_error=original_error)
 
 
+@pytest.mark.live
 @pytest.mark.integration
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached", "hydrated"])
@@ -127,6 +140,8 @@ async def test_installed_original_agent_replays_committed_tail_after_redis_loss(
     from deerflow.runtime.user_context import reset_current_user, set_current_user
 
     image = os.environ.get("FLEET_C07_TEST_IMAGE")
+    if os.environ.get("FLEET_TEST_CONTAINERS") == "1" and not image:
+        pytest.fail("required explicit installed gate needs immutable FLEET_C07_TEST_IMAGE")
     if os.environ.get("FLEET_TEST_CONTAINERS") != "1" or not image:
         pytest.skip("explicit installed C07 gate requires FLEET_TEST_CONTAINERS=1 and FLEET_C07_TEST_IMAGE")
     evidence = Path(os.environ.get("C07_EVIDENCE_DIR", str(tmp_path))) / ("installed-" + reader + ("-omit-seal" if seal_fault else "-writer-seal"))
@@ -159,7 +174,7 @@ async def test_installed_original_agent_replays_committed_tail_after_redis_loss(
         native = AppConfig.model_validate({**private, "database": {**private["database"], "postgres_url": db.host_url}})
         await resources.enter_async_context(make_checkpointer(native))
         await resources.enter_async_context(make_store(native))
-        driver = AgentContainers(provider="c07-omit-seal" if seal_fault else "gateway", state_dir=tmp_path / "agent-state", operator_config=private)
+        driver = AgentContainers(provider="c07-omit-seal" if seal_fault else "c07-stock", state_dir=tmp_path / "agent-state", operator_config=private)
         image_observation = json.loads(await driver.checked("image", "inspect", image))[0]
         image = image_observation["Id"]
         actual = WorkerCompatibility.model_validate(await driver.compatibility(image))
@@ -240,6 +255,10 @@ async def test_installed_original_agent_replays_committed_tail_after_redis_loss(
                 return scenario.directory
 
             scenario.daemon = NodeDaemon(client=client, containers=driver, state_dir=tmp_path / "agent-state", prepare_workspace=prepare, renew_seconds=1, safety_margin_seconds=0.25, poll_seconds=0.05)
+            from deerflow_ecs_fleet.worker.workspace_publication import AgentWorkspacePublication
+            from deerflow_ecs_fleet.workspace import NASWorkspace
+
+            scenario.daemon.workspace_publications = AgentWorkspacePublication(client=client, containers=driver, nas=NASWorkspace(nas.nas_root, identity=nas.nas_identity), journal=scenario.daemon.journal)
             try:
                 await scenario.daemon.bootstrap()
                 await scenario.start_once()
@@ -274,5 +293,7 @@ async def test_installed_original_agent_replays_committed_tail_after_redis_loss(
                 receipt["observed"] = {"ordered_unique_events": seqs == sorted(set(seqs)), "runner_starts": len(receipt["starts"]), "terminal_end_recovered": frames[-1]["event"] == "end"}
                 (evidence / "installed-receipt.json").write_text(json.dumps(receipt, indent=2, default=str))
             finally:
-                await scenario.close()
-                await client.close()
+                try:
+                    await scenario.close()
+                finally:
+                    await client.close()

@@ -7,7 +7,7 @@ from fastapi import HTTPException, Request
 
 from app.gateway.internal_auth import INTERNAL_AUTH_HEADER_NAME
 
-_NODE_PATH = re.compile(r"^/api/fleet/node/(?:session|heartbeat|claims|attempts/[A-Za-z0-9_.-]+/(?:start|renew|complete|stopped))/?$")
+_NODE_PATH = re.compile(r"^/api/fleet/node/(?:session|heartbeat|claims|attempts/[A-Za-z0-9_.-]+/(?:start|renew|complete|stopped|workspace/(?:poll|claim|prepared)))/?$")
 
 
 @dataclass(frozen=True)

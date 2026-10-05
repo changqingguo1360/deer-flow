@@ -104,6 +104,23 @@ class AgentWorkspaceSnapshots:
         finally:
             os.close(current)
 
+    @staticmethod
+    def prepare_directory(root_fd, parts, *, prepared):
+        current = os.dup(root_fd)
+        try:
+            for part in parts:
+                if not prepared:
+                    try:
+                        os.mkdir(part, mode=0o700, dir_fd=current)
+                        os.fsync(current)
+                    except FileExistsError:
+                        pass
+                child = os.open(part, OPEN_DIRECTORY, dir_fd=current)
+                os.close(current)
+                current = child
+        finally:
+            os.close(current)
+
     def prepare(self, spec, attempt_root):
         ref = spec["workspace_manifest_ref"]
         user, thread = spec["user_id"], spec["thread_id"]
@@ -116,7 +133,8 @@ class AgentWorkspaceSnapshots:
         AttemptJournal(self.state_dir).directory()
         identity["attempt_root"] = str(target.resolve())
         marker = self.state_dir / (hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest() + ".json")
-        if marker.exists():
+        prepared = marker.exists()
+        if prepared:
             fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
             with os.fdopen(fd, "rb") as file:
                 info = os.fstat(file.fileno())
@@ -124,7 +142,6 @@ class AgentWorkspaceSnapshots:
                     raise ValueError("Unsafe prepared workspace control state")
                 if json.loads(file.read(MAX_MANIFEST_BYTES + 1)) != identity:
                     raise ValueError("Prepared Agent workspace identity changed")
-            return
         root_fd = os.open(self.root, OPEN_DIRECTORY)
         destination_fd = None
         try:
@@ -155,7 +172,7 @@ class AgentWorkspaceSnapshots:
                         raise ValueError("Unsafe Agent workspace source")
                     digest = hashlib.sha256()
                     copied = 0
-                    out_fd = self.create_file(destination_fd, [*data_parts, item.category, *relative_parts(item.path)])
+                    out_fd = os.open(os.devnull, os.O_WRONLY) if prepared else self.create_file(destination_fd, [*data_parts, item.category, *relative_parts(item.path)])
                     with os.fdopen(out_fd, "wb") as output:
                         while chunk := source.read(65536):
                             copied += len(chunk)
@@ -164,10 +181,18 @@ class AgentWorkspaceSnapshots:
                             digest.update(chunk)
                             output.write(chunk)
                         output.flush()
-                        os.fsync(output.fileno())
+                        if not prepared:
+                            os.fsync(output.fileno())
                     after = os.fstat(source.fileno())
                     if copied != item.size or digest.hexdigest() != item.sha256 or (before.st_size, before.st_mtime_ns, before.st_ctime_ns, before.st_nlink) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns, after.st_nlink):
                         raise ValueError("Agent workspace content changed")
+            # No sandbox/tool is required for a legal first execution. Create
+            # only the original attempt's approved roots after all input files
+            # were verified. A prepared retry validates without recreating them.
+            for category in ("workspace", "uploads", "outputs"):
+                self.prepare_directory(destination_fd, [*data_parts, category], prepared=prepared)
+            if prepared:
+                return
             fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
             with os.fdopen(fd, "wb") as file:
                 file.write(json.dumps(identity, sort_keys=True).encode())
@@ -183,3 +208,69 @@ class AgentWorkspaceSnapshots:
             if destination_fd is not None:
                 os.close(destination_fd)
             os.close(root_fd)
+
+    def prepare_accepted(self, spec, attempt_root, accepted, *, nas_identity, max_output_bytes):
+        """Clone an original accepted point into owned user-data on every retry."""
+        from ..agent_workspace import AgentWorkspaceVersions, WorkspaceManifest, canonical
+        from ..workspace import NASWorkspace
+        from .journal import AttemptJournal
+
+        manifest = WorkspaceManifest.model_validate(accepted["manifest"])
+        if (manifest.user_id, manifest.thread_id) != (spec["user_id"], spec.get("source_workspace_thread_id") or spec["thread_id"]):
+            raise ValueError("Accepted workspace owner conflicts")
+        if not all(isinstance(accepted.get(key), str) and accepted[key] for key in ("point_id", "checkpoint_id")):
+            raise ValueError("Original accepted workspace point required")
+        if spec.get("source_workspace_point_id") not in (None, accepted["point_id"]):
+            raise ValueError("Accepted point conflicts with frozen launch")
+        if spec.get("source_workspace_checkpoint_id") not in (None, accepted["checkpoint_id"]):
+            raise ValueError("Accepted source checkpoint conflicts with frozen launch")
+        target = Path(attempt_root)
+        if target.resolve() == (self.root / manifest.nas_prefix).resolve() or target.resolve().is_relative_to((self.root / manifest.nas_prefix).resolve()):
+            raise ValueError("Accepted workspace cannot alias an execution attempt")
+        AttemptJournal(self.state_dir).directory()
+        identity = dict(
+            attempt_root=str(target.resolve()),
+            user_id=spec["user_id"],
+            thread_id=spec["thread_id"],
+            source_thread_id=manifest.thread_id,
+            point_id=accepted["point_id"],
+            checkpoint_id=accepted["checkpoint_id"],
+            manifest_id=manifest.manifest_id,
+        )
+        marker = self.state_dir / (hashlib.sha256(canonical([str(target.resolve()), "accepted"])).hexdigest() + ".json")
+        if marker.exists():
+            fd = os.open(marker, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, "rb") as file:
+                info = os.fstat(file.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > MAX_MANIFEST_BYTES or info.st_mode & 0o077 or info.st_uid != os.getuid():
+                    raise ValueError("Unsafe accepted workspace control state")
+                if file.read(MAX_MANIFEST_BYTES + 1) != canonical(identity):
+                    raise ValueError("Original accepted workspace selection changed")
+        versions = AgentWorkspaceVersions(NASWorkspace(self.root, identity=nas_identity), max_input_bytes=self.max_input_bytes, max_output_bytes=max_output_bytes)
+        versions.verify(manifest)
+        fd = os.open(target, OPEN_DIRECTORY)
+        try:
+            for part in (".deer-flow", "users", spec["user_id"], "threads", spec["thread_id"], "user-data"):
+                try:
+                    os.mkdir(part, mode=0o700, dir_fd=fd)
+                    os.fsync(fd)
+                except FileExistsError:
+                    pass
+                child = os.open(part, OPEN_DIRECTORY, dir_fd=fd)
+                os.close(fd)
+                fd = child
+            versions.restore(manifest, fd)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        if not marker.exists():
+            fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "wb") as file:
+                file.write(canonical(identity))
+                file.flush()
+                os.fsync(file.fileno())
+            fd = os.open(self.state_dir, OPEN_DIRECTORY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)

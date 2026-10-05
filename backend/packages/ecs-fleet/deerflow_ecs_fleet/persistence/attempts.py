@@ -184,9 +184,22 @@ class AgentAttempts:
             or (placement.user_id, placement.thread_id) != (run.user_id, run.thread_id)
         ):
             raise ValueError("Agent execution identity mismatch")
-        if task.current_run_id != run.run_id or task.generation != placement.generation or task.generation != attempt.launch_spec.get("launch_spec", {}).get("generation") or (require_lease and task.state not in {"queued", "running"}):
+        permitted_finishing = False
+        if allow_terminal_run and task.state == placement.state == "finishing":
+            from .workspace_points import accepted_final
+
+            permitted_finishing = await accepted_final(session, task=task, run=run, placement=placement, attempt=attempt) is not None
+            if not permitted_finishing:
+                raise ValueError("Exact accepted final cleanup authority required")
+            now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
+        if (
+            task.current_run_id != run.run_id
+            or task.generation != placement.generation
+            or task.generation != attempt.launch_spec.get("launch_spec", {}).get("generation")
+            or (require_lease and task.state not in {"queued", "running"} and not permitted_finishing)
+        ):
             raise ValueError("Stale Agent generation")
-        if placement.active_attempt_id != attempt.id or (require_lease and placement.state not in {"claimed", "running"}) or run.owner_worker_id != agent_owner(attempt.id):
+        if placement.active_attempt_id != attempt.id or (require_lease and placement.state not in {"claimed", "running"} and not permitted_finishing) or run.owner_worker_id != agent_owner(attempt.id):
             raise ValueError("Agent attempt no longer owns run")
         if attempt.launch_spec.get("kind") != "agent" or "execution_profile" not in attempt.launch_spec:
             raise ValueError("Frozen Agent execution profile required")

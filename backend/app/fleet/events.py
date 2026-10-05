@@ -133,10 +133,16 @@ class FleetStreamSeals:
             or placement.node_id != attempt.node_id
             or (placement.user_id, placement.thread_id) != (run.user_id, run.thread_id)
             or attempt.stopped_at is None
-            or (attempt.outcome or {}).get("stop_reason") != "exit"
             or reservation.state != "released"
             or reservation.released_at is None
         ):
+            return False
+        from deerflow_ecs_fleet.persistence.models import AgentTaskRow
+        from deerflow_ecs_fleet.persistence.workspace_points import accepted_final
+
+        task = await session.get(AgentTaskRow, placement.agent_task_id)
+        point = await accepted_final(session, task=task, run=run, placement=placement, attempt=attempt) if task else None
+        if point is None or task.state != point.desired_task_status or placement.state != point.desired_placement_status:
             return False
         spec = await session.get(LaunchSpecRow, placement.launch_spec_ref)
         if (
@@ -261,6 +267,64 @@ def remote_cursor(identity, seq):
     return f"fleet.v1.{encode(identity.run_id)}.{encode(identity.attempt_id)}.{seq}"
 
 
+def _finishing_read_predicate(*, placement="fleet_run_placements", attempt="fleet_attempts", run="runs", spec="fleet_launch_specs"):
+    """Exact terminal pair retains reads while physical ownership stays held.
+
+    Aliases are fixed internal query identifiers. This predicate grants no writes
+    and changes no accepted historical or uncertain-attempt read behavior.
+    """
+    return f"""
+        ({placement}.state='finishing' AND {attempt}.state IN ('starting','running') AND EXISTS (
+            SELECT 1 FROM fleet_agent_tasks AS finishing_task
+            JOIN fleet_workspace_points AS finishing_point ON finishing_point.id=finishing_task.accepted_workspace_point_id
+            JOIN fleet_workspace_requests AS finishing_request ON finishing_request.id=finishing_point.request_id
+            WHERE finishing_task.id={placement}.agent_task_id
+              AND finishing_task.state='finishing'
+              AND finishing_task.current_run_id={run}.run_id
+              AND finishing_task.generation={placement}.generation
+              AND {run}.kwargs_json->>'execution_backend'='fleet'
+              AND {spec}.id={placement}.launch_spec_ref
+              AND {spec}.run_id={placement}.run_id
+              AND {spec}.agent_task_id={placement}.agent_task_id
+              AND {spec}.generation={placement}.generation
+              AND {spec}.user_id={placement}.user_id
+              AND {spec}.thread_id={placement}.thread_id
+              AND finishing_point.id={placement}.final_workspace_point_id
+              AND finishing_point.kind IN ('final','paused')
+              AND finishing_point.run_id={run}.run_id
+              AND finishing_point.user_id={run}.user_id
+              AND finishing_point.thread_id={run}.thread_id
+              AND finishing_point.agent_task_id={placement}.agent_task_id
+              AND finishing_point.generation={placement}.generation
+              AND finishing_point.attempt_id={attempt}.id
+              AND finishing_point.node_id={attempt}.node_id
+              AND finishing_point.node_session_id={attempt}.node_session_id
+              AND finishing_point.token_stamp={attempt}.token_hash
+              AND finishing_point.process_ref={attempt}.process_ref
+              AND finishing_point.owner_worker_id={run}.owner_worker_id
+              AND finishing_point.launch_spec_digest={spec}.payload_digest
+              AND {attempt}.launch_spec->'launch_spec'={spec}.payload
+              AND finishing_point.desired_core_status={run}.status
+              AND finishing_point.error IS NOT DISTINCT FROM {run}.error
+              AND finishing_point.stop_reason IS NOT DISTINCT FROM {run}.stop_reason
+              AND finishing_request.state='accepted'
+              AND finishing_request.candidate_manifest_id=finishing_point.manifest_id
+              AND finishing_request.request_digest=finishing_point.request_digest
+              AND finishing_request.barrier_epoch>0
+              AND finishing_point.checkpoint_id=(
+                  SELECT finishing_root.checkpoint_id FROM checkpoints AS finishing_root
+                  WHERE finishing_root.thread_id={run}.thread_id AND finishing_root.checkpoint_ns=''
+                  ORDER BY finishing_root.checkpoint_id DESC LIMIT 1
+              )
+              AND {run}.run_id=(
+                  SELECT finishing_root.metadata->>'deerflow_execution_run_id' FROM checkpoints AS finishing_root
+                  WHERE finishing_root.thread_id={run}.thread_id AND finishing_root.checkpoint_ns=''
+                  ORDER BY finishing_root.checkpoint_id DESC LIMIT 1
+              )
+        ))
+    """
+
+
 class FleetStreamReader:
     def __init__(self, session_factory):
         self.sf = session_factory
@@ -278,11 +342,11 @@ class FleetStreamReader:
             row = (
                 (
                     await session.execute(
-                        text("""
+                        text(f"""
                 SELECT p.run_id,p.thread_id,p.user_id,p.generation,
                        p.active_attempt_id AS attempt_id,s.payload_digest AS launch_spec_digest,
                        s.payload,p.state AS placement_state,a.state AS attempt_state,r.status,
-                       a.launch_spec
+                       a.launch_spec,{_finishing_read_predicate(placement="p", attempt="a", run="r", spec="s")} AS finishing_accepted
                 FROM fleet_run_placements p
                 JOIN runs r ON r.run_id=p.run_id AND r.user_id=p.user_id AND r.thread_id=p.thread_id
                 JOIN fleet_launch_specs s ON s.id=p.launch_spec_ref AND s.run_id=p.run_id
@@ -304,7 +368,7 @@ class FleetStreamReader:
         accepted = result is not None and row["placement_state"] == result and row["attempt_state"] == ("expired" if result == "timed_out" else result)
         active = row["placement_state"] in {"claimed", "running"} and row["attempt_state"] in {"claimed", "starting", "running"}
         uncertain = row["placement_state"] == "unknown" and row["attempt_state"] in {"unknown", "quarantined"}
-        if not (active or accepted or uncertain) or (row["launch_spec"] or {}).get("launch_spec") != row["payload"]:
+        if not (active or accepted or uncertain or row["finishing_accepted"]) or (row["launch_spec"] or {}).get("launch_spec") != row["payload"]:
             return None
         from deerflow_ecs_fleet.launch_spec import LaunchSpec
 
@@ -386,6 +450,7 @@ class FleetStreamReader:
                 RunRow.kwargs_json["execution_backend"].as_string() == "fleet",
                 or_(
                     and_(RunPlacementRow.state.in_(["claimed", "running"]), AttemptRow.state.in_(["claimed", "starting", "running"])),
+                    text(_finishing_read_predicate()),
                     and_(RunPlacementRow.state == "unknown", AttemptRow.state.in_(["unknown", "quarantined"])),
                     *(and_(RunRow.status == status, RunPlacementRow.state == result, AttemptRow.state == ("expired" if result == "timed_out" else result)) for status, result in TERMINAL_RESULTS.items()),
                 ),
@@ -494,7 +559,7 @@ class FleetStreamReader:
         return records
 
     async def seal(self, identity):
-        from deerflow_ecs_fleet.persistence.models import AttemptRow, RunPlacementRow, StreamSealRow
+        from deerflow_ecs_fleet.persistence.models import AttemptRow, LaunchSpecRow, RunPlacementRow, StreamSealRow
 
         from deerflow.persistence.run.model import RunRow
 
@@ -506,6 +571,7 @@ class FleetStreamReader:
                 .join(RunPlacementRow, RunPlacementRow.run_id == StreamSealRow.run_id)
                 .join(AttemptRow, AttemptRow.id == RunPlacementRow.active_attempt_id)
                 .join(RunRow, RunRow.run_id == StreamSealRow.run_id)
+                .join(LaunchSpecRow, LaunchSpecRow.id == RunPlacementRow.launch_spec_ref)
                 .where(
                     RunRow.status == StreamSealRow.core_status,
                     RunRow.user_id == identity.user_id,
@@ -519,6 +585,10 @@ class FleetStreamReader:
                     RunPlacementRow.active_attempt_id == identity.attempt_id,
                     RunPlacementRow.state != "unknown",
                     AttemptRow.state.not_in(["unknown", "quarantined"]),
+                    or_(
+                        RunPlacementRow.state != "finishing",
+                        and_(text(_finishing_read_predicate()), LaunchSpecRow.payload_digest == StreamSealRow.launch_spec_digest),
+                    ),
                     StreamSealRow.run_id == identity.run_id,
                     StreamSealRow.attempt_id == identity.attempt_id,
                     StreamSealRow.generation == identity.generation,
@@ -573,6 +643,7 @@ class FleetStreamReader:
                         text("fleet_attempts.launch_spec->'launch_spec' = fleet_launch_specs.payload"),
                         or_(
                             and_(RunPlacementRow.state.in_(["claimed", "running"]), AttemptRow.state.in_(["claimed", "starting", "running"])),
+                            text(_finishing_read_predicate()),
                             and_(RunPlacementRow.state == "unknown", AttemptRow.state.in_(["unknown", "quarantined"])),
                             *(and_(RunRow.status == status, RunPlacementRow.state == result, AttemptRow.state == ("expired" if result == "timed_out" else result)) for status, result in TERMINAL_RESULTS.items()),
                         ),
@@ -733,23 +804,25 @@ def install_fleet_events(app, session_factory):
     runtime = fleet_runtime(app)
     if runtime is None or not runtime.ready or session_factory is None:
         return None
-    from deerflow_ecs_fleet.event_bridge import CommittedEventPublisher
-
     local = app.state.stream_bridge
     reader = FleetStreamReader(session_factory)
     client = None
-    if getattr(local, "_redis_url", None) is not None:
-        from redis.asyncio import Redis
+    publisher = None
+    if runtime.config.agents_enabled:
+        from deerflow_ecs_fleet.event_bridge import CommittedEventPublisher
 
-        client = Redis.from_url(local._redis_url, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
-    publisher = CommittedEventPublisher(
-        session_factory=session_factory,
-        candidate_pointers=reader.candidate_pointers,
-        load_committed=reader.load_committed,
-        redis_client=client,
-        key_prefix=getattr(local, "_key_prefix", "deerflow:stream_bridge") + ":fleet",
-        recover_seals=FleetStreamSeals(session_factory).recover_accepted_batch,
-    )
+        if getattr(local, "_redis_url", None) is not None:
+            from redis.asyncio import Redis
+
+            client = Redis.from_url(local._redis_url, decode_responses=True, socket_connect_timeout=1.0, socket_timeout=1.0)
+        publisher = CommittedEventPublisher(
+            session_factory=session_factory,
+            candidate_pointers=reader.candidate_pointers,
+            load_committed=reader.load_committed,
+            redis_client=client,
+            key_prefix=getattr(local, "_key_prefix", "deerflow:stream_bridge") + ":fleet",
+            recover_seals=FleetStreamSeals(session_factory).recover_accepted_batch,
+        )
     bridge = FleetGatewayBridge(local_bridge=local, reader=reader, publisher=publisher)
     bridge._publisher_redis = client
     app.state.stream_bridge = bridge

@@ -56,6 +56,9 @@ class _PermissiveThreadMetaStore(MemoryThreadMetaStore):
 
 class _ThreadTestRunManager:
     def __init__(self):
+        from deerflow.runtime.runs.store.memory import MemoryRunStore
+
+        self._store = MemoryRunStore()
         self.reservations: list[tuple[str, dict]] = []
 
     async def list_by_thread(self, _thread_id: str, *, user_id=None, limit: int = 100) -> list:

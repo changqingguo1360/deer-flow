@@ -14,10 +14,24 @@ runs until service shutdown. Execution → node → reservation is the lock orde
 node session rotation changes only node identity and retains old resource charges.
 
 Use `tests/fleet` with TEST_POSTGRES_URI pointing to an isolated test database.
-Tests create/drop random schemas, never real business schemas. Worker client/daemon
+Tests create/drop random schemas, never real business schemas. PostgreSQL saver
+fixtures keep their owned schema across reopen and drop it only after saver closure,
+including creation/connection-close failure paths. Use the existing
+normalize_libpq_dsn helper to remove the SQLAlchemy driver while preserving original
+URI query bytes and keyword DSNs, then apply the original libpq search_path encoding;
+do not serialize the scoped URI again. Options-regression fixtures preserve the
+parent DSN form and existing options for URI and keyword inputs before adding
+their timeout; the new test parent constructor uses percent-only URI decoding to
+preserve literal+ options. This does not certify arbitrary raw+ options passed
+directly to the unchanged production search_path helper. Whole-schema integration gates use a fresh owned test database when an
+older test database already contains public tables; retain the original no-public
+assertion and never remove another fixture's tables to satisfy it. Worker client/daemon
 and private restart journals exist; tests exercise real TCP Gateway loss and a lost
 start-grant response with local Docker. Bootstrap must finish stop reconciliation
-before claiming work. Stop every owned residual before reporting recovery failure;
+before claiming work. Native initial and accepted Agent preparation must retain
+its physical copy/fsync/control-marker writer through repeated cancellation.
+The Node waits for that writer before stopped reporting and daemon flock/client
+release; publication-only joins do not own preparation. Stop every owned residual before reporting recovery failure;
 missing journals or a stop RPC failure must not leave other owned containers running.
 Remote Agent and continuations are pending; consult the root delivery roadmap before
 enabling or advertising Fleet execution. Dependency installation remains operator
@@ -382,6 +396,20 @@ accepted exit/physical-stop mapping. The stopped transaction and owned startup
 scanner share lock order and complete identity checks. No stream closure renews
 a writer or broadens events.* terminal permissions.
 
+Gateway installs the C publisher and its seal-recovery callback only when the
+Fleet runtime has `agents_enabled=true`. A B-only runtime may use a legacy
+memory/SQLite checkpointer with PostgreSQL application storage and Redis without
+creating PostgreSQL checkpoint tables. The Fleet bridge remains installed, and
+historical C reads retain the same authoritative reader checks when C publication
+is disabled. Missing checkpoint storage cannot authorize a historical C read.
+
+A ready Fleet runtime with both new-work flags disabled may have an empty profiles
+mapping. Its accepted workspace reader uses the canonical ExecutionProfile output
+limit (64MiB) in that case, retaining bounded reads and all accepted-point guards.
+Nonempty profiles retain their configured maximum; enabling C still requires valid
+profiles. This fallback does not guarantee larger historical outputs remain readable
+after their larger profile limits are removed.
+
 The owned publisher selects one trusted earliest pending pointer per run before
 its limit, reselects under its private delivery advisory lock, and sends stable
 Redis seq IDs with exact decimal comparisons. It never holds execution locks
@@ -400,7 +428,7 @@ actual daemon inspect/stopped must trigger production physical-stop recovery.
 This is a safe seal-omission injection, not a SIGKILL or arbitrary-crash claim.
 Native receipts do not establish Linux installed-entry acceptance. SOURCE SPEC
 and SOURCE QUALITY reviews must precede formal C07 image builds; public remote
-admission and continuation flags remain closed. C07 is locally accepted; C08–C12
+admission and continuation flags remain closed. C07 is locally accepted; C09–C12
 and B/C continuations remain pending. See [C07 acceptance](ecs-fleet-c07-acceptance.md).
 
 Installed C07 and C04 neighbors share the original strict two-model runtime
@@ -410,3 +438,82 @@ barrier response after its original credential, private-scope and skill checks;
 it defaults to the C04 path. C07 supplies the actual bundled c04 stdio MCP and
 plugin configuration. This fixture option does not change production model
 binding validation, Agent bootstrap, execution loops or admission.
+
+C08 has isolated local acceptance, including owner-file access and original
+installed full/delta initial, new-turn and branch execution. See
+[C08 acceptance](ecs-fleet-c08-acceptance.md) for current versus historical gates and
+[C08 runtime contracts](ecs-fleet-c08-runtime.md) for durable thread bindings,
+accepted-file reads, new-attempt source selection and branch recovery. The stock single/multi astream paths request sync
+durability. A remote root saver callback runs outside the original cursor, SQL
+transaction, connection and lock, and materializes full/delta state through the
+original accessor. Successful private root presentation turns receive distinct
+versions even when the provider reuses a tool-call ID and path; retries of the
+same original task remain idempotent. Prepared candidates keep native/MCP gates
+closed. Only the actual accepted partial pair commit permits the same original
+writer controller and MCP scope to reopen, using the original execution deadline.
+
+A neutral trusted terminal participant joins the three original core repository
+transitions on their existing AsyncSession and transaction. Preparation follows
+the last duration/history/title/rollback checkpoint; metadata copies preserve
+pending writes and rebuild interrupt IDs for the new task namespace. The pair
+records the exact immutable root and verified candidate, core terminal outcome,
+task accepted point, placement final point and both finishing states atomically.
+Fresh clock checks follow locks and SQL flush. Finishing continues charging
+thread/capacity until the original authenticated process is physically stopped;
+then its immutable desired statuses apply regardless of transport stop reason.
+The reason remains an observation in the attempt outcome; it cannot downgrade
+an exact accepted final/paused point or prevent physical-stop stream recovery.
+A fresh Node session still cannot report an old-session Agent attempt; that
+separate recovery boundary remains pending. A partial point or core-only terminal
+row cannot authorize final sealing or recovery END. Post-pair bookkeeping uses
+that exact accepted final/paused authority and never reopens filesystem gates.
+
+Both original graph interruption and clarification middleware hard END can
+represent a pause. A current trusted root human-input observation must match the
+materialized successful ToolMessage, original request/card ID and last assistant
+tool call for clarification END. Historical/client artifacts, nested graphs and
+suppressed clarification cannot grant that authority. Human input waits use
+core interrupted/task input_required; other graph pauses use task paused. Their
+physical placement/attempt outcome remains cancelled. No automatic replay or
+new public resume endpoint is introduced. Remote checkpoint/preparation/terminal
+SQL faults retain the first typed failure and block live END; an already accepted
+immutable final survives later bookkeeping failure for exact physical-stop
+recovery. The original cumulative 120-second final cleanup clock covers all
+participants; partial publication must not start it.
+
+Task4 native stock fixtures use authenticated ASGI HTTP and prewritten output
+with actual graph/tools/saver/SQL pairing. They do not establish installed Linux
+proof. The fresh installed `c08-stock` fixture instead wraps the original host
+environment before its first actual presentation callback, observes the original
+six supervised writer descendants settled before first publication SQL, and
+executes actual post-accept bash/MCP and a second same-path presentation. Its
+required full/delta × normal/clarification-pause matrix uses the original
+AgentRunner, NodeDaemon, TCP HTTP, container collector, PostgreSQL and NAS.
+Source SPEC then QUALITY must accept its exact inputs before image construction.
+Installed continuation fixtures read the already created parent through the original
+owner-filtered thread repository. A Node restart retaining unresolved work expects
+the original RecoveryRequired and remains unable to claim work; fixtures then verify
+the old attempt is rejected and accepted partial data stays readable, without replay.
+Host-only fixture repairs require a new complete SOURCE review. Existing fresh image
+IDs can be retained only when the full prepared image input path sets and bytes
+remain identical; earlier failed runtime windows remain failed evidence.
+
+Host continuation tests must install the same immutable fixture memory/provider
+wheels as the Runner in their dedicated test environment, keeping UV_NO_SYNC and
+the dependency lock unchanged. Real branch POST requests retain internal owner
+authentication and original CSRF protection by sending the same original generated
+token in csrf_token and X-CSRF-Token. Native branch regressions use the installed
+ownership services, RunManager and NAS consistently; HTTP/clone/SQL/preview success
+before a controlled launch sentinel is native evidence only. Full installed Runner
+execution remains a separate required gate.
+
+First-launch snapshots must establish all approved user-data category directories
+even for empty or uploads-only inputs and runs that never acquire a sandbox. The
+Node does this through trusted no-follow descriptors after original input validation;
+prepared retries validate existing directories and reject removal/symlink changes.
+Staged Linux fixtures observe the original presentation callback before its MCP
+owners close. A final candidate may follow a legitimate accepted partial; tests
+must scope rejection/acceptance assertions to the exact current candidate and retain
+prior immutable partial provenance. Diagnostic main-path builds and passing existing
+cases precede the deferred full regression/review when the user requests that order;
+they do not by themselves establish whole C08 acceptance.

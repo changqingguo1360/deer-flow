@@ -58,6 +58,8 @@ class AgentEnvironment:
     private_mcp_tools: Any = None
     private_memory_manager: Any = None
     private_mcp_task_submitter: Any = None
+    workspace_scope: Callable | None = None
+    workspace_publications: Any = None
 
 
 def installed_environment_factory(provider: str):

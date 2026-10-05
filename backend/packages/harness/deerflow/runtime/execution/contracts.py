@@ -30,6 +30,17 @@ class RunAdmissionParticipant(Protocol):
     async def validate_reuse(self, session: AsyncSession, stored_run: dict) -> None: ...
 
 
+class RunTerminalParticipant(Protocol):
+    """Trusted extension writes on the repository's original terminal TX.
+
+    Preparation involving files or external resources happens before this TX.
+    after_transition is invoked only when the original SQL updated a row.
+    """
+
+    async def before_transition(self, session: AsyncSession, *, run_id: str, status: str, error: str | None, stop_reason: str | None) -> None: ...
+    async def after_transition(self, session: AsyncSession, *, run_id: str, status: str, error: str | None, stop_reason: str | None) -> None: ...
+
+
 @dataclass(frozen=True)
 class ExecutionPlan:
     public_kwargs: dict

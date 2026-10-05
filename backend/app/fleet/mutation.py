@@ -45,6 +45,48 @@ class _FleetExecutionGuard:
         if operation in {"memory.write", "extension.write"}:
             domain = "deerflow:memory:" + spec.user_id if operation == "memory.write" else "deerflow:extension"
             await cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (domain,))
+        finishing = task["state"] == placement["state"] == "finishing"
+        if finishing:
+            if not allow_terminal or operation not in {"workspace.accept", "workspace.node.idle", *_TERMINAL}:
+                reject()
+            await cursor.execute("SELECT * FROM fleet_workspace_points WHERE id=%s", (task["accepted_workspace_point_id"],))
+            point = await cursor.fetchone()
+            if (
+                task["accepted_workspace_point_id"] != placement["final_workspace_point_id"]
+                or point is None
+                or point["kind"] not in {"final", "paused"}
+                or any(
+                    point[name] != value
+                    for name, value in (
+                        ("run_id", spec.run_id),
+                        ("user_id", spec.user_id),
+                        ("thread_id", spec.thread_id),
+                        ("agent_task_id", spec.agent_task_id),
+                        ("generation", spec.generation),
+                        ("attempt_id", identity.attempt_id),
+                        ("node_id", identity.node_id),
+                        ("node_session_id", identity.node_session_id),
+                        ("owner_worker_id", identity.owner_worker_id),
+                        ("token_stamp", identity.token_stamp),
+                        ("launch_spec_digest", spec.payload_digest()),
+                        ("desired_core_status", run["status"]),
+                    )
+                )
+            ):
+                reject()
+            await cursor.execute("SELECT checkpoint_id,metadata FROM checkpoints WHERE thread_id=%s AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1", (spec.thread_id,))
+            checkpoint = await cursor.fetchone()
+            if (
+                checkpoint is None
+                or checkpoint["checkpoint_id"] != point["checkpoint_id"]
+                or checkpoint["metadata"].get("deerflow_execution_run_id") != spec.run_id
+                or run["error"] != point["error"]
+                or run["stop_reason"] != point["stop_reason"]
+            ):
+                reject()
+        elif run["status"] not in {"pending", "running"} and operation != "workspace.accept":
+            # A stage/prepared candidate cannot authorize terminal tails.
+            reject()
         await cursor.execute("SELECT clock_timestamp() AS now")
         now = (await cursor.fetchone())["now"]
         owner = (spec.user_id, spec.thread_id)
@@ -53,12 +95,12 @@ class _FleetExecutionGuard:
         if (
             task["current_run_id"] != spec.run_id
             or task["generation"] != spec.generation
-            or task["state"] not in {"queued", "running"}
+            or (task["state"] not in {"queued", "running"} and not finishing)
             or placement["agent_task_id"] != spec.agent_task_id
             or placement["generation"] != spec.generation
             or placement["active_attempt_id"] != identity.attempt_id
             or placement["node_id"] != identity.node_id
-            or placement["state"] not in {"claimed", "running"}
+            or (placement["state"] not in {"claimed", "running"} and not finishing)
             or run["owner_worker_id"] != identity.owner_worker_id
             or (run["status"] not in {"pending", "running"} and not (allow_terminal and run["status"] in {"success", "error", "interrupted", "timeout"}))
             or (run["kwargs_json"] or {}).get("execution_backend") != "fleet"

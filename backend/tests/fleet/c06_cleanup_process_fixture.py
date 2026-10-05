@@ -6,6 +6,7 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -198,6 +199,28 @@ def main():
     from contextlib import ExitStack
 
     with ExitStack() as patches:
+        # This original cleanup fixture replaces installed discovery. Supply a
+        # real bounded native contract file; it is not an installed-image proof.
+        import app.fleet.workspace_contracts as workspace_contracts
+
+        contract_dir = patches.enter_context(TemporaryDirectory(prefix="c06-native-contract-"))
+        contract_path = Path(contract_dir) / "workspace-contracts.json"
+        contract_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "host": {
+                        "use": workspace_contracts.HOST_USE,
+                        "sandbox_use": data["payload"]["bootstrap"]["operator_config"]["sandbox"]["use"],
+                        "contract": workspace_contracts.HOST_CONTRACT,
+                    },
+                    "plugins": [],
+                    "mcp_servers": {},
+                }
+            )
+        )
+        patches.enter_context(patch.object(workspace_contracts, "WORKSPACE_CONTRACT_PATH", str(contract_path)))
+        installed_bundle = {"skills": [], "plugins": [], "mcp_servers": {}, "secret_bindings": {}}
         if data["entry"] == "stream-cleanup":
             from deerflow.runtime.checkpointer.fenced_saver import FencedAsyncPostgresSaver
 
@@ -232,8 +255,8 @@ def main():
             ("app.fleet.runner_context.validate_model_bindings", lambda *args: None),
             ("app.fleet.runner_context.validate_runtime_configuration", lambda *args: None),
             ("app.fleet.runner_context.validate_secret_bindings", lambda *args: (set(), {})),
-            ("app.fleet.runner_context.runtime_bundle", lambda: (b"{}", {})),
-            ("app.fleet.runner_context.installed_compatibility", lambda: SimpleNamespace(runtime_digest=spec.runtime_digest, skill_snapshot=spec.skill_snapshot, plugin_snapshot=spec.plugin_snapshot)),
+            ("app.fleet.runner_context.runtime_bundle", lambda: (json.dumps(installed_bundle).encode(), installed_bundle)),
+            ("app.fleet.runner_context.installed_compatibility", lambda: SimpleNamespace(runtime_digest=spec.runtime_digest, skill_snapshot=spec.skill_snapshot, plugin_snapshot=spec.plugin_snapshot, workspace_contract_version=1)),
             ("deerflow.extensions.load_extensions", lambda *args: (registry.build(), [])),
             ("deerflow.extensions.gateway.start_services", start),
             ("deerflow.mcp.tools.get_mcp_tools", no_mcp),

@@ -59,6 +59,8 @@ class _AgentResourceTeardown:
         self.failure = None
         self.closed = False
         self._phases = {}
+        self.workspace_writers = None
+        self.workspace_sessions = None
 
     def retain_pending(self, error):
         if self.failure is None:
@@ -118,6 +120,24 @@ class _AgentResourceTeardown:
                 self.memory_quiescent = True
                 return
 
+    async def settle_workspace_sessions(self, *, deadline):
+        # Partial callers supply their execution deadline directly; this
+        # operation itself never reads or starts the final cleanup clock.
+        if self.workspace_sessions is None:
+            return
+        pool, scope_key = self.workspace_sessions
+        pool.freeze_scope(scope_key, barrier_epoch=self.workspace_writers.barrier_epoch)
+        try:
+            await pool.close_scope_and_join(scope_key, deadline=deadline)
+        except BaseException as error:
+            # A timed-out join wrapper may be done while the SDK owner and its
+            # child/context remain physical in the detached closing registry.
+            if pool.scope_owners_pending(scope_key):
+                self.retain_pending(error)
+            raise
+        if pool.scope_owners_pending(scope_key):
+            self.retain_pending(OwnershipRejected("Original MCP scope owners have not settled"))
+
     async def close(self):
         from deerflow.extensions.notify import drain_extension_dispatches, extension_dispatches_pending, release_extension_dispatch_failures
 
@@ -126,6 +146,18 @@ class _AgentResourceTeardown:
         self.budget.start()
         with self.private_scope():
             await self.settle_graph_stream()
+            if self.workspace_writers is not None:
+                try:
+                    await self.phase("workspace-writers", lambda: self.workspace_writers.close_and_wait(deadline=self.budget.deadline, final=True))
+                except PendingAgentCleanup:
+                    raise
+                except BaseException as error:
+                    if self.workspace_writers.unsettled:
+                        self.retain_pending(error)
+                    if self.failure is None:
+                        self.failure = error
+            if self.workspace_sessions is not None:
+                await self.phase("workspace-mcp", lambda: self.settle_workspace_sessions(deadline=self.budget.deadline))
             if self.settle_memory is not None:
                 await self.phase("quiescence-before-services", self.quiesce_memory_and_observers)
             else:
@@ -212,6 +244,14 @@ def installed_compatibility():
             _, files["provider-distribution:" + distribution] = _distribution_files(distribution)
     bundle_bytes, bundle = runtime_bundle()
     files["approved-runtime-bundle"] = sha256(bundle_bytes).hexdigest()
+    from .workspace_contracts import SANDBOX_USE, read_workspace_contracts
+
+    contract_bytes, contracts = read_workspace_contracts(bundle=bundle, sandbox_use=SANDBOX_USE)
+    files["approved-workspace-contracts"] = sha256(contract_bytes).hexdigest()
+    from deerflow_ecs_fleet.worker.workspace_collector import installed_collector_bytes, kernel_capability
+
+    kernel_capability()
+    files["approved-workspace-collector"] = sha256(installed_collector_bytes()).hexdigest()
     skill_root = Path("/opt/deerflow/skills").resolve(strict=True)
     skills = []
     declared = set()
@@ -247,7 +287,7 @@ def installed_compatibility():
         plugins.append({"name": entry["name"], "version": distribution.version, "digest": digest})
         files["plugin-distribution:" + entry["distribution"]] = content
     digest = sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
-    return WorkerCompatibility(runtime_digest="sha256:" + digest, skill_snapshot=Snapshot(entries=skills), plugin_snapshot=Snapshot(entries=plugins))
+    return WorkerCompatibility(runtime_digest="sha256:" + digest, skill_snapshot=Snapshot(entries=skills), plugin_snapshot=Snapshot(entries=plugins), workspace_contract_version=contracts.version)
 
 
 def control_connection_credentials(private):
@@ -311,9 +351,12 @@ def validate_runtime_configuration(private):
     if set(servers) != set(bundle["mcp_servers"]):
         raise ValueError("Enabled MCP servers differ from approved runtime bundle")
     controls = control_connection_credentials(private)
-    forbidden_flags = {"--token", "--password", "--api-key", "--api_key", "--authorization", "--dsn", "--database-url", "--redis-url"}
+    from .workspace_contracts import FORBIDDEN_MCP_FLAGS, validate_mcp_binding
+
+    forbidden_flags = FORBIDDEN_MCP_FLAGS
     for name, server in servers.items():
         bound = bundle["mcp_servers"][name]
+        validate_mcp_binding(bound)
         transport = server.type or "stdio"
         if not isinstance(bound, dict) or bound.get("transport") != transport:
             raise ValueError("MCP transport differs from approved runtime")
@@ -479,6 +522,9 @@ async def build_agent_environment(*, bootstrap, spec, grant):
     validate_model_bindings(private, spec, bindings)
     validate_runtime_configuration(private)
     _, approved_bundle = runtime_bundle()
+    from .workspace_contracts import read_workspace_contracts
+
+    read_workspace_contracts(bundle=approved_bundle, sandbox_use=private.sandbox.use)
     authorized_models, _ = validate_secret_bindings(private, spec, approved_bundle)
     execution, private_resolver = execution_configuration(private)
 
@@ -495,10 +541,17 @@ async def build_agent_environment(*, bootstrap, spec, grant):
     from deerflow.runtime.execution.mutation_context import remote_mutation_scope
 
     mutation_capability = FleetMutationCapability(bootstrap.identity, spec)
+    from deerflow.runtime.execution.workspace_boundary import WorkspaceWriterController, workspace_writer_scope
+
+    workspace_writers = WorkspaceWriterController()
+    import time
+    from datetime import UTC, datetime
+
+    workspace_writers.execution_deadline = time.monotonic() + max(0, min(grant["execution_seconds_remaining"], (spec.execution_deadline - datetime.now(UTC)).total_seconds()))
 
     @contextmanager
     def bootstrap_cleanup_scope():
-        with remote_mutation_scope(mutation_capability.context), model_credential_scope(resolver):
+        with remote_mutation_scope(mutation_capability.context), model_credential_scope(resolver), workspace_writer_scope(workspace_writers):
             push_current_app_config(execution)
             try:
                 yield
@@ -507,6 +560,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
 
     stack = AsyncExitStack()
     teardown = _AgentResourceTeardown(stack, bootstrap_cleanup_scope, mutation_capability.context)
+    teardown.workspace_writers = workspace_writers
     try:
         engine = create_async_engine(private.database.postgres_url, connect_args={"server_settings": {"search_path": private.database.postgres_schema}})
         stack.push_async_callback(engine.dispose)
@@ -524,6 +578,10 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             sync_engine = create_engine(private.database.app_sync_sqlalchemy_url, connect_args={"options": "-csearch_path=" + private.database.postgres_schema})
             stack.callback(sync_engine.dispose)
             sync_sf = sessionmaker(sync_engine, expire_on_commit=False)
+            from app.fleet.workspace import FleetWorkspaceProcessRegistry
+
+            frozen_pid_limit = grant["execution_profile"]["pids_limit"]
+            workspace_writers.bind_process_registry(FleetWorkspaceProcessRegistry(sync_sf, mutation_capability, pids_limit=frozen_pid_limit, execution_deadline=workspace_writers.execution_deadline), pids_limit=frozen_pid_limit)
             definitions = (
                 SqlAgentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf, mutation_capability=mutation_capability),
                 SqlManagedSubagentStore(private.database.app_sync_sqlalchemy_url, session_factory=sync_sf, mutation_capability=mutation_capability),
@@ -558,6 +616,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
                 from deerflow.runtime.execution.mutation_context import remote_mutation_scope
 
                 scoped.enter_context(remote_mutation_scope(mutation_capability.context))
+                scoped.enter_context(workspace_writer_scope(workspace_writers))
                 scoped.enter_context(model_credential_scope(resolver))
                 scoped.enter_context(extensions_config_scope(private.extensions))
                 scoped.enter_context(mcp_task_submitter_scope(private_submitter, private.extensions))
@@ -574,7 +633,11 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         stack.callback(reset_app_config)
         from deerflow.mcp.session_pool import get_session_pool
 
-        stack.push_async_callback(get_session_pool().close_all)
+        original_pool = get_session_pool()
+        original_scope_key = mutation_capability.context.user_id + ":" + mutation_capability.context.thread_id
+        original_pool.manage_scope(original_scope_key)
+        teardown.workspace_sessions = (original_pool, original_scope_key)
+        stack.push_async_callback(original_pool.close_all)
         with private_scope():
             private_tools = await get_mcp_tools()
             extensions, diagnostics = load_extensions(private.plugins)
@@ -684,7 +747,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
 
         async def drain_active_memory():
             with private_scope():
-                await drain_remote_mutations(private_memory)
+                await teardown.phase("workspace-final-memory", lambda: drain_remote_mutations(private_memory))
 
         async def settle_owned_stream(stream):
             from deerflow.runtime.execution.mutation_context import ExecutionCleanupPending, current_remote_mutation_context
@@ -706,6 +769,12 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         event_store = DbRunEventStore(sf, max_trace_content=private.run_events.max_trace_content, mutation_capability=mutation_capability, transaction_participant=participant)
         bridge = FleetProducerBridge(event_store=event_store, identity=stream_identity, spec=spec, capability=mutation_capability, seals=FleetStreamSeals(sf), manager=manager)
 
+        from .workspace import FleetWorkspacePublisher
+
+        workspace_publications = FleetWorkspacePublisher(sf, mutation_capability, controller=workspace_writers, teardown=teardown, session_pool=get_session_pool())
+        repository._terminal_participant = workspace_publications.terminal
+        checkpointer.after_root_commit = workspace_publications.on_root_commit
+
         context = RunContext(
             checkpointer=checkpointer,
             store=store,
@@ -720,10 +789,15 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             on_run_completed=scheduled.handle_run_completion,
             before_terminal_mutations=drain_active_memory,
             settle_stream=settle_owned_stream,
+            checkpoint_durability="sync",
+            bind_checkpoint_accessor=workspace_publications.bind_accessor,
+            prepare_terminal=workspace_publications.prepare_terminal,
         )
 
         async def close():
             await teardown.close()
+
+        from .workspace import FleetWorkspacePublisher
 
         return AgentEnvironment(
             identity=bootstrap.identity,
@@ -741,6 +815,8 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             private_mcp_tools=private_tools,
             private_memory_manager=private_memory,
             private_mcp_task_submitter=private_submitter,
+            workspace_scope=lambda: workspace_writer_scope(workspace_writers),
+            workspace_publications=workspace_publications,
         )
     except BaseException as original_error:
         try:

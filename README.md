@@ -1628,7 +1628,11 @@ with committed Redis delivery hints and a terminal seal after tail events.
 Host retention that removes unconsumed remote frames reports HTTP 410 before
 streaming; deletion during a stream closes it without a terminal END. Its
 installed-runtime evidence is in the [C07 acceptance report](docs/ecs-fleet-c07-acceptance.md).
-Gateway still rejects agents_enabled until C08-C12 recovery,
+C08 has isolated local acceptance for checkpoint/workspace pairing, owner file
+reads and installed initial, new-turn and branch execution. See the
+[C08 acceptance report](docs/ecs-fleet-c08-acceptance.md) and
+[runtime contracts](docs/ecs-fleet-c08-runtime.md) for the exact evidence and boundaries.
+Gateway still rejects agents_enabled until C09-C12 recovery,
 cancellation and routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

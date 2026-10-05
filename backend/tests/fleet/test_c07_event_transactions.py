@@ -6,6 +6,7 @@ from sqlalchemy import text
 from .test_c02_remote_agent_admission import admission as admission
 from .test_c03_remote_agent_admission import owner_environment as owner_environment
 from .test_c05_remote_agent_runtime import checkpoint_owner as checkpoint_owner
+from .test_c08_terminal_pair import prepared_pair as prepared_pair
 
 
 async def attached_manager(item):
@@ -104,14 +105,20 @@ async def test_actual_private_pointer_and_whole_batch_rollback(checkpoint_owner,
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("closure", ["closed", "finalizing", "ownership_lost", "sql_running", "wrong_status"])
-async def test_narrow_writer_seal_requires_original_closed_terminal_record(checkpoint_owner, closure):
+async def test_narrow_writer_seal_requires_original_closed_terminal_record(prepared_pair, closure):
     from app.fleet.events import FleetStreamSeals, RemoteStreamIdentity
     from app.fleet.mutation import FleetMutationCapability
     from deerflow.runtime.execution.mutation_context import remote_mutation_scope
     from deerflow.runtime.runs.manager import RunStatus
 
-    item = checkpoint_owner
+    item = prepared_pair.item
     _, record = await attached_manager(item)
+    from deerflow.persistence.run.sql import RunRepository
+
+    from .test_c08_terminal_pair import participant
+
+    with prepared_pair.scope():
+        await RunRepository(prepared_pair.sf, mutation_capability=prepared_pair.capability, terminal_participant=participant(prepared_pair)).update_status(item.spec.run_id, "success")
     record.status = RunStatus.success
     record.finalizing = closure == "finalizing"
     record.ownership_lost = closure == "ownership_lost"
@@ -130,7 +137,7 @@ async def test_narrow_writer_seal_requires_original_closed_terminal_record(check
                 assert {name: getattr(receipt, name) for name in identity.__dataclass_fields__} == {name: getattr(identity, name) for name in identity.__dataclass_fields__}
                 assert (receipt.last_seq, receipt.core_status, receipt.source, receipt.created_at) == (0, "success", "writer", first.created_at)
         else:
-            with pytest.raises(RuntimeError, match="closure|terminal"):
+            with pytest.raises(RuntimeError, match="closure|terminal|ownership"):
                 await seals.writer_seal(identity=identity, spec=item.spec, capability=capability, original_record=record)
     async with item.engine.connect() as connection:
         rows = (await connection.execute(text("SELECT source,last_seq,core_status FROM fleet_stream_seals"))).all()
@@ -238,14 +245,20 @@ async def test_retained_private_sequence_survives_actual_host_event_deletion(che
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("field,value", [("last_seq", 1), ("core_status", "error"), ("thread_id", "foreign-thread"), ("user_id", "foreign-user"), ("generation", 999), ("launch_spec_digest", "0" * 64)])
-async def test_repeat_original_writer_rejects_conflicting_durable_seal(checkpoint_owner, field, value):
+async def test_repeat_original_writer_rejects_conflicting_durable_seal(prepared_pair, field, value):
     from app.fleet.events import FleetStreamSeals, RemoteStreamIdentity
     from app.fleet.mutation import FleetMutationCapability
     from deerflow.runtime.execution.mutation_context import OwnershipRejected, remote_mutation_scope
     from deerflow.runtime.runs.manager import RunStatus
 
-    item = checkpoint_owner
+    item = prepared_pair.item
     _, record = await attached_manager(item)
+    from deerflow.persistence.run.sql import RunRepository
+
+    from .test_c08_terminal_pair import participant
+
+    with prepared_pair.scope():
+        await RunRepository(prepared_pair.sf, mutation_capability=prepared_pair.capability, terminal_participant=participant(prepared_pair)).update_status(item.spec.run_id, "success")
     record.status = RunStatus.success
     record.finalizing = False
     async with item.engine.begin() as connection:
@@ -267,3 +280,23 @@ async def test_repeat_original_writer_rejects_conflicting_durable_seal(checkpoin
         await seals.writer_seal(identity=identity, spec=item.spec, capability=capability, original_record=record)
     async with item.engine.connect() as connection:
         assert await connection.scalar(text("SELECT " + field + " FROM fleet_stream_seals")) == value
+
+
+@pytest.mark.asyncio
+async def test_core_terminal_without_accepted_workspace_point_cannot_seal(checkpoint_owner):
+    from app.fleet.events import FleetStreamSeals, RemoteStreamIdentity
+    from app.fleet.mutation import FleetMutationCapability
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected, remote_mutation_scope
+    from deerflow.runtime.runs.manager import RunStatus
+
+    item = checkpoint_owner
+    _, record = await attached_manager(item)
+    record.status = RunStatus.success
+    record.finalizing = False
+    async with item.engine.begin() as conn:
+        await conn.execute(text("UPDATE runs SET status='success'"))
+    capability = FleetMutationCapability(item.identity, item.spec)
+    with remote_mutation_scope(capability.context), pytest.raises(OwnershipRejected, match="ownership"):
+        await FleetStreamSeals(item.env[1]).writer_seal(identity=RemoteStreamIdentity.from_context(capability.context), spec=item.spec, capability=capability, original_record=record)
+    async with item.engine.connect() as conn:
+        assert await conn.scalar(text("SELECT count(*) FROM fleet_stream_seals")) == 0

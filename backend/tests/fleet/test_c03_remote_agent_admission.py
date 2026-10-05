@@ -85,7 +85,7 @@ async def owner_environment(admission, tmp_path):
     session = await runtime.nodes.open_session("node-c03", protocol_version=1)
     await runtime.nodes.heartbeat("node-c03", node_session_id=session["node_session_id"], protocol_version=1)
     credential = await runtime.credentials.issue("node-c03", lifetime_seconds=600)
-    worker = WorkerCompatibility(runtime_digest=cfg.profiles["remote"].runtime_digest, skill_snapshot={"entries": []}, plugin_snapshot={"entries": []})
+    worker = WorkerCompatibility(runtime_digest=cfg.profiles["remote"].runtime_digest, skill_snapshot={"entries": []}, plugin_snapshot={"entries": []}, workspace_contract_version=1)
     record = await services.start_run(body(), "thread-c03-owned", request(RunManager(store=app.state.run_store), user), execution_backend=backend())
     try:
         yield engine, sf, user, runtime, app, record, session["node_session_id"], credential, worker

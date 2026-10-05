@@ -54,5 +54,5 @@ class AgentTasks:
             "current_run_id": task.current_run_id,
             "generation": task.generation,
             "cancel_requested": task.cancel_requested_at is not None,
-            "recovery_required": task.state in {"unknown", "input_required"},
+            "recovery_required": task.state in {"unknown", "recovery_required"},
         }

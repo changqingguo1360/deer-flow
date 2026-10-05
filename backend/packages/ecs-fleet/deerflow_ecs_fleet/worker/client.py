@@ -6,7 +6,7 @@ import httpx
 
 
 class NodeClient:
-    def __init__(self, *, gateway_url: str, credential: str, timeout_seconds: float = 10, http_client=None, claim_kind="job", compatibility=None):
+    def __init__(self, *, gateway_url: str, credential: str, timeout_seconds: float = 10, http_client=None, claim_kind="job", compatibility=None, compatibility_loader=None):
         url = urlsplit(gateway_url)
         if url.scheme not in {"http", "https"} or url.username or url.password or url.query or url.fragment:
             raise ValueError("Invalid Gateway URL")
@@ -14,10 +14,16 @@ class NodeClient:
             raise ValueError("Node credentials require HTTPS outside loopback")
         if not credential.startswith("df_fleet_"):
             raise ValueError("Node credential required")
-        if claim_kind not in {"job", "agent"} or (claim_kind == "agent") != (compatibility is not None):
+        if (
+            claim_kind not in {"job", "agent"}
+            or (claim_kind == "job" and (compatibility is not None or compatibility_loader is not None))
+            or (claim_kind == "agent" and compatibility is None and not callable(compatibility_loader))
+            or (compatibility_loader is not None and (compatibility is not None or not callable(compatibility_loader)))
+        ):
             raise ValueError("Invalid worker claim capability")
         self.claim_kind = claim_kind
         self.compatibility = compatibility
+        self._compatibility_loader = compatibility_loader
         self._credential = credential
         self._client = http_client or httpx.AsyncClient(base_url=gateway_url.rstrip("/") + "/", timeout=timeout_seconds, follow_redirects=False)
         self._owned = http_client is None
@@ -41,6 +47,14 @@ class NodeClient:
     async def claim(self):
         body = {"node_session_id": self.session_id}
         if self.claim_kind == "agent":
+            if self._compatibility_loader is not None:
+                from ..launch_spec import WorkerCompatibility
+
+                candidate = WorkerCompatibility.model_validate(await self._compatibility_loader())
+                if candidate.workspace_contract_version != 1:
+                    raise ValueError("Installed workspace contracts required for new Agent claims")
+                self.compatibility = candidate.model_dump(mode="json")
+                self._compatibility_loader = None
             body.update(kind="agent", compatibility=self.compatibility)
         return await self.call("claims", body)
 

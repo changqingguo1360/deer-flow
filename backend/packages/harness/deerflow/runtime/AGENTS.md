@@ -198,7 +198,9 @@ connection and explicit transaction across the host ownership locks, validation,
 stock SQL and commit/rollback. Pipeline mode alone is not a transaction fence;
 a guard using an independent SQLAlchemy session is insufficient. Reads retain
 stock behavior. Fence the inner PostgreSQL saver before CachedHistorySaver;
-full/delta state access still uses CheckpointStateAccessor. Unsupported inherited
+full/delta state access still uses CheckpointStateAccessor. The wrapper explicitly forwards
+`after_root_commit` reads/replacements to the committing saver; setting a
+wrapper-only callback would silently omit delta-mode publication. Unsupported inherited
 copy/prune/delete-for-runs operations remain unsupported. The separate sync
 PostgresSaver is a Local path; do not present it as remote-fenced.
 
@@ -308,3 +310,63 @@ Fleet from the harness. `stream.frame`/`stream` is a separate transport projecti
 not a message-history row. App adapters preserve actual frame event/namespace and
 value; trace-derived envelopes enforce the exact persisted JSON byte limit before
 writing. The narrow terminal seal is app-owned and grants no events.* authority.
+
+
+Remote workspace terminal pairing uses the neutral `RunTerminalParticipant`
+on each original RunRepository terminal transaction. Its before/after hooks
+share the writer's original AsyncSession; after runs only for an updated row,
+before original SQL flush/fresh ownership validation and commit. Hooks do no
+file copying, writer settlement or network work. Local has no participant.
+
+A bound remote worker uses sync durability on both stock astream shapes. Root
+saver callbacks execute after the original saver cursor/transaction/connection
+and lock have exited. Presentation intents derive from trusted ExecutionInfo
+and successful materialized root ToolMessages; task namespaces include a
+node/task suffix even at the root. Subgraph parents never stage root points.
+Full/delta reads use the original CheckpointStateAccessor, not raw channel data.
+
+Remote duration/history/title root copies preserve corresponding pending task
+writes by exact name/path, including cached completed tool results. Interrupt
+IDs are rebuilt with the new task namespace so explicit keyed Command resume
+continues the actual copied task. Missing/ambiguous mappings fail closed.
+Actual graph pending tasks yield interrupted/paused boundaries; human interrupts
+request input. Preparation follows the last original checkpoint mutation.
+Checkpoint/preparation failure cannot produce END or clear retained stream state.
+Final workspace gates never reopen; only a committed exact partial pair permits
+original same-owner writer/MCP reopening. Physical-stop outcome application and
+immutable accepted final/paused authority belong to the Fleet host. Node workspace
+poll/claim may return a read-only idle receipt under exact original ownership and
+lease fences: finishing requires the accepted final point/current root, and an
+accepted request requires its immutable point/descriptor/nonce/epoch and same-run
+root ancestry. Idle grants no launch, copy, writer reopening or new claim; the
+Node returns before further census/copy. Ordinary terminal writes stay fenced.
+
+Trusted terminal participants require the original cancellation CAS even when
+Local heartbeat is disabled (the host may own remote lease renewal). The three
+RunManager terminal entry paths propagate participant/SQL faults; ordinary Local
+best-effort bookkeeping defaults remain unchanged. A fault after accepted final
+keeps that immutable point but blocks live END. Exact physical-stop recovery may
+seal the accepted outcome after the original process stops.
+
+The original clarification middleware ends via Command(goto=END), which may
+leave snapshot.next/tasks empty. Remote completion also checks its private
+current-run root human-input observation against the materialized successful
+ToolMessage and last assistant tool call. This produces interrupted/input_required;
+ordinary graph pauses without a human request produce interrupted/paused.
+Historical cards alone do not confer this authority. Card/request IDs retain
+their original protocol identity.
+
+Remote workers refresh materialized pause immediately after every original
+stream turn, including hidden goal continuations, before the next goal evaluator
+or checkpoint copy can run. A paused turn retains its pending interrupt IDs and
+cached parallel results and cannot enqueue another hidden turn or become success.
+Local goal continuation defaults remain unchanged.
+
+
+Thread routing uses neutral host `ThreadExecutionBindingRow` storage and an
+application-injected transactional admission guard. Harness must not import app
+or Fleet for this check. Server-owned bindings survive run/cache state changes;
+client metadata cannot grant routing or branch identity. `store_only` records
+defer to trusted SQL admission, while actual Local executors retain their
+same-worker guard. See [C08 runtime contracts](../../../../../docs/ecs-fleet-c08-runtime.md)
+for accepted-source preparation, immutable file reads and branch recovery.

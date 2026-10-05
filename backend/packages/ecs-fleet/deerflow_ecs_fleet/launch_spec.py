@@ -5,7 +5,7 @@ import json
 from datetime import UTC
 from typing import Annotated, Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, field_serializer, field_validator, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, JsonValue, field_serializer, field_validator, model_serializer, model_validator
 
 from .config import NAME_PATTERN, ExecutionProfile
 
@@ -63,6 +63,14 @@ class WorkerCompatibility(FrozenModel):
     runtime_digest: Digest
     skill_snapshot: Snapshot
     plugin_snapshot: Snapshot
+    workspace_contract_version: Literal[1] | None = None
+
+    @field_validator("workspace_contract_version", mode="before")
+    @classmethod
+    def workspace_version(cls, value):
+        if value is not None and (type(value) is not int or value != 1):
+            raise ValueError("Unsupported workspace contract capability")
+        return value
 
 
 class SecretReference(FrozenModel):
@@ -136,6 +144,9 @@ class LaunchSpec(FrozenModel):
     skill_snapshot: Snapshot
     plugin_snapshot: Snapshot
     workspace_manifest_ref: Identity
+    source_workspace_point_id: Identity | None = None
+    source_workspace_thread_id: Identity | None = None
+    source_workspace_checkpoint_id: Identity | None = None
     secret_refs: tuple[SecretReference, ...]
     resources: AgentResources
 
@@ -176,6 +187,14 @@ class LaunchSpec(FrozenModel):
         if len({ref.name for ref in self.secret_refs}) != len(self.secret_refs):
             raise ValueError("Secret binding names must be unique")
         return self
+
+    @model_serializer(mode="wrap")
+    def serialize_legacy_compatible(self, handler):
+        value = handler(self)
+        for name in ("source_workspace_point_id", "source_workspace_thread_id", "source_workspace_checkpoint_id"):
+            if getattr(self, name) is None:
+                value.pop(name, None)
+        return value
 
     def canonical_payload(self):
         return self.model_dump(mode="json")

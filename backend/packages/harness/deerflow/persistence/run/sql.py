@@ -11,12 +11,12 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import case, func, inspect, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from deerflow.persistence.run.model import RunRow
-from deerflow.runtime.execution.contracts import RunAdmissionParticipant, RunAdmissionUnitOfWork
+from deerflow.persistence.run.model import RunRow, ThreadExecutionBindingRow
+from deerflow.runtime.execution.contracts import RunAdmissionParticipant, RunAdmissionUnitOfWork, RunTerminalParticipant
 from deerflow.runtime.execution.mutation_context import reject_remote_operation, validate_mutation, validate_mutation_after_sql
 from deerflow.runtime.runs.store.base import (
     LeaseRenewal,
@@ -36,10 +36,121 @@ def _lease_expired_or_null(lease_col, cutoff: datetime):
 class RunRepository(RunStore):
     supports_admission_participants = True
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, mutation_capability=None) -> None:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, mutation_capability=None, terminal_participant: RunTerminalParticipant | None = None) -> None:
         self._sf = session_factory
         self._mutation_capability = mutation_capability
+        self._terminal_participant = terminal_participant
         self._local_recovery_predicate = None
+        self._thread_admission_guard = None
+
+    def set_thread_admission_guard(self, guard):
+        """Trusted application participant; invoked on the original admission TX."""
+        self._thread_admission_guard = guard
+
+    async def _persisted_thread_backend(self, session, *, user_id, thread_id):
+        """Follow existing owner-scoped server branch lineage parent first."""
+        from deerflow.persistence.thread_meta.model import ThreadMetaRow
+        from deerflow.runtime.runs.manager import ConflictError
+
+        connection = await session.connection()
+        has_metadata = await connection.run_sync(lambda conn: inspect(conn).has_table("threads_meta"))
+        seen = set()
+        current = thread_id
+        lineage = []
+        labels = set()
+        branch_records = []
+        for _ in range(64):
+            if current in seen:
+                raise ConflictError("Thread execution ancestry is inconsistent")
+            seen.add(current)
+            binding = await session.get(ThreadExecutionBindingRow, (user_id, current))
+            if binding is not None:
+                labels.add(binding.backend)
+            history = (await session.execute(select(RunRow.kwargs_json).where(RunRow.user_id == user_id, RunRow.thread_id == current).order_by(RunRow.created_at))).scalars()
+            labels.update(row.get("execution_backend") for row in history if row.get("execution_backend") not in (None, "local"))
+            record = await session.get(ThreadMetaRow, current) if has_metadata else None
+            metadata = record.metadata_json if record is not None else {}
+            parent = metadata.get("branch_parent_thread_id") if metadata.get("deerflow_branch") is True else None
+            if record is not None and record.user_id not in (None, user_id):
+                raise ConflictError("Thread execution ancestry owner conflicts")
+            lineage.append((current, parent))
+            if parent is None:
+                break
+            if not isinstance(parent, str) or not parent or len(parent) > 64:
+                raise ConflictError("Thread execution ancestry is malformed")
+            branch_records.append((current, parent, record, metadata.get("branch_parent_checkpoint_id")))
+            current = parent
+        else:
+            raise ConflictError("Thread execution ancestry exceeds its bound")
+        if len(labels) > 1:
+            raise ConflictError("Thread execution routing is inconsistent")
+        if labels and branch_records:
+            # Legacy metadata is only a hint. Validate each owner and original
+            # checkpoint against server-written core execution history before
+            # backfilling any independent routing rows.
+            has_checkpoints = await connection.run_sync(lambda conn: inspect(conn).has_table("checkpoints"))
+            if not has_checkpoints:
+                raise ConflictError("Remote branch ancestry cannot be verified")
+            for child, parent, record, checkpoint in branch_records:
+                parent_record = await session.get(ThreadMetaRow, parent)
+                if record is None or record.user_id != user_id or parent_record is None or parent_record.user_id != user_id or not isinstance(checkpoint, str) or not checkpoint:
+                    raise ConflictError("Remote branch ancestry owner/checkpoint conflicts")
+                root = await session.scalar(text("SELECT metadata FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' AND checkpoint_id=:checkpoint"), {"thread": parent, "checkpoint": checkpoint})
+                run = await session.get(RunRow, root.get("deerflow_execution_run_id")) if isinstance(root, dict) and root.get("deerflow_execution_run_id") else None
+                if run is None or run.user_id != user_id or run.thread_id != parent or run.kwargs_json.get("execution_backend") not in labels:
+                    raise ConflictError("Remote branch ancestry execution conflicts")
+        return next(iter(labels), None), lineage
+
+    async def _guard_thread_admission(self, session, *, user_id, thread_id, backend, operation, participant):
+        from deerflow.runtime.runs.manager import ConflictError
+
+        if session.get_bind().dialect.name == "postgresql":
+            await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || '|thread-execution|' || :key,0))"), {"key": json.dumps([user_id, thread_id])})
+        binding = await session.get(ThreadExecutionBindingRow, (user_id, thread_id), with_for_update=True)
+        if binding is None:
+            historical, lineage = await self._persisted_thread_backend(session, user_id=user_id, thread_id=thread_id)
+            label = historical or (backend if backend != "local" else None)
+            if label is not None:
+                # Persist ancestors before descendants; public metadata cannot
+                # replace these independent host-owned routing rows.
+                for ancestor, parent in reversed(lineage):
+                    row = await session.get(ThreadExecutionBindingRow, (user_id, ancestor), with_for_update=True)
+                    if row is None:
+                        row = ThreadExecutionBindingRow(user_id=user_id, thread_id=ancestor, backend=label, parent_thread_id=parent)
+                        session.add(row)
+                        await session.flush()
+                    elif row.backend != label:
+                        raise ConflictError("Thread execution routing conflicts")
+                    if ancestor == thread_id:
+                        binding = row
+        if binding is not None:
+            if binding.recovery_required or (binding.parent_thread_id is not None and not binding.source_workspace):
+                # A legacy routing backfill proves backend/ancestry only. It
+                # cannot authorize a new branch run without its exact immutable
+                # workspace origin; never treat it as an initial-input thread.
+                raise ConflictError("Thread workspace requires recovery")
+            guard = self._thread_admission_guard or getattr(participant, "guard_thread", None)
+            if guard is None:
+                raise ConflictError("Thread execution backend is unavailable")
+            await guard(session, user_id=user_id, thread_id=thread_id, backend=binding.backend, requested_backend=backend, operation=operation)
+
+    async def check_thread_admission(self, thread_id, *, user_id, operation="checkpoint_write"):
+        resolved = resolve_user_id(user_id or AUTO, method_name="RunRepository.check_thread_admission")
+        async with self._sf.begin() as session:
+            await self._guard_thread_admission(session, user_id=resolved, thread_id=thread_id, backend="local", operation=operation, participant=None)
+
+    async def thread_execution_backend(self, thread_id, *, user_id):
+        async with self._sf() as session:
+            binding = await session.get(ThreadExecutionBindingRow, (user_id, thread_id))
+            if binding is not None:
+                return binding.backend
+            backend, _ = await self._persisted_thread_backend(session, user_id=user_id, thread_id=thread_id)
+            return backend
+
+    async def _terminal_hook(self, phase, session, *, run_id, status, error=None, stop_reason=None):
+        if self._terminal_participant is not None and status in {"success", "error", "interrupted", "timeout"}:
+            await session.connection()
+            await getattr(self._terminal_participant, phase)(session, run_id=run_id, status=status, error=error, stop_reason=stop_reason)
 
     def set_local_recovery_predicate(self, predicate):
         """Trusted host SQL expression, always additional to the backend fence."""
@@ -270,12 +381,15 @@ class RunRepository(RunStore):
         # ``error`` and ``success`` remain locked so a peer's takeover (or a
         # completed run) cannot be overwritten by a late writer.
         async with self._sf() as session:
+            await self._terminal_hook("before_transition", session, run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             await validate_mutation(self._mutation_capability, session, "run.status", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             result = await session.execute(
                 update(RunRow)
                 .where(RunRow.run_id == run_id, RunRow.status.in_(("pending", "running", "interrupted") if self._mutation_capability is None else ("pending", "running", "interrupted", "success", "error", "timeout")))
                 .values(**values)
             )
+            if result.rowcount != 0:
+                await self._terminal_hook("after_transition", session, run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             await validate_mutation_after_sql(self._mutation_capability, session, "run.status", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             await session.commit()
             return result.rowcount != 0
@@ -439,6 +553,7 @@ class RunRepository(RunStore):
         if status == "error" and "interrupted" not in allowed_sources:
             allowed_sources.append("interrupted")
         async with self._sf() as session:
+            await self._terminal_hook("before_transition", session, run_id=run_id, status=status, error=error)
             await validate_mutation(self._mutation_capability, session, "run.completion", run_id=run_id, status=status, error=error)
             result = await session.execute(
                 update(RunRow)
@@ -448,6 +563,8 @@ class RunRepository(RunStore):
                 )
                 .values(**values)
             )
+            if result.rowcount != 0:
+                await self._terminal_hook("after_transition", session, run_id=run_id, status=status, error=error)
             await validate_mutation_after_sql(self._mutation_capability, session, "run.completion", run_id=run_id, status=status, error=error)
             await session.commit()
             return result.rowcount != 0
@@ -671,6 +788,7 @@ class RunRepository(RunStore):
             values["stop_reason"] = stop_reason
 
         async with self._sf() as session:
+            await self._terminal_hook("before_transition", session, run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             await validate_mutation(self._mutation_capability, session, "run.finalize", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             result = await session.execute(
                 update(RunRow)
@@ -683,6 +801,7 @@ class RunRepository(RunStore):
                 .returning(RunRow.run_id)
             )
             if result.first() is not None:
+                await self._terminal_hook("after_transition", session, run_id=run_id, status=status, error=error, stop_reason=stop_reason)
                 await validate_mutation_after_sql(self._mutation_capability, session, "run.finalize", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
                 await session.commit()
                 return StatusFinalization(finalized=True)
@@ -814,14 +933,22 @@ class RunRepository(RunStore):
 
         try:
             async with RunAdmissionUnitOfWork(self._sf).transaction() as session:
+                if session.get_bind().dialect.name == "postgresql":
+                    await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || '|thread-execution|' || :key,0))"), {"key": json.dumps([resolved_user_id, thread_id])})
+                if participant is not None and idempotency_key is not None:
+                    existing = (await session.execute(select(RunRow).where(RunRow.idempotency_key == idempotency_key))).scalar_one_or_none()
+                    if existing is not None:
+                        stored = self._row_to_dict(existing)
+                        await participant.validate_reuse(session, stored)
+                        raise RunIdempotencyConflict(stored)
+                await self._guard_thread_admission(
+                    session, user_id=resolved_user_id, thread_id=thread_id, backend=(kwargs or {}).get("execution_backend", "local") if participant is not None else "local", operation=operation_kind, participant=participant
+                )
                 if participant is not None:
                     await participant.prepare(session)
-                    if idempotency_key is not None:
-                        existing = (await session.execute(select(RunRow).where(RunRow.idempotency_key == idempotency_key))).scalar_one_or_none()
-                        if existing is not None:
-                            stored = self._row_to_dict(existing)
-                            await participant.validate_reuse(session, stored)
-                            raise RunIdempotencyConflict(stored)
+                now = await session.scalar(select(func.clock_timestamp())) if session.get_bind().dialect.name == "postgresql" else datetime.now(UTC)
+                cutoff = now - timedelta(seconds=grace_seconds)
+                values["updated_at"] = now
                 claimed: list[dict[str, Any]] = []
 
                 if multitask_strategy in ("interrupt", "rollback"):

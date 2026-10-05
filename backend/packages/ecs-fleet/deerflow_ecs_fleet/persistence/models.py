@@ -1,6 +1,6 @@
 """Shared identities and budgets for job and Agent execution attempts."""
 
-from sqlalchemy import JSON, BigInteger, CheckConstraint, Column, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Table, Text, UniqueConstraint, text
+from sqlalchemy import JSON, BigInteger, CheckConstraint, Column, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, PrimaryKeyConstraint, String, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .base import FleetBase
@@ -222,13 +222,14 @@ class AgentTaskRow(FleetBase):
         timestamp("deadline"),
         Column("continuation_budget", Integer, nullable=False),
         Column("wait_group_id", String(64)),
+        Column("accepted_workspace_point_id", String(64)),
         timestamp("cancel_requested_at", nullable=True),
         timestamp("created_at"),
         timestamp("updated_at"),
         UniqueConstraint("id", "user_id", "thread_id", name="uq_fleet_agent_task_owner"),
         ForeignKeyConstraint(["current_run_id", "id"], ["fleet_run_placements.run_id", "fleet_run_placements.agent_task_id"], name="fk_fleet_agent_task_current_run", deferrable=True, initially="DEFERRED", use_alter=True),
         CheckConstraint("generation > 0 AND continuation_budget >= 0", name="ck_fleet_agent_task_budgets"),
-        CheckConstraint("state IN ('queued','running','waiting_jobs','paused','input_required','unknown','succeeded','failed','cancelled','timed_out')", name="ck_fleet_agent_task_state"),
+        CheckConstraint("state IN ('queued','running','waiting_jobs','paused','input_required','unknown','finishing','recovery_required','succeeded','failed','cancelled','timed_out')", name="ck_fleet_agent_task_state"),
         Index("uq_fleet_agent_task_active_thread", "user_id", "thread_id", unique=True, postgresql_where=text(AGENT_TASK_ACTIVE)),
     )
 
@@ -268,6 +269,7 @@ class RunPlacementRow(FleetBase):
         Column("state", String(24), nullable=False, server_default="queued"),
         Column("active_attempt_id", String(64), ForeignKey("fleet_attempts.id")),
         Column("launch_spec_ref", String(64), nullable=False, unique=True),
+        Column("final_workspace_point_id", String(64)),
         timestamp("queue_deadline"),
         timestamp("created_at"),
         timestamp("updated_at"),
@@ -279,7 +281,7 @@ class RunPlacementRow(FleetBase):
         ),
         CheckConstraint("generation > 0", name="ck_fleet_placement_generation"),
         CheckConstraint("requested_backend IN ('remote','auto')", name="ck_fleet_placement_backend"),
-        CheckConstraint("state IN ('queued','claimed','running','unknown','succeeded','failed','cancelled','timed_out')", name="ck_fleet_placement_state"),
+        CheckConstraint("state IN ('queued','claimed','running','unknown','finishing','recovery_required','succeeded','failed','cancelled','timed_out')", name="ck_fleet_placement_state"),
     )
 
 
@@ -320,4 +322,222 @@ class StreamSealRow(FleetBase):
         CheckConstraint("generation > 0 AND last_seq >= 0", name="ck_fleet_stream_seal_sequence"),
         CheckConstraint("core_status IN ('success','error','interrupted','timeout')", name="ck_fleet_stream_seal_status"),
         CheckConstraint("source IN ('writer','physical_stop')", name="ck_fleet_stream_seal_source"),
+    )
+
+
+# C ownership keys bind the immutable execution chain inside Fleet metadata.
+_WORKSPACE_OWNER = ("run_id", "agent_task_id", "generation", "user_id", "thread_id")
+_WORKSPACE_EXECUTION = (*_WORKSPACE_OWNER, "attempt_id", "launch_spec_digest", "node_id", "node_session_id", "token_stamp", "process_ref")
+AttemptRow.__table__.append_constraint(UniqueConstraint("id", "run_id", name="uq_fleet_attempt_run_identity"))
+AttemptRow.__table__.append_constraint(UniqueConstraint("id", "run_id", "node_id", "node_session_id", "token_hash", "process_ref", name="uq_fleet_attempt_original_execution"))
+RunPlacementRow.__table__.append_constraint(UniqueConstraint(*_WORKSPACE_OWNER, name="uq_fleet_placement_workspace_owner"))
+LaunchSpecRow.__table__.append_constraint(UniqueConstraint(*_WORKSPACE_OWNER, "payload_digest", name="uq_fleet_launch_workspace_digest"))
+
+
+def workspace_identity_columns():
+    return [Column(name, Integer if name == "generation" else String(128 if name in {"process_ref", "owner_worker_id"} else 71 if name == "launch_spec_digest" else 64), nullable=False) for name in (*_WORKSPACE_EXECUTION, "owner_worker_id")]
+
+
+def workspace_identity_constraints(prefix):
+    return [
+        ForeignKeyConstraint(list(_WORKSPACE_OWNER), ["fleet_run_placements." + name for name in _WORKSPACE_OWNER], name="fk_" + prefix + "_placement"),
+        ForeignKeyConstraint([*_WORKSPACE_OWNER, "launch_spec_digest"], [*("fleet_launch_specs." + name for name in _WORKSPACE_OWNER), "fleet_launch_specs.payload_digest"], name="fk_" + prefix + "_launch"),
+        ForeignKeyConstraint(["attempt_id", "run_id"], ["fleet_attempts.id", "fleet_attempts.run_id"], name="fk_" + prefix + "_attempt"),
+        ForeignKeyConstraint(
+            ["attempt_id", "run_id", "node_id", "node_session_id", "token_stamp", "process_ref"],
+            ["fleet_attempts.id", "fleet_attempts.run_id", "fleet_attempts.node_id", "fleet_attempts.node_session_id", "fleet_attempts.token_hash", "fleet_attempts.process_ref"],
+            name="fk_" + prefix + "_execution",
+        ),
+        CheckConstraint("process_ref = 'fleet-' || attempt_id AND generation > 0 AND owner_worker_id = 'fleet-agent:' || attempt_id", name="ck_" + prefix + "_owner"),
+        CheckConstraint("launch_spec_digest ~ '^sha256:[a-f0-9]{64}$' AND token_stamp ~ '^[a-f0-9]{64}$'", name="ck_" + prefix + "_digests"),
+    ]
+
+
+class WorkspaceRequestRow(FleetBase):
+    __table__ = Table(
+        "fleet_workspace_requests",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        *workspace_identity_columns(),
+        Column("request_digest", String(64), nullable=False),
+        Column("checkpoint_ns", String(64), nullable=False, server_default=""),
+        Column("checkpoint_id", String(128), nullable=False),
+        Column("kind", String(16), nullable=False),
+        Column("publication_key", String(128), nullable=False),
+        Column("presented_paths", json_type, nullable=False),
+        Column("source_workspace_version", String(128), nullable=False),
+        Column("desired_core_status", String(16)),
+        Column("desired_task_status", String(24)),
+        Column("desired_placement_status", String(24)),
+        Column("error", Text),
+        Column("stop_reason", String(128)),
+        Column("state", String(16), nullable=False, server_default="requested"),
+        Column("claim_nonce", String(64)),
+        timestamp("claim_lease_expires_at", nullable=True),
+        Column("barrier_epoch", BigInteger, nullable=False, server_default="0"),
+        Column("candidate_manifest_id", String(64)),
+        Column("rejection", Text),
+        timestamp("created_at"),
+        timestamp("updated_at"),
+        *workspace_identity_constraints("fleet_workspace_request"),
+        UniqueConstraint("attempt_id", "checkpoint_id", "kind", "publication_key", name="uq_fleet_workspace_request_publication"),
+        UniqueConstraint("id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest", "checkpoint_ns", "checkpoint_id", "kind", "publication_key", name="uq_fleet_workspace_request_identity"),
+        CheckConstraint("checkpoint_ns = '' AND checkpoint_id <> '' AND publication_key <> '' AND source_workspace_version <> ''", name="ck_fleet_workspace_request_boundary"),
+        CheckConstraint("kind IN ('partial','final','paused') AND state IN ('requested','sealing','prepared','accepted','rejected')", name="ck_fleet_workspace_request_state"),
+        CheckConstraint("request_digest ~ '^[a-f0-9]{64}$' AND jsonb_typeof(presented_paths) = 'array'", name="ck_fleet_workspace_request_content"),
+        CheckConstraint("barrier_epoch >= 0 AND (claim_nonce IS NULL) = (claim_lease_expires_at IS NULL)", name="ck_fleet_workspace_request_claim"),
+        CheckConstraint(
+            """
+(kind='partial' AND desired_core_status IS NULL AND desired_task_status IS NULL AND desired_placement_status IS NULL AND error IS NULL AND stop_reason IS NULL) OR (kind IN
+('final','paused') AND desired_core_status IS NOT NULL AND desired_task_status IS NOT NULL AND desired_placement_status IS NOT NULL AND desired_core_status IN
+('success','error','interrupted','timeout') AND desired_task_status IN ('succeeded','failed','cancelled','timed_out','paused','input_required') AND desired_placement_status IN
+('succeeded','failed','cancelled','timed_out'))
+""",
+            name="ck_fleet_workspace_request_outcome",
+        ),
+        Index("ix_fleet_workspace_request_pending", "state", "claim_lease_expires_at"),
+    )
+
+
+class WorkspaceManifestRow(FleetBase):
+    __table__ = Table(
+        "fleet_workspace_manifests",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        *workspace_identity_columns(),
+        Column("request_digest", String(64), nullable=False),
+        Column("content_hash", String(64), nullable=False),
+        Column("schema_version", Integer, nullable=False, server_default="1"),
+        Column("categories", json_type, nullable=False),
+        Column("directories", json_type, nullable=False),
+        Column("files", json_type, nullable=False),
+        Column("total_bytes", BigInteger, nullable=False),
+        Column("nas_prefix", String(512), nullable=False, unique=True),
+        timestamp("sealed_at"),
+        *workspace_identity_constraints("fleet_workspace_manifest"),
+        UniqueConstraint("id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest", name="uq_fleet_workspace_manifest_identity"),
+        CheckConstraint("schema_version=1 AND total_bytes>=0 AND id=content_hash AND content_hash ~ '^[a-f0-9]{64}$' AND request_digest ~ '^[a-f0-9]{64}$'", name="ck_fleet_workspace_manifest_content"),
+        CheckConstraint("categories = '[\"workspace\",\"uploads\",\"outputs\"]'::jsonb AND jsonb_typeof(files)='array' AND jsonb_typeof(directories)='array'", name="ck_fleet_workspace_manifest_inventory"),
+    )
+
+
+class WorkspacePointRow(FleetBase):
+    __table__ = Table(
+        "fleet_workspace_points",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        *workspace_identity_columns(),
+        Column("request_id", String(64), nullable=False, unique=True),
+        Column("request_digest", String(64), nullable=False),
+        Column("checkpoint_ns", String(64), nullable=False, server_default=""),
+        Column("checkpoint_id", String(128), nullable=False),
+        Column("manifest_id", String(64), nullable=False),
+        Column("kind", String(16), nullable=False),
+        Column("publication_key", String(128), nullable=False),
+        Column("desired_core_status", String(16)),
+        Column("desired_task_status", String(24)),
+        Column("desired_placement_status", String(24)),
+        Column("error", Text),
+        Column("stop_reason", String(128)),
+        timestamp("accepted_at"),
+        *workspace_identity_constraints("fleet_workspace_point"),
+        UniqueConstraint("id", "agent_task_id", "user_id", "thread_id", name="uq_fleet_workspace_point_task_owner"),
+        UniqueConstraint("id", *_WORKSPACE_OWNER, name="uq_fleet_workspace_point_run_owner"),
+        ForeignKeyConstraint(
+            ["request_id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest", "checkpoint_ns", "checkpoint_id", "kind", "publication_key"],
+            ["fleet_workspace_requests." + name for name in ("id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest", "checkpoint_ns", "checkpoint_id", "kind", "publication_key")],
+            name="fk_fleet_workspace_point_request",
+        ),
+        ForeignKeyConstraint(
+            ["manifest_id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest"],
+            ["fleet_workspace_manifests." + name for name in ("id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest")],
+            name="fk_fleet_workspace_point_manifest",
+        ),
+        CheckConstraint("checkpoint_ns='' AND kind IN ('partial','final','paused')", name="ck_fleet_workspace_point_boundary"),
+        CheckConstraint(
+            """
+(kind='partial' AND desired_core_status IS NULL AND desired_task_status IS NULL AND desired_placement_status IS NULL AND error IS NULL AND stop_reason IS NULL) OR (kind IN
+('final','paused') AND desired_core_status IS NOT NULL AND desired_task_status IS NOT NULL AND desired_placement_status IS NOT NULL AND desired_core_status IN
+('success','error','interrupted','timeout') AND desired_task_status IN ('succeeded','failed','cancelled','timed_out','paused','input_required') AND desired_placement_status IN
+('succeeded','failed','cancelled','timed_out'))
+""",
+            name="ck_fleet_workspace_point_outcome",
+        ),
+        Index("uq_fleet_workspace_point_final_run", "run_id", unique=True, postgresql_where=text("kind IN ('final','paused')")),
+    )
+
+
+AgentTaskRow.__table__.append_constraint(
+    ForeignKeyConstraint(
+        ["accepted_workspace_point_id", "id", "user_id", "thread_id"],
+        ["fleet_workspace_points.id", "fleet_workspace_points.agent_task_id", "fleet_workspace_points.user_id", "fleet_workspace_points.thread_id"],
+        name="fk_fleet_agent_task_workspace_point",
+        deferrable=True,
+        initially="DEFERRED",
+        use_alter=True,
+    )
+)
+RunPlacementRow.__table__.append_constraint(
+    ForeignKeyConstraint(
+        ["final_workspace_point_id", *_WORKSPACE_OWNER],
+        ["fleet_workspace_points.id", *("fleet_workspace_points." + name for name in _WORKSPACE_OWNER)],
+        name="fk_fleet_placement_workspace_point",
+        deferrable=True,
+        initially="DEFERRED",
+        use_alter=True,
+    )
+)
+WorkspaceRequestRow.__table__.append_constraint(
+    ForeignKeyConstraint(
+        ["candidate_manifest_id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest"],
+        ["fleet_workspace_manifests." + name for name in ("id", *_WORKSPACE_EXECUTION, "owner_worker_id", "request_digest")],
+        name="fk_fleet_workspace_request_candidate",
+        deferrable=True,
+        initially="DEFERRED",
+        use_alter=True,
+    )
+)
+
+WorkspaceRequestRow.__table__.append_constraint(UniqueConstraint("request_digest", *_WORKSPACE_EXECUTION, "owner_worker_id", name="uq_fleet_workspace_request_manifest_owner"))
+WorkspaceManifestRow.__table__.append_constraint(
+    ForeignKeyConstraint(
+        ["request_digest", *_WORKSPACE_EXECUTION, "owner_worker_id"], ["fleet_workspace_requests." + name for name in ("request_digest", *_WORKSPACE_EXECUTION, "owner_worker_id")], name="fk_fleet_workspace_manifest_request"
+    )
+)
+
+
+class WorkspaceProcessRow(FleetBase):
+    __table__ = Table(
+        "fleet_workspace_processes",
+        metadata,
+        *workspace_identity_columns(),
+        Column("pid", Integer, nullable=False),
+        Column("start_ticks", BigInteger, nullable=False),
+        PrimaryKeyConstraint("attempt_id", "pid", "start_ticks"),
+        Column("role", String(16), nullable=False),
+        Column("tool_execution_id", String(64), nullable=False),
+        Column("start_nonce", String(64), nullable=False),
+        Column("source_digest", String(64), nullable=False),
+        Column("supervisor_pid", Integer),
+        Column("supervisor_start_ticks", BigInteger),
+        Column("supervisor_role", String(16), nullable=False, server_default="supervisor"),
+        UniqueConstraint("attempt_id", "pid", "start_ticks", "tool_execution_id", "role", name="uq_fleet_workspace_process_parent"),
+        ForeignKeyConstraint(
+            ["attempt_id", "supervisor_pid", "supervisor_start_ticks", "tool_execution_id", "supervisor_role"],
+            ["fleet_workspace_processes." + name for name in ("attempt_id", "pid", "start_ticks", "tool_execution_id", "role")],
+            name="fk_fleet_workspace_process_supervisor",
+        ),
+        Column("state", String(16), nullable=False, server_default="registered"),
+        timestamp("registered_at"),
+        timestamp("settled_at", nullable=True),
+        *workspace_identity_constraints("fleet_workspace_process"),
+        CheckConstraint("pid > 0 AND start_ticks > 0 AND tool_execution_id <> '' AND source_digest ~ '^[a-f0-9]{64}$' AND start_nonce ~ '^[a-f0-9]{64}$'", name="ck_fleet_workspace_process_identity"),
+        CheckConstraint("role IN ('supervisor','shell') AND state IN ('registered','settled') AND (state='registered')=(settled_at IS NULL)", name="ck_fleet_workspace_process_state"),
+        CheckConstraint(
+            "(role='supervisor' AND supervisor_pid IS NULL AND supervisor_start_ticks IS NULL) OR "
+            "(role='shell' AND supervisor_pid IS NOT NULL AND supervisor_start_ticks IS NOT NULL "
+            "AND supervisor_pid > 0 AND supervisor_start_ticks > 0 AND supervisor_role='supervisor')",
+            name="ck_fleet_workspace_process_parent",
+        ),
+        Index("ix_fleet_workspace_process_owner", "attempt_id", "state"),
     )

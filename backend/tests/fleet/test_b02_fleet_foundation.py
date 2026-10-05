@@ -32,7 +32,7 @@ async def test_b02_contract(fleet_database, tmp_path):
     assert first.ready and second.ready
     async with engine.begin() as conn:
         versions = (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalars().all()
-        assert versions == ["f0008_event_outbox"]
+        assert versions == ["f0009_workspace_points"]
         tables = await conn.run_sync(lambda sync: inspect(sync).get_table_names())
         assert set(tables) == {
             "fleet_alembic_version",
@@ -50,6 +50,10 @@ async def test_b02_contract(fleet_database, tmp_path):
             "fleet_run_placements",
             "fleet_event_outbox",
             "fleet_stream_seals",
+            "fleet_workspace_requests",
+            "fleet_workspace_manifests",
+            "fleet_workspace_points",
+            "fleet_workspace_processes",
         }
         await conn.execute(text("INSERT INTO fleet_nodes (id, name, cpu_millis, memory_mib) VALUES ('node-1', 'worker-1', 1000, 512)"))
     await first.stop()

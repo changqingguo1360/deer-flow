@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import os
@@ -23,6 +22,7 @@ from deerflow.authz.sandbox_authz import (
 from deerflow.config import get_app_config
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.runtime.execution.workspace_boundary import native_writer, settled_workspace_activity, workspace_tool_call
 from deerflow.runtime.secret_context import read_active_secrets
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox.exceptions import (
@@ -1423,6 +1423,7 @@ async def sandbox_authorization_scope_async(runtime: Runtime) -> AsyncIterator[N
         _SANDBOX_AUTHORIZATION_CHECKED.reset(token)
 
 
+@native_writer
 def ensure_sandbox_initialized(runtime: Runtime | None = None) -> Sandbox:
     """Ensure sandbox is initialized, acquiring lazily if needed.
 
@@ -1547,6 +1548,7 @@ async def ensure_sandbox_initialized_async(runtime: Runtime | None = None) -> Sa
     return sandbox
 
 
+@settled_workspace_activity
 async def _run_sync_tool_after_async_sandbox_init(
     func: Callable[..., str] | None,
     runtime: Runtime,
@@ -1560,13 +1562,16 @@ async def _run_sync_tool_after_async_sandbox_init(
             if func is None:
                 return "Error: Tool implementation not available"
 
-            return await asyncio.to_thread(func, runtime, *args)
+            from deerflow.runtime.execution.workspace_boundary import run_native_writer
+
+            return await run_native_writer(func, runtime, *args)
     except SandboxError as e:
         return f"Error: {e}"
     except Exception as e:
         return f"Error: Unexpected error initializing sandbox: {_sanitize_error(e, runtime)}"
 
 
+@native_writer
 def ensure_thread_directories_exist(runtime: Runtime | None) -> None:
     """Ensure thread data directories (workspace, uploads, outputs) exist.
 
@@ -1835,6 +1840,8 @@ def _lark_cli_env_from_runtime(runtime: Runtime, command: str, *, sandbox_paths:
 
 
 @tool("bash", parse_docstring=True)
+@workspace_tool_call
+@native_writer
 def bash_tool(runtime: Runtime, description: str, command: str) -> str:
     """Execute a bash command in a Linux environment.
 
@@ -1919,6 +1926,7 @@ bash_tool.coroutine = _bash_tool_async
 
 
 @tool("ls", parse_docstring=True)
+@native_writer
 def ls_tool(runtime: Runtime, description: str, path: str) -> str:
     """List the contents of a directory up to 2 levels deep in tree format.
 
@@ -1987,6 +1995,7 @@ ls_tool.coroutine = _ls_tool_async
 
 
 @tool("glob", parse_docstring=True)
+@native_writer
 def glob_tool(
     runtime: Runtime,
     description: str,
@@ -2067,6 +2076,7 @@ glob_tool.coroutine = _glob_tool_async
 
 
 @tool("grep", parse_docstring=True)
+@native_writer
 def grep_tool(
     runtime: Runtime,
     description: str,
@@ -2200,6 +2210,7 @@ def read_current_file_content(runtime: Runtime | None, path: str) -> str:
 
 
 @tool("read_file", parse_docstring=True)
+@native_writer
 def read_file_tool(
     runtime: Runtime,
     description: str,
@@ -2295,6 +2306,7 @@ def _effective_write_file_max_bytes() -> int:
 
 
 @tool("write_file", parse_docstring=True)
+@native_writer
 def write_file_tool(
     runtime: Runtime,
     description: str,
@@ -2394,6 +2406,7 @@ write_file_tool.coroutine = _write_file_tool_async
 
 
 @tool("str_replace", parse_docstring=True)
+@native_writer
 def str_replace_tool(
     runtime: Runtime,
     description: str,

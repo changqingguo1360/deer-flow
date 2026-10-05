@@ -1,5 +1,6 @@
 """Host bridge atomically joins private Fleet attempts with the actual core run."""
 
+import asyncio
 import hashlib
 import secrets
 from dataclasses import dataclass, field
@@ -40,6 +41,8 @@ class FleetRunOwnership:
 
     async def claim_agent(self, node_id, *, node_session_id, worker: WorkerCompatibility):
         worker = WorkerCompatibility.model_validate(worker.model_dump(mode="json"))
+        if worker.workspace_contract_version != 1:
+            raise ValueError("Installed workspace contract capability required for new Agent claims")
         if not self.config.enabled or not self.config.agents_enabled or not self.config.jobs_enabled:
             return None
         async with self.sf() as session:
@@ -143,17 +146,89 @@ class FleetRunOwnership:
         }
 
     async def authorize_start(self, **identity):
+        from deerflow_ecs_fleet.launch_spec import LaunchSpec
+
+        from .workspace_files import FleetWorkspaceFiles
+
+        # Authenticate before any NAS reads, then release the original locks.
         async with self.sf.begin() as session:
             rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, **identity)
             task, run, placement, node, reservation, attempt = rows
+            spec = LaunchSpec.model_validate(attempt.launch_spec["launch_spec"])
+            original_digest = spec.payload_digest()
+            if task.state not in {"queued", "running"} or placement.state not in {"claimed", "running"}:
+                raise ValueError("Remote recovery or finishing blocks start")
             if node.admin_state == "disabled" or task.cancel_requested_at is not None or run.cancel_action is not None:
                 raise ValueError("Execution cancellation requested")
-            if attempt.start_authorized_at is None:
-                attempt.start_authorized_at = now
-                attempt.process_ref = "fleet-" + attempt.id
-                attempt.state = "starting"
-            await session.flush()
-            return self.grant(rows, now)
+        source = None
+        if spec.source_workspace_point_id is not None:
+            files = FleetWorkspaceFiles(self.sf, self.config)
+            try:
+                metadata, manifest = await files.selected(user_id=spec.user_id, thread_id=spec.source_workspace_thread_id or spec.thread_id, point_id=spec.source_workspace_point_id)
+                if (spec.source_workspace_checkpoint_id or spec.normalized_config["configurable"].get("checkpoint_id")) != metadata["checkpoint_id"]:
+                    raise ValueError("Original accepted checkpoint selector conflicts")
+                await asyncio.to_thread(files.versions.verify, manifest)
+                source = dict(point_id=metadata["point_id"], checkpoint_id=metadata["checkpoint_id"], manifest=manifest.model_dump(mode="json"))
+            except (LookupError, ValueError, OSError):
+                # A failed verification has no start authority; persist recovery
+                # only through the still-original node/attempt/lease fence.
+                async with self.sf.begin() as session:
+                    rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, **identity)
+                    task, run, placement, node, reservation, attempt = rows
+                    if LaunchSpec.model_validate(attempt.launch_spec["launch_spec"]).payload_digest() != original_digest:
+                        raise ValueError("Original start inputs changed")
+                    task.state = placement.state = "recovery_required"
+                    attempt.state = "unknown"
+                    await session.flush()
+                raise ValueError("Accepted workspace verification requires recovery") from None
+        source_changed = False
+        async with self.sf.begin() as session:
+            rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, **identity)
+            task, run, placement, node, reservation, attempt = rows
+            fresh = LaunchSpec.model_validate(attempt.launch_spec["launch_spec"])
+            if fresh.payload_digest() != original_digest or task.state not in {"queued", "running"} or placement.state not in {"claimed", "running"}:
+                raise ValueError("Original start identity changed during verification")
+            if node.admin_state == "disabled" or task.cancel_requested_at is not None or run.cancel_action is not None:
+                raise ValueError("Execution cancellation requested")
+            if source is not None:
+                from deerflow_ecs_fleet.persistence.models import WorkspaceManifestRow, WorkspacePointRow
+
+                from .workspace import FleetWorkspaceNodeService
+
+                point = await session.get(WorkspacePointRow, source["point_id"])
+                stored = FleetWorkspaceNodeService._manifest(await session.get(WorkspaceManifestRow, source["manifest"]["manifest_id"]))
+                root = await session.scalar(
+                    __import__("sqlalchemy").text("SELECT metadata FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' AND checkpoint_id=:checkpoint"),
+                    {"thread": spec.source_workspace_thread_id or spec.thread_id, "checkpoint": source["checkpoint_id"]},
+                )
+                if point is None or stored != manifest or point.manifest_id != stored.manifest_id or point.checkpoint_id != source["checkpoint_id"] or root is None or root.get("deerflow_execution_run_id") != point.run_id:
+                    # This is still the freshly authenticated original attempt.
+                    # Commit its recovery state before reporting the rejection;
+                    # raising inside the TX would undo the recovery transition.
+                    task.state = placement.state = "recovery_required"
+                    attempt.state = "unknown"
+                    source_changed = True
+            if source_changed:
+                await session.flush()
+                # The original identity rows remain locked; the intentional
+                # recovery state cannot pass active-start authentication again.
+                # Recheck the fresh database clock after the recovery flush.
+                now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
+                if run.lease_expires_at is None or attempt.lease_expires_at != run.lease_expires_at or attempt.lease_expires_at <= now or task.deadline <= now or attempt.execution_deadline <= now:
+                    raise ValueError("Agent lease no longer valid")
+            else:
+                if attempt.start_authorized_at is None:
+                    attempt.start_authorized_at = now
+                    attempt.process_ref = "fleet-" + attempt.id
+                    attempt.state = "starting"
+                await session.flush()
+                # Lock/flush waits must finish before the final database-clock check.
+                rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, **identity)
+                grant = self.grant(rows, now)
+                if source is not None:
+                    grant.update(accepted_workspace=source, nas_identity=self.config.nas_identity)
+                return grant
+        raise ValueError("Original accepted source changed during verification")
 
     async def stopped(self, *, reason, exit_code, process_ref, physical_stopped=False, **identity):
         from deerflow_ecs_fleet.persistence.reservations import release_stopped
@@ -169,16 +244,22 @@ class FleetRunOwnership:
                 return {"state": placement.state, "stopped": True}
             attempt.stopped_at = now
             attempt.outcome = {"exit_code": exit_code, "stop_reason": reason}
-            uncertain = attempt.state in {"unknown", "quarantined"} or placement.state == "unknown" or reason != "exit" or attempt.lease_expires_at <= now
-            if uncertain:
-                attempt.state = placement.state = task.state = "unknown"
-            elif run.status in {"success", "error", "interrupted", "timeout"}:
-                result = {"success": "succeeded", "error": "failed", "interrupted": "cancelled", "timeout": "timed_out"}[run.status]
-                placement.state = task.state = result
-                attempt.state = "expired" if result == "timed_out" else result
+            from deerflow_ecs_fleet.persistence.workspace_points import accepted_final
+
+            point = await accepted_final(session, task=task, run=run, placement=placement, attempt=attempt)
+            if point is not None:
+                # Immutable final authority survives every authenticated physical STOP ACK.
+                # Transport stop reasons remain observations, not outcome authority.
+                # Leases grant new writes; they cannot rewrite an accepted pair.
+                task.state = point.desired_task_status
+                placement.state = point.desired_placement_status
+                attempt.state = "expired" if point.desired_placement_status == "timed_out" else point.desired_placement_status
                 attempt.finished_at = now
             else:
-                attempt.state = placement.state = task.state = "unknown"
+                # A stopped runner without the exact terminal pair requires
+                # explicit recovery. It never authorizes END or tool replay.
+                task.state = placement.state = "recovery_required"
+                attempt.state = "unknown"
             await release_stopped(session, attempt)
             await session.flush()
             from app.fleet.events import FleetStreamSeals
@@ -201,6 +282,7 @@ class FleetRunOwnership:
                 attempt.started_at = attempt.started_at or now
                 reservation.state = "active"
             await session.flush()
+            rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, allow_terminal_run=not running, **identity)
             return {"stop": False, **self.grant(rows, now), "lease_expires_at": expiry.isoformat()}
 
 
@@ -210,6 +292,15 @@ def install_fleet_ownership(app, session_factory):
     runtime = fleet_runtime(app)
     if runtime is None or not runtime.ready or session_factory is None:
         return
+    from .execution import fleet_thread_admission_guard
+
+    app.state.run_store.set_thread_admission_guard(fleet_thread_admission_guard)
     app.state.fleet_ownership = FleetRunOwnership(session_factory, runtime.config)
+    from .workspace import FleetWorkspaceNodeService
+
+    app.state.fleet_workspaces = FleetWorkspaceNodeService(session_factory, app.state.fleet_ownership)
+    from .workspace_files import FleetWorkspaceFiles
+
+    app.state.fleet_workspace_files = FleetWorkspaceFiles(session_factory, runtime.config)
     # Added to the generic persisted backend fence, in SQL scan and UPDATE.
     app.state.run_store.set_local_recovery_predicate(~exists(select(RunPlacementRow.run_id).where(RunPlacementRow.run_id == RunRow.run_id)))

@@ -12,6 +12,12 @@ class OwnershipRejected(RuntimeError):
     retryable = False
 
 
+class ExecutionWorkspaceFailure(RuntimeError):
+    """Fail closed after an unmatched checkpoint/workspace boundary."""
+
+    retryable = False
+
+
 class ExecutionCleanupPending(BaseException):
     """Private lifecycle control; never ordinary recovery or public config."""
 

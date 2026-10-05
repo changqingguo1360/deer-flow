@@ -525,6 +525,11 @@ class ClarificationMiddleware(AgentMiddleware[ClarificationMiddlewareState]):
 
         request_id = self._stable_message_id(tool_call_id, formatted_message)
         human_input_payload = self._build_human_input_payload(args, tool_call_id=tool_call_id, request_id=request_id, fields=fields)
+        from deerflow.runtime.execution.workspace_boundary import current_workspace_controller
+
+        controller = current_workspace_controller()
+        if controller is not None:
+            controller.observe_human_input(request.runtime, request_id)
 
         # Create a ToolMessage with the formatted question
         # This will be added to the message history

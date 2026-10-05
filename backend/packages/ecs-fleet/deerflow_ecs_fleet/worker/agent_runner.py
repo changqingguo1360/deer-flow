@@ -13,10 +13,13 @@ from .agent_environment import BootstrapV1, build_environment
 
 class AgentRunner:
     async def run(self, spec: LaunchSpec, *, grant, environment):
-        from contextlib import nullcontext
+        from contextlib import ExitStack
 
-        scope = getattr(environment, "mutation_scope", None)
-        with scope() if scope is not None else nullcontext():
+        with ExitStack() as scopes:
+            for name in ("mutation_scope", "workspace_scope"):
+                scope = getattr(environment, name, None)
+                if scope is not None:
+                    scopes.enter_context(scope())
             return await self._run(spec, grant=grant, environment=environment)
 
     async def _run(self, spec: LaunchSpec, *, grant, environment):

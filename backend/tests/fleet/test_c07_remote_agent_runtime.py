@@ -17,7 +17,8 @@ from fastapi import FastAPI
 from sqlalchemy import text
 
 from .c04_integration_fixture import node_server
-from .c07_integration_fixture import C07Scenario, RedisFaultProxy, native_runtime_paths, owned_redis
+from .c07_installed_scenario import C07InstalledScenario
+from .c07_integration_fixture import RedisFaultProxy, owned_redis
 from .test_b02_fleet_foundation import service_class, settings
 from .test_c01_remote_agent_admission import c_config
 from .test_c02_remote_agent_admission import request as admission_request
@@ -50,13 +51,16 @@ async def c07_scenario(fleet_database, tmp_path, request):
     directory = directory / (request.node.originalname + "-" + hashlib.sha256(request.node.nodeid.encode()).hexdigest()[:12]) / request.node.callspec.params["reader"]
     directory.mkdir(parents=True, exist_ok=True)
     directory.chmod(0o700)
-    runtime_files = directory / "runtime"
-    (runtime_files / "skills").mkdir(parents=True)
-    (runtime_files / "runtime-bundle.json").write_text(json.dumps({"skills": [], "plugins": [], "mcp_servers": {}, "secret_bindings": {"operator-model-binding": {"name": "MODEL_API_KEY", "kind": "model", "target": "model-1"}}}))
-    (runtime_files / "model-bindings.json").write_text(json.dumps({"model-1": {"provider_use": "fleet.c07_integration_fixture:BarrierModel", "target_model": "c07", "version": "v1"}}))
-    # Actual compatibility reads all installed distributions and provider bytes.
-    async with native_runtime_paths(runtime_files) as host:
-        actual = host.installed_compatibility()
+    from deerflow_ecs_fleet.launch_spec import WorkerCompatibility
+    from deerflow_ecs_fleet.worker.agent_containers import AgentContainers
+
+    image = os.environ.get("FLEET_C07_BARRIER_TEST_IMAGE")
+    if os.environ.get("FLEET_TEST_CONTAINERS") != "1" or not image:
+        pytest.fail("required migrated C07 runner gate needs FLEET_TEST_CONTAINERS=1 and fresh immutable FLEET_C07_BARRIER_TEST_IMAGE")
+    driver = AgentContainers(provider="c07-installed", state_dir=directory / "agent-state", operator_config={})
+    image_observation = json.loads(await driver.checked("image", "inspect", image))[0]
+    image = image_observation["Id"]
+    actual = WorkerCompatibility.model_validate(await driver.compatibility(image))
     assert RunEventRow.__table__.metadata is Base.metadata
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -65,7 +69,7 @@ async def c07_scenario(fleet_database, tmp_path, request):
     nas.mkdir()
     nas_settings = settings(nas)
     cfg_data.update(nas_root=str(nas_settings.nas_root), nas_identity=nas_settings.nas_identity)
-    cfg_data["profiles"]["remote"]["runtime_digest"] = actual.runtime_digest
+    cfg_data["profiles"]["remote"].update(image=image, runtime_digest=actual.runtime_digest, user=f"{os.getuid()}:{os.getgid()}", network="bridge", pids_limit=128)
     cfg = FleetConfig.model_validate(cfg_data)
     fleet = service_class()(cfg)
     await fleet.start(ExtensionRuntimeDeps(session_factory=sf))
@@ -123,7 +127,7 @@ async def c07_scenario(fleet_database, tmp_path, request):
     try:
         async with owned_redis(directory / "redis") as (redis, redis_port, redis_pid):
             proxy = RedisFaultProxy(redis_port)
-            await proxy.start()
+            await proxy.start(host="0.0.0.0")
             resources.push_async_callback(proxy.close)
             prefix = "c07:" + uuid4().hex
             (directory / "redis-prefix.txt").write_text(prefix)
@@ -153,7 +157,7 @@ async def c07_scenario(fleet_database, tmp_path, request):
                 "run_events": {"backend": "db"},
                 "agent_storage": {"backend": "db"},
                 "stream_bridge": {"type": "redis", "redis_url": f"redis://127.0.0.1:{proxy.port}/0", "key_prefix": prefix, "heartbeat_interval_seconds": 0.1},
-                "skills": {"path": str(runtime_files / "skills")},
+                "skills": {"path": "/opt/deerflow/skills"},
                 "memory": {"enabled": False, "manager_class": "noop"},
                 "title": {"enabled": False},
                 "summarization": {"enabled": False},
@@ -174,6 +178,12 @@ async def c07_scenario(fleet_database, tmp_path, request):
                 stream_mode=["values", "messages-tuple", "updates"],
                 stream_subgraphs=True,
             )
+            from deerflow_ecs_fleet.worker.agent_workspace import AgentWorkspaceManifest
+
+            input_manifest = AgentWorkspaceManifest(user_id=user.id, thread_id="thread-c07", files=[], total_bytes=0)
+            snapshot = nas_settings.nas_root / ".fleet-agent-inputs" / user.id / "thread-c07" / input_manifest.reference
+            snapshot.mkdir(parents=True)
+            (snapshot / "manifest.json").write_bytes(input_manifest.canonical_bytes())
             backend = FleetExecutionBackend(
                 config=cfg,
                 profile_name="remote",
@@ -181,8 +191,8 @@ async def c07_scenario(fleet_database, tmp_path, request):
                 model_version="v1",
                 skill_snapshot=actual.skill_snapshot,
                 plugin_snapshot=actual.plugin_snapshot,
-                workspace_manifest_ref="c07-workspace",
-                secret_refs=[{"name": "MODEL_API_KEY", "reference_id": "operator-model-binding"}],
+                workspace_manifest_ref=input_manifest.reference,
+                secret_refs=[],
             )
             record = await services.start_run(body, "thread-c07", admission_request(app.state.run_manager, user), execution_backend=backend)
             # Host-side HTTP permissions must see the real admitted thread;
@@ -191,61 +201,67 @@ async def c07_scenario(fleet_database, tmp_path, request):
             async with node_server(app) as url:
                 node = NodeClient(gateway_url=url, credential=credential.token, claim_kind="agent", compatibility=actual.model_dump(mode="json"))
                 try:
-                    await node.open_session()
-                    await node.heartbeat()
-                    scenario = C07Scenario(directory=directory, engine=engine, record=record, claim=None, grant=None, bootstrap=None, app=app, url=url, node=node, proxy=proxy, redis=redis, prefix=prefix)
+                    scenario = C07InstalledScenario(directory=directory, engine=engine, record=record, claim=None, grant=None, bootstrap=None, app=app, url=url, node=node, proxy=proxy, redis=redis, prefix=prefix)
 
                     async def claim_original():
                         assert scenario.claim is None
                         claim = await node.claim()
                         assert claim and claim["run_id"] == record.run_id
-                        grant = await node.attempt(claim, "start")
-                        scenario.claim, scenario.grant = claim, grant
-                        scenario.bootstrap = {
-                            "schema_version": 1,
-                            "identity": {
-                                "node_id": node.node_id,
-                                "node_session_id": node.session_id,
-                                "agent_task_id": claim["agent_task_id"],
-                                "generation": grant["generation"],
-                                "attempt_id": claim["attempt_id"],
-                                "owner_worker_id": claim["owner_worker_id"],
-                                "token_stamp": hashlib.sha256(claim["token"].encode()).hexdigest(),
-                            },
-                            "operator_config": private,
-                        }
+                        scenario.claim = claim
 
                     scenario.claim_original = claim_original
-                    if not request.node.callspec.params.get("queued", False):
-                        await claim_original()
                     (directory / "resources.json").write_text(json.dumps({"redis_pid": redis_pid, "redis_port": redis_port, "proxy_port": proxy.port, "schema": schema, "key_prefix": prefix}))
 
-                    async def renew_owned_attempt():
-                        while True:
-                            await asyncio.sleep(2)
-                            if scenario.claim is None:
-                                continue
-                            result = await node.attempt(scenario.claim, "renew", running=False)
-                            if result.get("stop"):
-                                raise RuntimeError("Actual node renewal requested stop")
+                    from deerflow_ecs_fleet.worker.daemon import NodeDaemon
+                    from deerflow_ecs_fleet.worker.workspace_publication import AgentWorkspacePublication
+                    from deerflow_ecs_fleet.workspace import NASWorkspace
+                    from sqlalchemy.engine import make_url
 
-                    renewal = asyncio.create_task(renew_owned_attempt())
-                    try:
-                        yield scenario
-                    finally:
-                        renewal.cancel()
-                        await asyncio.gather(renewal, return_exceptions=True)
+                    operator = json.loads(json.dumps(private))
+                    database_url = make_url(operator["database"]["postgres_url"])
+                    if database_url.host in {"127.0.0.1", "localhost", "::1"}:
+                        database_url = database_url.set(host="host.docker.internal")
+                    operator["database"]["postgres_url"] = database_url.render_as_string(hide_password=False)
+                    operator["stream_bridge"]["redis_url"] = f"redis://host.docker.internal:{proxy.port}/0"
+                    driver.operator_config = operator
+                    scenario.driver = driver
+
+                    async def prepare(claim, grant):
+                        scenario.claim, scenario.grant = claim, grant
+                        scenario.directory = await driver.prepare_workspace(nas_settings.nas_root, claim, grant)
+                        (scenario.directory / "redis-prefix.txt").write_text(prefix)
+                        return scenario.directory
+
+                    daemon = NodeDaemon(client=node, containers=driver, state_dir=directory / "agent-state", prepare_workspace=prepare, renew_seconds=1, safety_margin_seconds=0.25, poll_seconds=0.05)
+                    publisher = AgentWorkspacePublication(client=node, containers=driver, nas=NASWorkspace(nas_settings.nas_root, identity=nas_settings.nas_identity), journal=daemon.journal)
+                    daemon.workspace_publications = publisher
+                    scenario.configure(daemon=daemon, publisher=publisher, hold_stopped=request.node.originalname == "test_actual_stopped_terminal_process_recovers_failed_writer_seal")
+                    await daemon.bootstrap()
+                    if not request.node.callspec.params.get("queued", False):
+                        await claim_original()
+                    yield scenario
+
                 finally:
+                    import sys
+
+                    from .c08_installed_cleanup import settle_owned_cleanup
+
+                    original_error = sys.exception()
+                    actions = []
                     if scenario:
-                        await scenario.close()
-                    await node.close()
+                        actions.append(("scenario", scenario.close))
+                    actions.append(("node", node.close))
+                    await settle_owned_cleanup(actions, original_error=original_error)
     finally:
-        await resources.aclose()
-        reset_current_user(token)
-        reset_app_config()
-        await fleet.stop()
+        import sys
+
+        from .c08_installed_cleanup import settle_owned_cleanup
+
+        original_error = sys.exception()
+        await settle_owned_cleanup([("resources", resources.aclose), ("user", lambda: reset_current_user(token)), ("config", reset_app_config), ("fleet", fleet.stop)], original_error=original_error)
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached", "hydrated"])
 async def test_committed_remote_tail_reconnects_without_runner_restart(c07_scenario, reader):
@@ -346,6 +362,7 @@ async def test_existing_singleton_does_not_repeat_participant(fleet_database):
     assert len(calls) == 1
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached"])
 async def test_remote_cursor_errors_are_http400_before_stream_headers(c07_scenario, reader):
@@ -410,6 +427,7 @@ async def test_remote_cursor_errors_are_http400_before_stream_headers(c07_scenar
     (s.directory / "observed.json").write_text(json.dumps(await s.durable_receipt(), indent=2, default=str))
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached", "hydrated"])
 async def test_actual_stopped_terminal_process_recovers_failed_writer_seal(c07_scenario, reader):
@@ -427,13 +445,52 @@ async def test_actual_stopped_terminal_process_recovers_failed_writer_seal(c07_s
         assert status == "success"
         assert (await connection.execute(text("SELECT count(*) FROM fleet_stream_seals"))).scalar_one() == 0
         assert (await connection.execute(text("SELECT stopped_at FROM fleet_attempts WHERE id=:attempt"), {"attempt": s.claim["attempt_id"]})).scalar_one() is None
+        pair_before = dict(
+            (
+                await connection.execute(
+                    text(
+                        "SELECT w.id,w.checkpoint_id,w.manifest_id,w.request_digest,w.desired_core_status,"
+                        "q.state AS request_state,q.checkpoint_id AS prepared_checkpoint,q.candidate_manifest_id,q.request_digest AS prepared_digest,q.source_workspace_version,"
+                        "t.accepted_workspace_point_id,t.state AS task_state,p.final_workspace_point_id,p.state AS placement_state "
+                        "FROM fleet_workspace_points w JOIN fleet_workspace_requests q ON q.id=w.request_id "
+                        "JOIN fleet_agent_tasks t ON t.id=w.agent_task_id JOIN fleet_run_placements p ON p.run_id=w.run_id WHERE w.run_id=:run"
+                    ),
+                    {"run": s.record.run_id},
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert pair_before["request_state"] == "accepted"
+        assert pair_before["id"] == pair_before["accepted_workspace_point_id"] == pair_before["final_workspace_point_id"]
+        assert pair_before["checkpoint_id"] == pair_before["prepared_checkpoint"]
+        assert pair_before["manifest_id"] == pair_before["candidate_manifest_id"]
+        assert pair_before["request_digest"] == pair_before["prepared_digest"]
+        assert pair_before["source_workspace_version"] == s.claim["launch_spec"]["workspace_manifest_ref"]
+        assert pair_before["desired_core_status"] == "success"
+        assert pair_before["task_state"] == pair_before["placement_state"] == "finishing"
         await connection.execute(text("DROP TRIGGER c07_seal_fault ON fleet_stream_seals"))
-    assert s.process.returncode == 0
+    assert s.process.returncode == s.inspected["State"]["ExitCode"] == 1
     process_receipts = [json.loads(line) for line in (s.directory / "process.jsonl").read_text().splitlines()]
     assert any(row["event"] == "runner-exception" and row.get("writer_seal_fault") is True for row in process_receipts)
     assert (await s.acknowledge_actual_stop())["state"] == "succeeded"
     async with s.engine.connect() as connection:
         seal = (await connection.execute(text("SELECT source,last_seq,core_status FROM fleet_stream_seals WHERE run_id=:run"), {"run": s.record.run_id})).one()
+        pair_after = dict(
+            (
+                await connection.execute(
+                    text(
+                        "SELECT w.id,w.checkpoint_id,w.manifest_id,t.accepted_workspace_point_id,p.final_workspace_point_id "
+                        "FROM fleet_workspace_points w JOIN fleet_agent_tasks t ON t.id=w.agent_task_id "
+                        "JOIN fleet_run_placements p ON p.run_id=w.run_id WHERE w.run_id=:run"
+                    ),
+                    {"run": s.record.run_id},
+                )
+            )
+            .mappings()
+            .one()
+        )
+    assert all(pair_after[key] == pair_before[key] for key in pair_after)
     assert seal[0] == "physical_stop" and seal[2] == "success"
     if reader == "hydrated":
         from deerflow.runtime import RunManager
@@ -445,9 +502,12 @@ async def test_actual_stopped_terminal_process_recovers_failed_writer_seal(c07_s
     assert len(await s.start_receipts()) == 1
     evidence = await s.durable_receipt()
     evidence["seal"] = list(seal)
+    evidence["exact_final_pair_before_stop"] = pair_before
+    evidence["immutable_final_pair_after_stop"] = pair_after
     (s.directory / "physical-stop-recovery.json").write_text(json.dumps(evidence, indent=2, default=str))
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached"])
 async def test_owned_publisher_startup_scans_accepted_stopped_history(c07_scenario, reader):
@@ -490,6 +550,7 @@ async def test_owned_publisher_startup_scans_accepted_stopped_history(c07_scenar
     (s.directory / "startup-scanner.json").write_text(json.dumps(evidence, indent=2, default=str))
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached"])
 async def test_actual_http_wait_for_trusted_remote_record_waits_for_durable_seal(c07_scenario, reader, monkeypatch):
@@ -538,6 +599,7 @@ async def test_actual_http_wait_for_trusted_remote_record_waits_for_durable_seal
             await asyncio.gather(task, return_exceptions=True)
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached"])
 async def test_accepted_original_run_replays_after_current_generation_advances(c07_scenario, reader):
@@ -603,6 +665,7 @@ async def test_accepted_original_run_replays_after_current_generation_advances(c
     (s.directory / "historical-replay.json").write_text(json.dumps(evidence, indent=2, default=str))
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader,queued", [("cached", True)])
 @pytest.mark.parametrize("owner", ["matching", "wrong-user", "wrong-thread"])
@@ -692,6 +755,7 @@ async def test_actual_queued_creator_wait_prepares_original_owner_before_claim(c
             await asyncio.gather(task, return_exceptions=True)
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["hydrated"])
 @pytest.mark.parametrize("surface", ["cancel", "stream"])
@@ -805,6 +869,7 @@ async def test_actual_store_only_cancel_wait_does_not_add_observer_cancellation(
             )
 
 
+@pytest.mark.live
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reader", ["cached", "hydrated"])
 async def test_actual_host_whole_retention_after_original_seal_returns_410_without_restart(c07_scenario, reader):

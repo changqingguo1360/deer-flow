@@ -17,6 +17,7 @@ from app.gateway import services
 from app.gateway.routers.thread_runs import RunCreateRequest
 from deerflow.config.app_config import AppConfig, reset_app_config, set_app_config
 from deerflow.persistence.run import RunRepository, RunRow
+from deerflow.persistence.run.model import ThreadExecutionBindingRow
 from deerflow.runtime import RunManager
 from deerflow.runtime.user_context import reset_current_user, set_current_user
 
@@ -31,6 +32,7 @@ async def admission(fleet_database, tmp_path):
     await fleet.start(ExtensionRuntimeDeps(session_factory=sf))
     async with engine.begin() as conn:
         await conn.run_sync(lambda sync: RunRow.__table__.create(sync))
+        await conn.run_sync(lambda sync: ThreadExecutionBindingRow.__table__.create(sync))
     set_app_config(AppConfig.model_validate({"sandbox": {"use": "deerflow.sandbox.local:LocalSandboxProvider"}, "memory": {"enabled": False}}))
     user = SimpleNamespace(id="user-c02", system_role="admin")
     token = set_current_user(user)

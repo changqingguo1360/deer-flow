@@ -7,6 +7,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import threading
 from dataclasses import dataclass
 from functools import cached_property
@@ -14,6 +15,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
+from deerflow.runtime.execution.workspace_boundary import native_writer
 from deerflow.sandbox.env_policy import build_sandbox_env
 from deerflow.sandbox.local.list_dir import list_dir
 from deerflow.sandbox.path_patterns import build_output_mask_pattern
@@ -493,6 +495,7 @@ class LocalSandbox(Sandbox):
 
         raise RuntimeError("No suitable shell executable found. Tried /bin/zsh, /bin/bash, /bin/sh, and `sh` on PATH.")
 
+    @native_writer
     def execute_command(
         self,
         command: str,
@@ -678,15 +681,31 @@ class LocalSandbox(Sandbox):
         stdout_read_fd, stdout_write_fd = os.pipe()
         stderr_read_fd, stderr_write_fd = os.pipe()
         try:
-            process = subprocess.Popen(
-                args,
-                shell=False,
-                stdin=subprocess.DEVNULL,
-                stdout=stdout_write_fd,
-                stderr=stderr_write_fd,
-                start_new_session=True,
-                env=env,
-            )
+            from deerflow.runtime.execution.workspace_boundary import current_workspace_controller
+            from deerflow.runtime.execution.workspace_process import SupervisedCommand
+
+            controller = current_workspace_controller()
+            if controller is not None and controller.process_registry is not None and sys.platform == "linux":
+                process = SupervisedCommand(
+                    args=args,
+                    env=env,
+                    stdout=stdout_write_fd,
+                    stderr=stderr_write_fd,
+                    register=controller.process_registry.register,
+                    pids_limit=controller.pids_limit,
+                    retain=controller.retain_process,
+                    deadline=controller.execution_deadline,
+                )
+            else:
+                process = subprocess.Popen(
+                    args,
+                    shell=False,
+                    stdin=subprocess.DEVNULL,
+                    stdout=stdout_write_fd,
+                    stderr=stderr_write_fd,
+                    start_new_session=True,
+                    env=env,
+                )
         except Exception:
             for fd in (stdout_read_fd, stdout_write_fd, stderr_read_fd, stderr_write_fd):
                 try:
@@ -705,8 +724,10 @@ class LocalSandbox(Sandbox):
 
         stdout_capture, stdout_thread = LocalSandbox._start_pipe_drain(stdout_read_fd, "deerflow-bash-stdout-drain")
         stderr_capture, stderr_thread = LocalSandbox._start_pipe_drain(stderr_read_fd, "deerflow-bash-stderr-drain")
+        if isinstance(process, SupervisedCommand):
+            process.pipe_drains = (stdout_thread, stderr_thread)
         try:
-            process_group_id = os.getpgid(process.pid)
+            process_group_id = process.pid if isinstance(process, SupervisedCommand) else os.getpgid(process.pid)
         except OSError:
             process_group_id = None
 
@@ -717,6 +738,8 @@ class LocalSandbox(Sandbox):
                 timed_out = True
                 LocalSandbox._terminate_process_group(process)
             returncode = process.returncode if process.returncode is not None else 0
+            if isinstance(process, SupervisedCommand):
+                controller.process_registry.settled(process.shell)
         finally:
             join_timeout = 10 if timed_out or not LocalSandbox._process_group_exists(process_group_id) else _PIPE_DRAIN_JOIN_TIMEOUT_SECONDS
             for thread in (stdout_thread, stderr_thread):
@@ -735,6 +758,11 @@ class LocalSandbox(Sandbox):
         Falls back to killing just the direct child if the group is already
         gone (e.g. the command exited between the timeout and this call).
         """
+        from deerflow.runtime.execution.workspace_process import SupervisedCommand
+
+        if isinstance(process, SupervisedCommand):
+            process.terminate_foreground()
+            return
         try:
             os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         except (ProcessLookupError, PermissionError, OSError):
@@ -849,6 +877,7 @@ class LocalSandbox(Sandbox):
             # Re-raise with the original path for clearer error messages, hiding internal resolved paths
             raise type(e)(e.errno, e.strerror, path) from None
 
+    @native_writer
     def write_file(self, path: str, content: str, append: bool = False) -> None:
         resolved = self._resolve_path_with_mapping(path)
         resolved_path = resolved.path
@@ -905,6 +934,7 @@ class LocalSandbox(Sandbox):
             for match in matches
         ], truncated
 
+    @native_writer
     def update_file(self, path: str, content: bytes) -> None:
         resolved = self._resolve_path_with_mapping(path)
         resolved_path = resolved.path

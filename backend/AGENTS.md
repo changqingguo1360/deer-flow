@@ -377,17 +377,16 @@ or cancellation request, releases charged capacity; unknown work never auto-retr
 Read [Fleet development contracts](../docs/ecs-fleet-development.md) before changing
 Fleet, its host bridge, worker, input/artifact or recovery paths. This guide owns the
 transaction order, trusted identity, filesystem and result-acceptance details.
-The host fleet_management router requires a real admin session and CSRF; node profile
-allowlists are enforced in the allocation transaction.
+Admin/CSRF guard management; allocation enforces profiles. See that guide for
+C-only publishing, B-only checkpoints and historical C guards.
 Use random-schema `tests/fleet` with an isolated TEST_POSTGRES_URI and explicit local
 Docker opt-in. Required integration skips cannot pass the release gate. Consult
 [deployment](../docs/deployment/ecs-fleet.md) and the
 [delivery roadmap](../docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) for actual
-verified scope. C01 owns immutable private launch/task/placement foundations and
-caller-session repositories. C02 joins core run admission and Fleet participation in
-one SQL transaction through trusted harness execution contracts; default Local stays
-compatible and remote admission creates no local task. C03 ownership
-checks joined run/attempt leases, shared capacity and SQL local-recovery exclusion.
+verified scope. C01–C03 bind immutable task/placement launch identity, join core
+admission and Fleet participation in the caller's SQL transaction, fence run/attempt
+leases and shared capacity, and exclude remote runs from Local recovery. Default
+Local behavior remains compatible; remote admission creates no local task.
 Explicit Agent node profiles require positive agent_limit; defaults remain job-only.
 C04 verifies installed run_agent, private model/MCP/definition scopes, initial snapshots
 and physical container lifecycle. Attachment/start rechecks DB time after locking the
@@ -397,5 +396,6 @@ transaction. Remote schema checks are read-only; Local still migrates. Cache/del
 use CheckpointStateAccessor; duration/title (including late cancel) precede terminal writes.
 C06 fences supported durable writes and retains original graph/callback cleanup under
 one 120-second budget; see [acceptance](../docs/ecs-fleet-c06-acceptance.md) and module guides.
-Remote activation is closed until C07-C12 event delivery, recovery, cancellation
+C08 local acceptance (0018): [contracts](../docs/ecs-fleet-c08-runtime.md).
+Remote activation is closed until C09-C12 recovery, cancellation
 and routing pass; continuations remain pending.

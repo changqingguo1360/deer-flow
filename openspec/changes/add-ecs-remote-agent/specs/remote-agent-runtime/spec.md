@@ -61,6 +61,30 @@ The system SHALL satisfy C08: 只接受关联 checkpoint 的封存 manifest；�
 - **WHEN** C 正常结束/暂停或发布阶段文件，或异常导致文件与 checkpoint 版本不匹配
 - **THEN** 只接受关联 checkpoint 的封存 manifest；异常进入 recovery_required，不重播工具
 
+#### Scenario: C08 original human-input pause
+- **WHEN** 原 root Agent 经 ClarificationMiddleware 产生当前运行的 ask_clarification 请求并返回 Command(goto=END)，或原图发生真实 interrupt
+- **THEN** 系统依据绑定原 owner/thread/run 的可信工具执行观察及实际 materialized checkpoint 识别暂停；ask_clarification 即使 next/tasks 为空也保留原 request/tool-call/answered-card 协议，接受 paused 恢复点并记录 core interrupted；等待人类输入时 task input_required，一般图暂停时 task paused。历史消息、客户端字段、subgraph 请求或 suppressed clarification 不得独立暂停 root。最终点和 core 同事务进入 finishing，持有排他及容量至真实物理停止，再应用原 per-run placement/attempt cancelled 结果；不得自动重播工具或另起 runner。
+
 #### Scenario: C08 regression evidence
 - **WHEN** 真实工具写文件后发布中间产物；正常结束接受最终 manifest；故意在文件封存前 kill runner，检查没有自动恢复。
 - **THEN** 实际观测满足：published_partial_marked = true；mismatched_restore_allowed = false；automatic_replay_count = 0；不得用硬编码期望值代替真实状态或进程证据
+
+
+#### Scenario: C08 trusted branch source and recovery admission
+- **WHEN** A healthy physically stopped Fleet thread branches through the original owner-authorized API, or a new C execution selects an accepted workspace version
+- **THEN** The host freezes the exact owner-scoped source checkpoint/point and persists child routing/origin; preparation verifies all source content on every retry and clones into an independent owned destination without Local/B aliases or hardlinks. Missing or changed content persists fenced recovery before Runner start. Historical child file reads use only the exact trusted immutable source mapping and expose source provenance; old source points are never rewritten.
+- **AND** Client metadata cannot set/clear execution routing or authoritative branch identity. All nonterminal Fleet tasks retain exclusion despite core terminal status or expired leases; recovery blocks run/start/resume/regenerate/state mutations while owner reads remain available. Healthy terminal host branch/state operations preserve their original capability without admitting a Local run or mutating accepted NAS outputs.
+
+- **AND** An implicit/latest new-turn selector remains unchanged while the workspace source is separately frozen to its matching accepted checkpoint. Child-owned publications supersede origin for default execution and file reads. Healthy nested branches prove trusted target/source mappings and owners without fabricated accepted points. Stale store-only Gateway cache state cannot override durable SQL admission; actual Local executors and durable active/recovery tasks retain their guards. Cancellation returns only after owned branch copy and cleanup settle, with recovery retained.
+
+#### Scenario: C08 original writer settlement before publication
+- **WHEN** The original Agent publishes partial or final workspace files
+- **THEN** Its original controller closes writer admission, stops registered tool supervisors through original private OS pipes and positively joins them, native writes and permitted MCP owners. Node independently proves only PID1 and its actual trusted helper remain before and after copy; any other process rejects. Killing unknown services cannot manufacture successful quiescence.
+
+#### Scenario: C08 trusted collector birth isolation
+- **WHEN** The original NodeDaemon starts the fixed installed collector in the same immutable container
+- **THEN** The helper uses a UID different from the frozen workload and verifies original CID, StartedAt, image, User, CapDrop ALL, NoNewPrivileges, private PID namespace and the sole accepted /workspace mount. The workload cannot read or forge the private nonce or receipt. Nondumpable set inside Python main does not replace birth-time UID isolation. Existing non-root profile admission remains unchanged.
+
+#### Scenario: C08 partial and final cleanup deadlines
+- **WHEN** An early partial publication is followed by continued execution, or final cleanup begins
+- **THEN** Partial stop/join, SQL and acknowledgement wait use the original execution deadline and never start final cleanup. Final stop/join and publication share the original cumulative monotonic120-second budget without per-phase reset. Lock waits beyond actual leases reject and roll back; cancellation of a waiter never substitutes physical resource settlement.

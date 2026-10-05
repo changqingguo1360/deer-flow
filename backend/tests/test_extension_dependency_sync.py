@@ -150,6 +150,8 @@ extensions = ["broken-extension @ {missing_extension.as_uri()}"]
         encoding="utf-8",
     )
     environment = os.environ.copy()
+    # This isolated test verifies synchronization, independent of the host gate.
+    environment.pop("UV_NO_SYNC", None)
     environment["UV_CACHE_DIR"] = str(tmp_path / "uv-cache")
     subprocess.run(["uv", "lock"], cwd=project, env=environment, check=True, capture_output=True)
     missing_extension.unlink()
