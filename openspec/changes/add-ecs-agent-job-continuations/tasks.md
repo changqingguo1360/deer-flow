@@ -30,6 +30,8 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 4. BC04 统一结果 delivery owner 与通知互斥
 
+当前接线按[BC04 最小执行计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc04-delivery.md)：唯一持久 link_mode 归属、认领 LIMIT 前过滤、原服务/内部 launcher 复核；一个实际主干先行，之后至多一个集中必要边界。尚未验收。
+
 - [ ] 4.1 写并运行 backend/tests/fleet/test_bc04_fleet_agent_job_continuations.py，确认 BC04 行为测试 RED。
 - [ ] 4.2 完成计划列出的接口、事务和部署接线；满足 `Exclusive result delivery path`。
 - [ ] 4.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。

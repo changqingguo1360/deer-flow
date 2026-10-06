@@ -416,6 +416,9 @@ class McpTaskService:
 
     async def _notify_one(self, record: dict[str, Any], *, now: datetime) -> None:
         task_id = record["id"]
+        permits = getattr(self._repository, "permits_notification", None)
+        if permits is not None and not await permits(task_id, user_id=record["user_id"], thread_id=record["thread_id"]):
+            return
         dispatch_version = int(record.get("dispatch_version") or 0)
         notification_attempts = max(0, int(record.get("notification_attempt_count") or 0))
         if notification_attempts >= _MAX_NOTIFICATION_ATTEMPTS:

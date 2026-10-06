@@ -96,6 +96,18 @@ class McpTaskRepository:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, mutation_capability=None) -> None:
         self._sf = session_factory
         self._mutation_capability = mutation_capability
+        self._notification_policy = None
+
+    def bind_notification_policy(self, policy) -> None:
+        """Bind an operator-owned SQL policy without importing optional providers."""
+        self._notification_policy = policy
+
+    async def permits_notification(self, task_id, *, user_id, thread_id) -> bool:
+        policy = self._notification_policy
+        if policy is None:
+            return True
+        async with self._sf() as session:
+            return await policy.permits(session, task_id=task_id, user_id=user_id, thread_id=thread_id)
 
     @staticmethod
     def _row_to_dict(row: McpTaskRow) -> dict[str, Any]:
@@ -516,6 +528,8 @@ class McpTaskRepository:
             .limit(limit)
             .with_for_update(skip_locked=True)
         )
+        if self._notification_policy is not None:
+            stmt = stmt.where(self._notification_policy.predicate(McpTaskRow))
         async with self._sf() as session:
             rows = list((await session.execute(stmt)).scalars())
             expires_at = now + timedelta(seconds=lease_seconds)

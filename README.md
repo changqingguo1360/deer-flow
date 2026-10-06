@@ -1646,10 +1646,11 @@ are complete. See
 C12 is locally accepted: normal startup, the production-image main and one concentrated
 fault case passed, with independent reviews and a verified source commit. See [C12 runtime boundaries](docs/ecs-fleet-c12-runtime.md).
 All Fleet flags default to disabled; no real operator configuration was activated.
-C→B→C is in progress: BC01 child ownership, BC02 cooperative yield, and BC03
-exactly-one native continuation are locally accepted after independent reviews.
+C→B→C is in progress: BC01 child ownership, BC02 cooperative yield, BC03
+exactly-one native continuation, and BC04 exclusive result delivery are locally accepted
+after independent reviews.
 BC03 restores the accepted source on another node and retains bounded child results.
-Exclusive delivery, remaining aggregate behavior and installed combination remain BC04–BC10.
-See [BC03 boundaries](docs/ecs-fleet-bc03-runtime.md), the
+Remaining aggregate behavior and installed combination remain BC05–BC10.
+See [BC03 boundaries](docs/ecs-fleet-bc03-runtime.md), [BC04 delivery](docs/ecs-fleet-bc04-runtime.md), the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

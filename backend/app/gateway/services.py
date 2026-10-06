@@ -1616,6 +1616,10 @@ async def launch_mcp_task_notification_run(
     event: dict[str, Any],
 ) -> dict[str, Any]:
     """Idempotently launch the Agent run that delivers one task event."""
+    repository = getattr(app.state, "mcp_task_repo", None)
+    permits = getattr(repository, "permits_notification", None)
+    if permits is not None and not await permits(task_id, user_id=owner_user_id, thread_id=thread_id):
+        raise PermanentNotificationError("Task result belongs to its durable coordinator")
     request = SimpleNamespace(
         app=app,
         headers={INTERNAL_OWNER_USER_ID_HEADER_NAME: owner_user_id},

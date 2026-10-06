@@ -18,6 +18,8 @@ class ParentJobOwner:
 
 
 class JobLinks:
+    # The immutable link_mode is the durable delivery authority:
+    # awaited belongs to the wait group; detached uses generic notification.
     async def check_capacity(self, session, *, owner):
         # Caller retains the original parent task lock throughout admission.
         count = await session.scalar(

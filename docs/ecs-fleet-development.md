@@ -541,3 +541,18 @@ The original workspace publisher and terminal SQL participant pair the exact fin
 BC03 is locally accepted after native qualification and independent SPEC→QUALITY, including a repaired summary bounds defect and fresh rechecks. FleetContinuations uses the original RunManager admission UoW. Shared neutral host entry locks goal/task/group before core thread/run; sorted child jobs precede jointly sorted nodes, reservations and attempts. Exact accepted parent/source/STOP/release, legitimate child manifests/STOP/release, current generation/run/cancellation and fresh database-clock budget/deadline checks precede one atomic run/placement/spec/current_run/budget/group receipt commit. Existing receipts recover even when new admission flags are disabled.
 
 The deterministic hidden HumanMessage frames bounded child data as untrusted. Mandatory result references are reserved before optional details spend canonical JSON UTF-8 bytes; omitted details are marked and included paths stay exact. New awaited admission is capped at128 per original parent before input resolution/staging under the original task lock; receipt/dedupe reuse and detached behavior remain intact. The input codec thaws frozen tuples. Same-generation yielded-final source requires the precise dispatched receipt while paused generation−1 checks remain. Service scans advance/wrap a keyset cursor. Native restore/publication/STOP and128metadata/fixturecap2 are qualified; production installed and delivery/product work remain BC04–BC10. Preserve unverified larger historical groups rather than dropping members. See [runtime](ecs-fleet-bc03-runtime.md) and [acceptance](ecs-fleet-bc03-acceptance.md).
+
+## BC04 exclusive result delivery
+
+BC04 is locally accepted after independent SPEC→QUALITY. The durable immutable child link_mode determines
+result delivery: awaited belongs to the wait group, detached/unlinked to the existing
+generic notification service. Ready Gateway registration injects a neutral policy
+into the original McpTaskRepository before service construction. Correlate tracking
+ID with the original user/thread; filter within SQL before claim LIMIT, retain normal
+polling projection, and recheck both legacy claims and direct internal launch.
+Do not take Fleet job/task locks from the notification path or import the optional
+package/app into harness. Private Agent submission starts no notification service.
+The original notification idempotency key, busy deferral and continuation receipt
+remain the durable recovery sources. Native main/one concentrated boundary passed;
+installed production and full combination remain BC10. See [runtime](ecs-fleet-bc04-runtime.md)
+and [acceptance](ecs-fleet-bc04-acceptance.md) for exact qualification and limits.

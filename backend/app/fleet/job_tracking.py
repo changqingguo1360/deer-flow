@@ -19,6 +19,11 @@ def register_fleet_driver(app, drivers) -> None:
     runtime = runtimes[0]
     if not runtime.ready:
         return
+    from app.fleet.delivery import FleetDeliveryPolicy
+
+    repository = getattr(app.state, "mcp_task_repo", None)
+    if repository is not None:
+        repository.bind_notification_policy(FleetDeliveryPolicy())
     drivers.register("fleet", runtime.bind_tracking(read_tracking))
 
 

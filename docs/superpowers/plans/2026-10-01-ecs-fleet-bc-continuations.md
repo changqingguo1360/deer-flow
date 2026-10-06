@@ -280,6 +280,8 @@ git commit -m "feat(fleet): bc03 实现 exactly-one continuation 准入"
 
 ### Task BC04: 统一结果 delivery owner 与通知互斥
 
+当前执行以[实际源码接线计划](2026-10-06-ecs-fleet-bc04-delivery.md)为准：使用原 immutable link_mode、LIMIT 前 SQL 过滤以及原服务/内部 launcher 复核；实际测试选择器为 `test_bc04_exclusive_result_delivery`。下方 `fleet_probe` 为历史示意，不是可运行 fixture，也不是执行证据。用户要求一个主干先行、至多一个集中必要边界，替代原逐边界重启矩阵。BC04最终主干12.52s/边界8.44s原生通过，独立SPEC→QUALITY Ready；源码提交后记录receipt。
+
 **Files:**
 - Create: `backend/app/fleet/delivery.py`
 - Modify: `backend/app/mcp_tasks/service.py`

@@ -87,4 +87,18 @@ coroutine wrapper; existing RunnableConfig injection and Local calls remain vali
 
 ### Private Fleet child submissions (BC01 source/native verified)
 
-`fleet_job_submitter_scope` binds the same private McpTaskService and its host-bound Fleet driver to the original remote mutation context. Missing/wrong context fails closed; remote calls never fall back to the Gateway global Fleet carrier. Profile names and scheduled slots come from approved operator configuration, and scope exit resets the carrier. `submit_fleet_job` exposes detached/awaited mode; awaited requires enabled continuations and authorized parent ownership. Same-transaction child links and sealed groups are owned by Fleet repositories with the host-injected capability. Native loaded ToolNode/PG evidence does not prove installed yielding or continuation; BC02–BC10 remain pending. See [BC01 boundary](../../../../../docs/ecs-fleet-bc01-runtime.md).
+`fleet_job_submitter_scope` binds the same private McpTaskService and its host-bound Fleet driver to the original remote mutation context. Missing/wrong context fails closed; remote calls never fall back to the Gateway global Fleet carrier. Profile names and scheduled slots come from approved operator configuration, and scope exit resets the carrier. `submit_fleet_job` exposes detached/awaited mode; awaited requires enabled continuations and authorized parent ownership. Same-transaction child links and sealed groups are owned by Fleet repositories with the host-injected capability. BC01–BC04 have native local acceptance; this does not prove the installed combined chain. BC05–BC10 remain pending. See [BC01 boundary](../../../../../docs/ecs-fleet-bc01-runtime.md).
+
+### Fleet result delivery ownership (BC04 native accepted)
+
+The Gateway binds an optional, neutral notification policy to the original SQL
+McpTaskRepository when the Fleet runtime is ready. The host adapter correlates
+immutable awaited links by tracking ID, user and thread; its SQL predicate filters
+notification claims before LIMIT. Polling may still update their projection.
+Both McpTaskService dispatch and the internal Gateway notification launcher recheck
+the same durable ownership before creating a run. Keep optional Fleet/app imports
+out of harness, avoid MCP-row-to-Fleet-job/task locks, and preserve ordinary MCP
+behavior when no policy is installed. Private Agent submission does not start a
+background notification service. Reuse the original notification idempotency and
+continuation receipts; see [BC04 runtime](../../../../../docs/ecs-fleet-bc04-runtime.md)
+for current verification limits.

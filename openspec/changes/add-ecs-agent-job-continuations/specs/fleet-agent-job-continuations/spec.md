@@ -23,7 +23,7 @@ The system SHALL satisfy BC04: 结果只交 coordinator，detached 正常通知�
 - **THEN** 结果只交 coordinator，detached 正常通知，不创建第二条修改线程的 run
 
 #### Scenario: BC04 regression evidence
-- **WHEN** 两个真实轮询服务竞争同一结果，记录 launched run；在 delivery receipt 提交各边界重启；忙线程暂缓后收敛。
+- **WHEN** 两个真实轮询服务竞争同一结果，记录 launched run；主干通过后，以一个集中必要边界验证 delivery receipt 提交前后的恢复、提交后回复丢失及忙线程暂缓后收敛，不展开逐边界测试矩阵。
 - **THEN** 实际观测满足：duplicate_modifying_runs = 0；awaited_generic_notifications = 0；detached_delivered = true；不得用硬编码期望值代替真实状态或进程证据
 
 ### Requirement: Fair shared scheduling and bounded child wait
