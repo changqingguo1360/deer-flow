@@ -60,6 +60,8 @@ class AgentEnvironment:
     private_mcp_task_submitter: Any = None
     workspace_scope: Callable | None = None
     workspace_publications: Any = None
+    observe_cancellation: Callable | None = None
+    retain_executor: Callable | None = None
 
 
 def installed_environment_factory(provider: str):

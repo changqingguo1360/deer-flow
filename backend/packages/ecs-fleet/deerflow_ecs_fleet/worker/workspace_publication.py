@@ -206,6 +206,10 @@ class AgentWorkspacePublication:
         if time.monotonic() >= deadline:
             raise TimeoutError("Original publication deadline elapsed")
         result = self._request(await self.client.attempt(claim, "workspace/prepared", **claim_fields, manifest=candidate.model_dump(mode="json")))
+        if result is None:
+            # The same live owner observed a superseded prepared success. No
+            # candidate was accepted; the next poll serves winning cancel work.
+            return False
         if self._identity(result, claim, grant) != identity or result["candidate"] != candidate.model_dump(mode="json"):
             raise ValueError("Original prepared acknowledgement conflicts")
         # Only a prepared candidate. The original runner gate remains closed

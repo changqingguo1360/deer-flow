@@ -10,7 +10,7 @@ from deerflow.runtime.execution.mutation_context import OwnershipRejected, curre
 from deerflow.runtime.execution.workspace_process import OriginalToolProcess, supervisor_source_digest
 from deerflow.runtime.execution.workspace_supervisor import process_identity
 
-from .mutation import _SessionCursor
+from .mutation import _SessionCursor, cancellation_boundary_matches
 
 
 async def _exact_root(session, identity, *, ancestor=None):
@@ -55,7 +55,7 @@ class FleetWorkspaceProcessRegistry:
         self.pids_limit = pids_limit
         self.execution_deadline = execution_deadline
 
-    def _validate(self, session, *, allow_terminal=False, deadline=None):
+    def _validate(self, session, *, operation="workspace.process.register", allow_terminal=False, deadline=None):
         import time
 
         from sqlalchemy import text
@@ -69,7 +69,7 @@ class FleetWorkspaceProcessRegistry:
             raise OwnershipRejected("Original workspace process scope required")
         if session.get_bind().dialect.name != "postgresql":
             raise OwnershipRejected("Workspace process registry requires PostgreSQL")
-        asyncio.run(self.capability._guard.validate(_SessionCursor(session, synchronous=True), thread_id=self.capability.context.thread_id, operation="workspace.process", allow_terminal=allow_terminal))
+        asyncio.run(self.capability._guard.validate(_SessionCursor(session, synchronous=True), thread_id=self.capability.context.thread_id, operation=operation, allow_terminal=allow_terminal))
         attempt = session.get(AttemptRow, self.capability.context.attempt_id)
         if ((attempt.launch_spec or {}).get("execution_profile") or {}).get("pids_limit") != self.pids_limit:
             raise OwnershipRejected("Workspace process limit differs from original frozen profile")
@@ -121,7 +121,7 @@ class FleetWorkspaceProcessRegistry:
             raise OwnershipRejected("Original workspace process has not physically settled")
         context = self.capability.context
         with self.sf.begin() as session:
-            self._validate(session, allow_terminal=True, deadline=deadline)
+            self._validate(session, operation="workspace.process.settle", allow_terminal=True, deadline=deadline)
             row = session.get(WorkspaceProcessRow, (context.attempt_id, record.pid, record.start_ticks), with_for_update=True)
             if row is None or any(getattr(row, key) != value for key, value in asdict(record).items()):
                 raise OwnershipRejected("Original workspace process settlement identity conflicts")
@@ -129,7 +129,7 @@ class FleetWorkspaceProcessRegistry:
                 row.state = "settled"
                 row.settled_at = session.scalar(select(func.clock_timestamp()))
                 session.flush()
-            self._validate(session, allow_terminal=True, deadline=deadline)
+            self._validate(session, operation="workspace.process.settle", allow_terminal=True, deadline=deadline)
 
 
 class FleetWorkspacePublisher:
@@ -178,7 +178,7 @@ class FleetWorkspacePublisher:
             source_workspace_version=self.source_version,
             desired_core_status=status,
             desired_task_status=task_status or outcomes.get(status),
-            desired_placement_status=outcomes.get(status),
+            desired_placement_status="cancelled" if task_status == "paused" else outcomes.get(status),
             error=error,
             stop_reason=stop_reason,
         )
@@ -238,9 +238,10 @@ class FleetWorkspacePublisher:
         snapshot = await self.accessor.aget({"configurable": {"thread_id": self.capability.context.thread_id, "checkpoint_ns": ""}})
         status = record.status.value
         key = hashlib.sha256(canonical([snapshot.config["configurable"]["checkpoint_id"], status, record.error, record.stop_reason])).hexdigest()
-        human_input = self.controller.awaiting_human_input(snapshot)
-        paused = status == "interrupted" and bool(snapshot.next or any(task.interrupts for task in snapshot.tasks) or human_input)
-        requires_input = paused and (human_input or any(task.interrupts for task in snapshot.tasks))
+        controlled = record.abort_event.is_set() and record.abort_action in {"interrupt", "rollback"}
+        human_input = self.controller.awaiting_human_input(snapshot) if not controlled else False
+        paused = controlled or status == "interrupted" and bool(snapshot.next or any(task.interrupts for task in snapshot.tasks) or human_input)
+        requires_input = paused and not controlled and (human_input or any(task.interrupts for task in snapshot.tasks))
         identity = self.boundary(
             snapshot.config,
             key=key,
@@ -269,8 +270,10 @@ class FleetWorkspacePublisher:
 
         task = await session.get(AgentTaskRow, identity.agent_task_id)
         node = await session.get(NodeRow, identity.node_id)
-        if task.cancel_requested_at is not None or run["cancel_action"] is not None or node.admin_state != "enabled":
+        if task.cancel_requested_at is not None or node.admin_state != "enabled":
             raise OwnershipRejected("Original workspace publication was stopped")
+        if run["cancel_action"] is not None and (not cancellation_boundary_matches(run["cancel_action"], identity)):
+            raise OwnershipRejected("Cancellation permits only the original final paused boundary")
 
     @staticmethod
     async def _bound_sql(session, deadline):
@@ -423,15 +426,21 @@ class FleetWorkspaceNodeService:
         await capability._guard.validate(
             _SessionCursor(session),
             thread_id=spec.thread_id,
-            operation="workspace.node.idle" if allow_idle else "workspace.node",
+            operation="control.observe",
             allow_terminal=allow_idle,
         )
         now = await self._fresh_auth(session, capability, auth, allow_idle=allow_idle)
         if task.state == placement.state == "finishing":
             # Exact final authority permits a receipt, never a launch grant.
             return capability, None, min(task.deadline, attempt.execution_deadline, spec.execution_deadline), node.admin_state != "enabled"
-        stopped = node.admin_state != "enabled" or task.cancel_requested_at is not None or run.cancel_action is not None
-        return capability, self.ownership.grant(rows, now), min(task.deadline, attempt.execution_deadline, spec.execution_deadline), stopped
+        from datetime import timedelta
+
+        stopped = node.admin_state != "enabled" or task.cancel_requested_at is not None or (run.cancel_action is not None and run.cancel_action not in {"interrupt", "rollback"})
+        deadline = min(task.deadline, attempt.execution_deadline, spec.execution_deadline)
+        if run.cancel_action is not None:
+            deadline = min(deadline, run.cancel_requested_at + timedelta(seconds=120))
+            stopped = stopped or deadline <= now
+        return capability, self.ownership.grant(rows, now), deadline, stopped
 
     @staticmethod
     async def _fresh_auth(session, capability, auth, *, allow_idle=False):
@@ -442,7 +451,7 @@ class FleetWorkspaceNodeService:
         await capability._guard.validate(
             _SessionCursor(session),
             thread_id=capability.context.thread_id,
-            operation="workspace.node.idle" if allow_idle else "workspace.node",
+            operation="control.observe",
             allow_terminal=allow_idle,
         )
         now = await session.scalar(select(func.clock_timestamp()))
@@ -475,7 +484,56 @@ class FleetWorkspaceNodeService:
         private = {name: getattr(row, name) for name in ("node_id", "node_session_id", "owner_worker_id", "token_stamp", "process_ref")}
         return WorkspaceManifest(manifest_id=row.id, execution_digest=hashlib.sha256(canonical(private)).hexdigest(), **{name: getattr(row, name) for name in names})
 
+    async def _require_control_boundary(self, session, identity):
+        from deerflow.persistence.run.model import RunRow
+
+        run = await session.get(RunRow, identity.run_id)
+        if run.cancel_action is not None and (not cancellation_boundary_matches(run.cancel_action, identity)):
+            raise OwnershipRejected("Cancelled execution rejects ordinary Node workspace work")
+
+    async def _stale_prepared_success(self, session, row, identity, *, nonce, deadline, candidate=None):
+        """Readonly disposition of an exact prepared success superseded by cancel.
+
+        Authentication and immutable request/epoch locking precede this check.
+        It grants no claim, renewal, manifest write or point acceptance.
+        """
+        import hashlib
+
+        from deerflow_ecs_fleet.agent_workspace import canonical
+        from deerflow_ecs_fleet.persistence.models import WorkspaceManifestRow
+
+        from deerflow.persistence.run.model import RunRow
+
+        run = await session.get(RunRow, identity.run_id)
+        if (
+            run.cancel_action not in {"rollback", "interrupt"}
+            or run.cancel_requested_at is None
+            or run.status != "running"
+            or row.state != "prepared"
+            or identity.kind != "final"
+            or (identity.desired_core_status, identity.desired_task_status, identity.desired_placement_status) != ("success", "succeeded", "succeeded")
+            or identity.error is not None
+            or identity.stop_reason is not None
+        ):
+            return False
+        now = await session.scalar(select(func.clock_timestamp()))
+        if not isinstance(nonce, str) or len(nonce) != 64 or any(char not in "0123456789abcdef" for char in nonce) or row.claim_nonce != nonce or row.claim_lease_expires_at is None or min(deadline, row.claim_lease_expires_at) <= now:
+            raise OwnershipRejected("Stale prepared workspace receipt claim conflicts or expired")
+        durable = self._manifest(await session.get(WorkspaceManifestRow, row.candidate_manifest_id))
+        private = {name: getattr(identity, name) for name in ("node_id", "node_session_id", "owner_worker_id", "token_stamp", "process_ref")}
+        if (
+            durable is None
+            or durable.manifest_id != row.candidate_manifest_id
+            or durable.request_digest != identity.request_digest
+            or durable.execution_digest != hashlib.sha256(canonical(private)).hexdigest()
+            or any(getattr(durable, name) != getattr(identity, name) for name in ("user_id", "thread_id", "agent_task_id", "run_id", "generation", "attempt_id", "launch_spec_digest"))
+            or (candidate is not None and candidate != durable)
+        ):
+            raise OwnershipRejected("Stale prepared workspace receipt candidate conflicts")
+        return True
+
     async def _projection(self, session, row, identity, grant):
+        await self._require_control_boundary(session, identity)
         from deerflow_ecs_fleet.persistence.models import WorkspaceManifestRow
 
         processes = (
@@ -543,6 +601,9 @@ class FleetWorkspaceNodeService:
     @_bounded_node_request
     async def poll(self, **auth):
         from deerflow_ecs_fleet.persistence.models import WorkspaceRequestRow
+        from sqlalchemy import exists, or_
+
+        from deerflow.persistence.run.model import RunRow
 
         async with self.sf.begin() as session:
             capability, grant, _, stopped = await self._authenticate(session, auth, allow_idle=True)
@@ -554,7 +615,13 @@ class FleetWorkspaceNodeService:
             row = (
                 await session.execute(
                     select(WorkspaceRequestRow)
-                    .where(WorkspaceRequestRow.attempt_id == auth["attempt_id"], WorkspaceRequestRow.state.in_(("requested", "sealing", "prepared")))
+                    .where(
+                        WorkspaceRequestRow.attempt_id == auth["attempt_id"],
+                        WorkspaceRequestRow.state.in_(("requested", "sealing", "prepared")),
+                        # Cancelled partial work cannot starve the same original
+                        # owner's bounded final paused publication.
+                        or_(WorkspaceRequestRow.kind == "paused", ~exists(select(RunRow.run_id).where(RunRow.run_id == WorkspaceRequestRow.run_id, RunRow.cancel_action.is_not(None)))),
+                    )
                     .order_by(WorkspaceRequestRow.created_at, WorkspaceRequestRow.id)
                     .limit(1)
                 )
@@ -575,6 +642,10 @@ class FleetWorkspaceNodeService:
             if request_digest != identity.request_digest:
                 raise ValueError("Original workspace request digest conflicts")
             row = await self.requests._locked(session, identity, barrier_epoch=barrier_epoch)
+            if await self._stale_prepared_success(session, row, identity, nonce=nonce, deadline=deadline):
+                await self._fresh_auth(session, capability, auth, allow_idle=True)
+                return {"stop": False, "request": None}
+            await self._require_control_boundary(session, identity)
             if row.state == "accepted":
                 await self._accepted_idle(session, row, identity, nonce=nonce)
                 await self._fresh_auth(session, capability, auth, allow_idle=True)
@@ -598,13 +669,17 @@ class FleetWorkspaceNodeService:
             raise ValueError("Workspace candidate metadata exceeds bound")
         candidate = WorkspaceManifest.model_validate(manifest)
         async with self.sf.begin() as session:
-            capability, grant, _, stopped = await self._authenticate(session, auth)
+            capability, grant, deadline, stopped = await self._authenticate(session, auth)
             if stopped:
                 return {"stop": True, "request": None}
             identity = self._identity(await session.get(WorkspaceRequestRow, request_id), capability.context)
             if request_digest != identity.request_digest:
                 raise ValueError("Original workspace request digest conflicts")
             row = await self.requests._locked(session, identity, barrier_epoch=barrier_epoch)
+            if await self._stale_prepared_success(session, row, identity, nonce=nonce, deadline=deadline, candidate=candidate):
+                await self._fresh_auth(session, capability, auth)
+                return {"stop": False, "request": None}
+            await self._require_control_boundary(session, identity)
             now = await session.scalar(select(func.clock_timestamp()))
             if row.state not in {"sealing", "prepared"} or row.claim_nonce != nonce or row.claim_lease_expires_at <= now:
                 raise ValueError("Original workspace prepare claim expired or conflicts")
@@ -622,12 +697,17 @@ class FleetWorkspaceNodeService:
         )
         verified = await asyncio.to_thread(versions.verify, candidate)
         async with self.sf.begin() as session:
-            capability, grant, _, stopped = await self._authenticate(session, auth)
+            capability, grant, deadline, stopped = await self._authenticate(session, auth)
             if stopped:
                 return {"stop": True, "request": None}
             fresh = self._identity(await session.get(WorkspaceRequestRow, request_id), capability.context)
             if fresh != identity:
                 raise ValueError("Original workspace identity changed during candidate verification")
+            row = await self.requests._locked(session, fresh, barrier_epoch=barrier_epoch)
+            if await self._stale_prepared_success(session, row, fresh, nonce=nonce, deadline=deadline, candidate=verified):
+                await self._fresh_auth(session, capability, auth)
+                return {"stop": False, "request": None}
+            await self._require_control_boundary(session, fresh)
             row = await self.requests.prepared(session, fresh, nonce=nonce, barrier_epoch=barrier_epoch, manifest=verified)
             projection = await self._projection(session, row, fresh, grant)
             await self._fresh_auth(session, capability, auth)
@@ -687,6 +767,8 @@ class FleetWorkspaceTerminalParticipant:
         ):
             raise OwnershipRejected("Original final preparation outcome rejected")
         run = await self.capability._guard.validate(_SessionCursor(session), thread_id=identity.thread_id, operation="workspace.accept", allow_terminal=True)
+        if run["cancel_action"] is not None and not cancellation_boundary_matches(run["cancel_action"], identity):
+            raise OwnershipRejected("Original interrupt requires exact paused preparation")
         row = await self.requests._locked(session, identity, barrier_epoch=epoch)
         if row.state not in {"prepared", "accepted"} or row.candidate_manifest_id != candidate.manifest_id:
             raise OwnershipRejected("Exact prepared final candidate required")
@@ -745,12 +827,56 @@ class FleetWorkspaceTerminalParticipant:
         if task.cancel_requested_at is not None:
             raise OwnershipRejected("Cancelled task cannot accept partial")
         previous = await session.get(WorkspacePointRow, task.accepted_workspace_point_id) if task.accepted_workspace_point_id else None
-        if previous is not None and previous.kind != "partial":
+        if previous is not None and previous.kind != "partial" and not await self._is_stopped_resume_source(session, previous):
             raise OwnershipRejected("Final point cannot be replaced by a stage")
         task.accepted_workspace_point_id = identity.request_id
         request.state = "accepted"
         await session.flush()
         await self.capability._guard.validate(_SessionCursor(session), thread_id=identity.thread_id, operation="workspace.accept")
+
+    async def _is_stopped_resume_source(self, session, previous):
+        """Only the exact frozen prior paused pair can precede this generation."""
+        from deerflow_ecs_fleet.persistence.models import AttemptRow, ReservationRow, RunPlacementRow, WorkspaceRequestRow
+        from deerflow_ecs_fleet.persistence.placements import RunPlacements
+        from sqlalchemy import text
+
+        from deerflow.persistence.run.model import RunRow
+
+        spec = self.capability._guard._spec
+        if previous is None or previous.id != spec.source_workspace_point_id or previous.kind != "paused" or previous.checkpoint_id != spec.source_workspace_checkpoint_id:
+            return False
+        if (previous.agent_task_id, previous.user_id, previous.thread_id, previous.generation) != (spec.agent_task_id, spec.user_id, spec.thread_id, spec.generation - 1):
+            return False
+        placement = await session.get(RunPlacementRow, previous.run_id)
+        attempt = await session.get(AttemptRow, previous.attempt_id)
+        run = await session.get(RunRow, previous.run_id)
+        request = await session.get(WorkspaceRequestRow, previous.request_id)
+        reservation = await session.scalar(select(ReservationRow).where(ReservationRow.attempt_id == previous.attempt_id))
+        metadata = await session.scalar(text("SELECT metadata FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' AND checkpoint_id=:checkpoint"), {"thread": previous.thread_id, "checkpoint": previous.checkpoint_id})
+        old_spec = await RunPlacements().load_launch_spec(session, run_id=previous.run_id, user_id=previous.user_id, thread_id=previous.thread_id)
+        return (
+            metadata is not None
+            and metadata.get("deerflow_execution_run_id") == previous.run_id
+            and old_spec.payload_digest() == previous.launch_spec_digest
+            and placement is not None
+            and placement.final_workspace_point_id == previous.id
+            and placement.active_attempt_id == previous.attempt_id
+            and placement.generation == previous.generation
+            and placement.state == previous.desired_placement_status
+            and attempt is not None
+            and attempt.stopped_at is not None
+            and attempt.state == previous.desired_placement_status
+            and (attempt.node_id, attempt.node_session_id, attempt.token_hash, attempt.process_ref) == (previous.node_id, previous.node_session_id, previous.token_stamp, previous.process_ref)
+            and run is not None
+            and (run.status, run.error, run.stop_reason, run.owner_worker_id) == (previous.desired_core_status, previous.error, previous.stop_reason, previous.owner_worker_id)
+            and request is not None
+            and request.state == "accepted"
+            and request.candidate_manifest_id == previous.manifest_id
+            and request.request_digest == previous.request_digest
+            and reservation is not None
+            and reservation.state == "released"
+            and reservation.released_at is not None
+        )
 
     async def before_transition(self, session, **outcome):
         await self._locked(session, **outcome)
@@ -761,7 +887,7 @@ class FleetWorkspaceTerminalParticipant:
         from deerflow_ecs_fleet.persistence.models import AgentTaskRow, RunPlacementRow, WorkspacePointRow
 
         identity, candidate, request, run = await self._locked(session, **outcome)
-        if run["status"] != identity.desired_core_status or (run["cancel_action"] is not None and run["status"] != "interrupted"):
+        if run["status"] != identity.desired_core_status or (run["cancel_action"] is not None and not cancellation_boundary_matches(run["cancel_action"], identity)):
             raise OwnershipRejected("Cancellation requires a newly prepared exact outcome")
         point = await session.get(WorkspacePointRow, identity.request_id, with_for_update=True)
         values = asdict(identity)
@@ -781,7 +907,7 @@ class FleetWorkspaceTerminalParticipant:
         placement = await session.get(RunPlacementRow, identity.run_id)
         if task.accepted_workspace_point_id not in {None, identity.request_id}:
             previous = await session.get(WorkspacePointRow, task.accepted_workspace_point_id)
-            if previous is None or previous.kind != "partial":
+            if (previous is None or previous.kind != "partial") and not await self._is_stopped_resume_source(session, previous):
                 raise OwnershipRejected("Conflicting accepted final point rejected")
         if placement.final_workspace_point_id not in {None, identity.request_id}:
             raise OwnershipRejected("Conflicting placement final point rejected")

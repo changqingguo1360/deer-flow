@@ -73,6 +73,13 @@ class FleetRunAdmission:
         self.backend = backend
         self.parameters = parameters
         self.task = None
+        self.resume_point = None
+        normalized_config = dict(parameters.normalized_config)
+        normalized_context = dict(normalized_config.get("context") or {})
+        # Fleet runtime identity comes from the authenticated admission owner,
+        # including internal callers whose public context omits user_id.
+        normalized_context["user_id"] = parameters.user_id
+        normalized_config["context"] = normalized_context
         self.inputs = {
             "schema_version": 1,
             "user_id": parameters.user_id,
@@ -81,7 +88,7 @@ class FleetRunAdmission:
             "model_name": backend.model_name,
             "model_version": backend.model_version,
             "input": encode_graph_input(parameters.graph_input),
-            "normalized_config": parameters.normalized_config,
+            "normalized_config": normalized_config,
             "stream_modes": parameters.stream_modes,
             "stream_subgraphs": parameters.stream_subgraphs,
             "interrupt_before": parameters.interrupt_before,
@@ -93,7 +100,64 @@ class FleetRunAdmission:
             "secret_refs": backend.secret_refs,
         }
 
-    guard_thread = staticmethod(lambda *args, **kwargs: fleet_thread_admission_guard(*args, **kwargs))
+    async def guard_thread(self, session, **kwargs):
+        await fleet_thread_admission_guard(session, participant=self, **{name: value for name, value in kwargs.items() if name != "participant"})
+
+    async def validate_paused_resume(self, session, task):
+        from deerflow_ecs_fleet.persistence.attempts import AgentAttempts
+        from deerflow_ecs_fleet.persistence.models import AttemptRow, RunPlacementRow
+        from deerflow_ecs_fleet.persistence.workspace_points import accepted_final
+
+        from deerflow.persistence.run.model import RunRow
+
+        command = self.parameters.graph_input
+        if not isinstance(command, Command) or not isinstance(command.resume, dict) or not command.resume or any(not isinstance(key, str) or not key for key in command.resume):
+            raise ConflictError("Paused remote execution requires keyed graph input")
+        if task.state not in {"paused", "input_required"} or task.cancel_requested_at is not None or task.current_run_id is None or task.continuation_budget < 0:
+            raise ConflictError("Remote task cannot accept human input")
+        location = await session.get(RunPlacementRow, task.current_run_id)
+        if location is None or location.active_attempt_id is None:
+            raise ConflictError("Paused remote execution has no original attempt")
+
+        async def lock_run(current, run_id):
+            return await current.get(RunRow, run_id, with_for_update=True)
+
+        rows = await AgentAttempts().locked(session, location.active_attempt_id, run_locker=lock_run)
+        original, run, placement, node, reservation, attempt = rows
+        if any(value is None for value in rows) or original.id != task.id or (run.user_id, run.thread_id) != (self.parameters.user_id, self.parameters.thread_id):
+            raise ConflictError("Paused remote execution identity conflicts")
+        point = await accepted_final(session, task=task, run=run, placement=placement, attempt=attempt)
+        selector = self.parameters.normalized_config.get("configurable", {}).get("checkpoint_id")
+        now = await session.scalar(text("SELECT clock_timestamp()"))
+        unresolved = await session.scalar(
+            select(AttemptRow.id)
+            .join(RunPlacementRow, RunPlacementRow.run_id == AttemptRow.run_id)
+            .where(RunPlacementRow.agent_task_id == task.id, (AttemptRow.stopped_at.is_(None)) | AttemptRow.state.in_(["unknown", "quarantined"]))
+            .limit(1)
+        )
+        if (
+            point is None
+            or point.kind != "paused"
+            or point.desired_task_status != task.state
+            or run.status != point.desired_core_status
+            or placement.state != point.desired_placement_status
+            or attempt.state != point.desired_placement_status
+            or attempt.stopped_at is None
+            or attempt.finished_at is None
+            or attempt.process_ref != "fleet-" + attempt.id
+            or point.node_session_id != attempt.node_session_id
+            or reservation.state != "released"
+            or reservation.released_at is None
+            or unresolved is not None
+            or task.deadline <= now
+            or attempt.execution_deadline <= now
+            or selector is not None
+            and selector != point.checkpoint_id
+        ):
+            raise ConflictError("Paused remote execution requires its accepted stopped source")
+        self.task, self.resume_point = task, point
+        self.inputs["source_workspace_point_id"] = point.id
+        self.inputs["source_workspace_checkpoint_id"] = point.checkpoint_id
 
     async def prepare(self, session):
         from deerflow_ecs_fleet.persistence.models import WorkspacePointRow, WorkspaceRequestRow
@@ -172,7 +236,15 @@ class FleetRunAdmission:
     async def insert(self, session, admitted_run):
         if admitted_run["user_id"] != self.parameters.user_id or admitted_run["thread_id"] != self.parameters.thread_id:
             raise ValueError("Run admission owner conflicts with launch identity")
-        if self.task.current_run_id is not None:
+        if self.resume_point is not None:
+            # Same admission TX retains the original task/run/ledger locks.
+            # Human input is not a B continuation and does not spend its budget.
+            await self.validate_paused_resume(session, self.task)
+            if self.inputs.get("source_workspace_point_id") != self.resume_point.id:
+                raise ConflictError("Resume source workspace changed")
+            self.task.generation += 1
+            self.task.state = "queued"
+        elif self.task.current_run_id is not None:
             raise ConflictError("Agent task already has a current run")
         spec = self.spec_for(run_id=admitted_run["run_id"], agent_task_id=self.task.id, generation=self.task.generation, execution_deadline=self.task.deadline)
         now = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
@@ -195,14 +267,59 @@ class FleetRunAdmission:
             raise ValueError("Run idempotency execution inputs conflict")
 
 
-async def fleet_thread_admission_guard(session, *, user_id, thread_id, backend, requested_backend, operation):
+async def fleet_thread_admission_guard(session, *, user_id, thread_id, backend, requested_backend, operation, participant=None):
     """No lease/core-status shortcut releases an unfinished remote task."""
     if backend != "fleet":
         raise ConflictError("Thread execution backend is unsupported")
     tasks = (await session.execute(select(AgentTaskRow).where(AgentTaskRow.user_id == user_id, AgentTaskRow.thread_id == thread_id).order_by(AgentTaskRow.created_at, AgentTaskRow.id).with_for_update())).scalars().all()
-    if any(task.state not in {"succeeded", "failed", "cancelled", "timed_out"} for task in tasks):
-        raise ConflictError("Thread has unfinished remote execution or recovery")
+    active = [task for task in tasks if task.state not in {"succeeded", "failed", "cancelled", "timed_out"}]
+    if active:
+        if operation != "run" or requested_backend != "fleet" or not isinstance(participant, FleetRunAdmission) or len(active) != 1:
+            raise ConflictError("Thread has unfinished remote execution or recovery")
+        await participant.validate_paused_resume(session, active[0])
     if operation == "artifact_write":
         raise ConflictError("Accepted remote workspace is immutable")
     if requested_backend != "fleet" and operation == "run":
         raise ConflictError("Thread requires its original remote execution backend")
+
+
+class BoundFleetRunBackend:
+    """Resolve human input on existing server bindings; never select initial routing."""
+
+    def __init__(self, session_factory, config):
+        self.sf, self.config = session_factory, config
+
+    async def __call__(self, parameters):
+        from deerflow_ecs_fleet.persistence.models import AttemptRow, RunPlacementRow, WorkspacePointRow
+
+        from deerflow.persistence.run.model import ThreadExecutionBindingRow
+
+        if not isinstance(parameters.graph_input, Command) or parameters.graph_input.resume is None:
+            return None
+        async with self.sf() as session:
+            binding = await session.get(ThreadExecutionBindingRow, (parameters.user_id, parameters.thread_id))
+            if binding is None or binding.backend != "fleet":
+                return None
+            task = await session.scalar(select(AgentTaskRow).where(AgentTaskRow.user_id == parameters.user_id, AgentTaskRow.thread_id == parameters.thread_id, text(AGENT_TASK_ACTIVE)))
+            if binding.recovery_required or task is None or task.current_run_id is None:
+                raise ConflictError("Bound remote human input requires its original task")
+            spec = await RunPlacements().load_launch_spec(session, run_id=task.current_run_id, user_id=parameters.user_id, thread_id=parameters.thread_id)
+            placement = await session.get(RunPlacementRow, spec.run_id)
+            source = await session.get(WorkspacePointRow, spec.source_workspace_point_id) if spec.source_workspace_point_id else None
+            attempt_id = placement.active_attempt_id or (source.attempt_id if source is not None else None)
+            attempt = await session.get(AttemptRow, attempt_id) if attempt_id else None
+            frozen_profile = attempt.launch_spec.get("execution_profile") if attempt is not None else None
+            profile = self.config.profiles.get(spec.profile)
+            if profile is None or frozen_profile != profile.model_dump(mode="json") or profile.runtime_digest != spec.runtime_digest or profile.cpu_millis != spec.resources.cpu_millis or profile.memory_mib != spec.resources.memory_mib:
+                raise ConflictError("Bound remote execution profile changed")
+            return FleetExecutionBackend(
+                config=self.config,
+                profile_name=spec.profile,
+                model_name=spec.model_name,
+                model_version=spec.model_version,
+                skill_snapshot=spec.skill_snapshot,
+                plugin_snapshot=spec.plugin_snapshot,
+                workspace_manifest_ref=spec.workspace_manifest_ref,
+                secret_refs=spec.secret_refs,
+                continuation_budget=task.continuation_budget,
+            )

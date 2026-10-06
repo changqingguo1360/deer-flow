@@ -62,6 +62,12 @@ class StopRequest(AttemptRequest):
     exit_code: int = Field(ge=0, le=255, strict=True)
 
 
+class ReconcileStopRequest(StopRequest):
+    original_node_session_id: str = Field(min_length=1, max_length=64)
+    process_ref: str = Field(min_length=1, max_length=128)
+    physical_stopped: bool = Field(strict=True)
+
+
 class SnapshotEntryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$")
@@ -158,6 +164,20 @@ async def renew_attempt(request: Request, attempt_id: str, body: RenewRequest):
 @router.post("/attempts/{attempt_id}/stopped")
 async def stopped_attempt(request: Request, attempt_id: str, body: StopRequest):
     return await attempt_operation(request, attempt_id, body, "stopped")
+
+
+@router.post("/attempts/{attempt_id}/reconcile-stopped")
+async def reconcile_stopped_attempt(request: Request, attempt_id: str, body: ReconcileStopRequest):
+    principal = require_node(request)
+    ownership = getattr(request.app.state, "fleet_ownership", None)
+    if ownership is None:
+        raise HTTPException(status_code=503, detail="Agent STOP integration unavailable")
+    try:
+        return await ownership.reconcile_stopped(node_id=principal.node_id, attempt_id=attempt_id, **body.model_dump())
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Attempt unavailable") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
 
 
 class CompleteRequest(AttemptRequest):

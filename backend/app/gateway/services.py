@@ -1361,6 +1361,13 @@ async def start_run(
             public_kwargs={"input": body.input, "config": redact_config_secrets(body.config)},
             model_name=model_name,
         )
+        if execution_backend is None:
+            resolver = getattr(request.app.state, "bound_run_execution_backend", None)
+            if resolver is not None:
+                try:
+                    execution_backend = await resolver(parameters)
+                except ConflictError as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
         execution_plan = (execution_backend or LocalExecutionBackend()).plan(parameters)
 
         async def run_after_metadata(record: RunRecord) -> None:

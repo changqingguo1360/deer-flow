@@ -18,6 +18,14 @@ class CleanupBudget:
     def __init__(self):
         self._deadline = None
 
+    def tighten(self, deadline):
+        if self._deadline is None or deadline < self._deadline:
+            self._deadline = deadline
+            observer = _deadline_observer.get()
+            if observer is not None:
+                observer(deadline)
+        return self._deadline
+
     def start(self):
         if self._deadline is None:
             self._deadline = time.monotonic() + TOTAL_CLEANUP_SECONDS

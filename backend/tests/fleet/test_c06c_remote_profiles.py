@@ -838,18 +838,46 @@ async def test_actual_worker_normal_memory_middleware_drains_before_terminal(mem
 
     from .c08_native_terminal_pair import NativeTerminalPreparation
 
-    prepare_terminal = NativeTerminalPreparation(item, tmp_path / "memory-terminal")
+    prepare_terminal = NativeTerminalPreparation(item, tmp_path / "memory-terminal", cancellation=True)
+    from contextlib import AsyncExitStack, contextmanager
+
+    from app.fleet.agent_control import OriginalAgentCancellation
+    from app.fleet.runner_context import _AgentResourceTeardown
+    from deerflow.runtime.execution.mutation_context import ExecutionCancellationRequested
+
+    capability = prepare_terminal.capability
+
+    @contextmanager
+    def settlement_scope():
+        with capability.cancellation_settlement_scope():
+            yield
+
+    teardown = _AgentResourceTeardown(AsyncExitStack(), settlement_scope, capability.context)
+    teardown.workspace_writers = prepare_terminal.controller
+    cancellation = OriginalAgentCancellation(item.env[1], capability, manager, teardown, prepare_terminal.controller)
     bridge = SimpleNamespace(publish=AsyncMock(), publish_end=AsyncMock(), cleanup=AsyncMock())
     try:
-        await run_agent(
-            bridge,
-            manager,
-            record,
-            ctx=RunContext(checkpointer=item.writer, event_store=item.events, thread_store=item.threads, app_config=item.private, before_terminal_mutations=drain, prepare_terminal=prepare_terminal),
-            agent_factory=lambda *, config: graph,
-            graph_input={"messages": [HumanMessage(content="remember my preference")]},
-            config={"configurable": {"thread_id": item.spec.thread_id}},
-        )
+        with settlement_scope():
+            await run_agent(
+                bridge,
+                manager,
+                record,
+                ctx=RunContext(
+                    checkpointer=item.writer,
+                    event_store=item.events,
+                    thread_store=item.threads,
+                    app_config=item.private,
+                    before_terminal_mutations=drain,
+                    prepare_terminal=prepare_terminal,
+                    prepare_cancellation=cancellation.prepare,
+                    observe_cancellation=cancellation.read,
+                    cancellation_checkpoint_scope=capability.cancellation_checkpoint_scope,
+                    cancellation_rollback_scope=capability.cancellation_rollback_scope,
+                ),
+                agent_factory=lambda *, config: graph,
+                graph_input={"messages": [HumanMessage(content="remember my preference")]},
+                config={"configurable": {"thread_id": item.spec.thread_id}},
+            )
     finally:
         release.set()
         observer_release.set()
@@ -857,18 +885,23 @@ async def test_actual_worker_normal_memory_middleware_drains_before_terminal(mem
             await drain_extension_dispatches()
         except OwnershipRejected:
             assert revoke_late_result
+        except ExecutionCancellationRequested:
+            assert late_cancel and not revoke_late_result
         finally:
             reset_extension_notify_loop()
     async with item.engine.connect() as conn:
         status = (await conn.execute(text("SELECT status FROM runs"))).scalar_one()
-    assert drained_status == ["running"] * (2 if late_cancel and not revoke_late_result else 1)
+    assert drained_status == ["running"]
     if revoke_late_result:
         assert record.ownership_lost and status == "running"
         assert await memory_rows(item) == []
     else:
         assert not record.ownership_lost and status == ("interrupted" if late_cancel else "success")
         if late_cancel:
-            assert "late interrupted title observer" in await extension_rows(item)
+            assert "late interrupted title observer" not in await extension_rows(item)
+            async with item.engine.connect() as conn:
+                point = (await conn.execute(text("SELECT kind,desired_core_status,desired_task_status,desired_placement_status FROM fleet_workspace_points WHERE kind!='partial'"))).one()
+                assert tuple(point) == ("paused", "interrupted", "paused", "cancelled")
         assert "normal middleware queued durable result" in str(await memory_rows(item))
         if queued_observer:
             assert "final model observer" in await extension_rows(item)

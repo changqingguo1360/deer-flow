@@ -7,7 +7,7 @@ Only provider responses are scripted; publication paths are production code.
 import asyncio
 import os
 import time
-from contextlib import AsyncExitStack, contextmanager
+from contextlib import AsyncExitStack, contextmanager, nullcontext
 
 import httpx
 import pytest
@@ -24,7 +24,7 @@ from .test_c05_remote_agent_runtime import owner_environment as owner_environmen
 @pytest.mark.parametrize("mode", ["full", "delta"])
 @pytest.mark.parametrize("streams", [["values"], ["values", "custom"]])
 @pytest.mark.parametrize("pause", [False, True, "clarification"])
-async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(checkpoint_owner, tmp_path, monkeypatch, mode, streams, pause, fault=None, goal_continuation=False):
+async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(checkpoint_owner, tmp_path, monkeypatch, mode, streams, pause, fault=None, goal_continuation=False, return_fixture=False, recurrent_pause=False):
     from deerflow_ecs_fleet.agent_workspace import AgentWorkspaceVersions, WorkspaceBoundaryIdentity
     from deerflow_ecs_fleet.persistence.outbox import EventOutbox
     from deerflow_ecs_fleet.workspace import NASWorkspace
@@ -58,9 +58,11 @@ async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(
             raise ValueError("original pending checkpoint mapping fault")
 
         monkeypatch.setattr("deerflow.runtime.runs.worker._preserve_remote_pending_writes", fail_migration)
+    rollback_injections = []
     if fault in {"rollback_fault", "editrollback"}:
 
         async def fail_rollback(**kwargs):
+            rollback_injections.append("original rollback checkpoint fault")
             raise ValueError("original rollback checkpoint fault")
 
         monkeypatch.setattr("deerflow.runtime.runs.worker._rollback_to_pre_run_checkpoint", fail_rollback)
@@ -92,7 +94,7 @@ async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(
     def original_scope():
         token = set_current_user(SimpleNamespace(id=item.spec.user_id))
         try:
-            with remote_mutation_scope(capability.context), workspace_writer_scope(controller):
+            with remote_mutation_scope(capability.context), capability.cancellation_settlement_scope() if fault == "rollback_fault" else nullcontext(), workspace_writer_scope(controller):
                 yield
         finally:
             reset_current_user(token)
@@ -181,6 +183,19 @@ async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(
     context = RunContext(
         checkpointer=item.writer, event_store=events, thread_store=thread_store, checkpoint_channel_mode=mode, checkpoint_durability="sync", bind_checkpoint_accessor=publisher.bind_accessor, prepare_terminal=observe_original_terminal
     )
+    if fault == "rollback_fault":
+        from app.fleet.agent_control import OriginalAgentCancellation
+
+        cancellation = OriginalAgentCancellation(sf, capability, manager, teardown, controller)
+        from dataclasses import replace
+
+        context = replace(
+            context,
+            prepare_cancellation=cancellation.prepare,
+            observe_cancellation=cancellation.read,
+            cancellation_checkpoint_scope=capability.cancellation_checkpoint_scope,
+            cancellation_rollback_scope=capability.cancellation_rollback_scope,
+        )
     item.writer.after_root_commit = publisher.on_root_commit
     if fault in {"cancel", "rollback", "rollback_fault"}:
         injected = False
@@ -252,14 +267,16 @@ async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(
                     stream_modes=streams,
                 )
                 if fault is not None:
-                    from deerflow.runtime.execution.mutation_context import ExecutionWorkspaceFailure
+                    from deerflow.runtime.execution.mutation_context import ExecutionCancellationRequested, ExecutionWorkspaceFailure
 
                     with pytest.raises(
-                        ExecutionWorkspaceFailure,
-                        match="duration"
+                        ExecutionCancellationRequested if fault == "cancel" else ExecutionWorkspaceFailure,
+                        match=None
+                        if fault == "cancel"
+                        else "duration"
                         if fault == "duration"
                         else "rollback"
-                        if fault in {"rollback_fault", "editrollback"}
+                        if fault in {"rollback", "rollback_fault", "editrollback"}
                         else "checkpoint"
                         if fault == "migration"
                         else "completion"
@@ -267,8 +284,12 @@ async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(
                         else "late title"
                         if fault == "latetitle"
                         else "preparation",
-                    ):
+                    ) as failure:
                         await execute
+                    if fault == "rollback_fault":
+                        assert str(failure.value) == "Remote cancellation rollback checkpoint failed"
+                        assert isinstance(failure.value.__cause__, ValueError)
+                        assert str(failure.value.__cause__) == "original rollback checkpoint fault"
                 else:
                     await execute
         finally:
@@ -292,8 +313,9 @@ async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(
                 assert await session.scalar(text("SELECT count(*) FROM fleet_stream_seals")) == 1
                 assert await session.scalar(text("SELECT state FROM fleet_reservations")) == "released"
         if fault in {"cancel", "rollback", "rollback_fault"}:
-            if fault != "rollback_fault":
-                assert terminal_observation[0] == (("interrupted", None) if fault == "cancel" else ("error", "Rolled back by user"))
+            assert terminal_observation == [], "Failed cancellation cannot publish a terminal pair"
+            if fault == "rollback_fault":
+                assert rollback_injections == ["original rollback checkpoint fault"]
             async with sf() as session:
                 process_ref = await session.scalar(text("SELECT process_ref FROM fleet_attempts"))
             await item.env[4].state.fleet_ownership.stopped(
@@ -385,6 +407,28 @@ async def test_actual_stock_worker_graph_accepts_two_same_path_turns_then_final(
         assert await session.scalar(text("SELECT state FROM fleet_reservations")) == "released"
     with original_scope():
         await teardown.close()
+    if return_fixture:
+
+        def resume_graph(*, pause_again=False):
+            replies = [AIMessage(content="original final answer")]
+            if pause_again:
+                replies.insert(0, AIMessage(content="", tool_calls=[{"id": "second-pause-turn", "name": "request_original_input", "args": {}, "type": "tool_call"}]))
+            return create_deerflow_agent(
+                FakeToolCallingModel(responses=replies),
+                tools=[present_file_tool, request_original_input, completed_goal_sideeffect, ask_clarification_tool],
+                middleware=[ThreadDataMiddleware(base_dir=str(paths_value.base_dir), lazy_init=True), ClarificationMiddleware()],
+                checkpoint_channel_mode=mode,
+            )
+
+        return SimpleNamespace(
+            snapshot=snapshot,
+            graph=graph,
+            resume_graph=resume_graph(pause_again=recurrent_pause),
+            final_resume_graph=resume_graph() if recurrent_pause else None,
+            completed=completed_goal_tools,
+            questions=question_entries,
+            paths=paths_value,
+        )
 
 
 @pytest.mark.asyncio

@@ -78,6 +78,7 @@ async def test_original_daemon_postpair_idle_or_real_lease_loss_keeps_immutable_
     child = None
     immutable = None
     calls = []
+    native_release = tmp_path / "postpair-native-release"
     claim = {"kind": "agent", "attempt_id": p.identity.attempt_id, "token": p.item.accepted.token}
 
     class Client(NodeClient):
@@ -89,6 +90,7 @@ async def test_original_daemon_postpair_idle_or_real_lease_loss_keeps_immutable_
                 raise
             if operation == "workspace/poll":
                 calls.append((operation, 200))
+                native_release.touch()
             if operation == "stopped":
                 assert child.poll() is not None
                 calls.append((operation, fields["reason"]))
@@ -100,7 +102,12 @@ async def test_original_daemon_postpair_idle_or_real_lease_loss_keeps_immutable_
 
         async def launch(self, grant, **kwargs):
             nonlocal child, immutable
-            child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(" + ("60" if lose_lease else "0.3") + ")"])
+            script = (
+                "import time; time.sleep(60)"
+                if lose_lease
+                else "import sys,time; from pathlib import Path; deadline=time.monotonic()+3; marker=Path(sys.argv[1]);\nwhile not marker.exists():\n if time.monotonic()>deadline: raise SystemExit(2)\n time.sleep(0.005)"
+            )
+            child = subprocess.Popen([sys.executable, "-c", script, str(native_release)])
             await accept(p)
             immutable = await point_bytes(p)
             if lose_lease:
@@ -202,21 +209,50 @@ async def test_transport_reason_never_bypasses_original_stop_identity(prepared_p
 
 @pytest.mark.asyncio
 async def test_actual_new_node_session_still_cannot_report_old_attempt(prepared_pair):
-    """Current C09 recovery boundary: do not broaden session auth for this fix."""
+    """Strict ordinary STOP; dedicated restart proof cannot change original authority."""
     import httpx
     from deerflow_ecs_fleet.worker.client import NodeClient
 
     p = prepared_pair
     await accept(p)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=p.item.env[4]), base_url="http://test/") as http:
+    immutable = await point_bytes(p)
+    app = p.item.env[4]
+    runtime = p.item.env[3]
+    await runtime.nodes.register(node_id="foreign-stop", name="foreign-stop", cpu_millis=1000, memory_mib=2048)
+    foreign = await runtime.credentials.issue("foreign-stop", lifetime_seconds=600)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test/") as http:
         client = NodeClient(gateway_url="http://test", credential=p.item.env[7].token, http_client=http)
         await client.open_session()
         assert client.session_id != p.identity.node_session_id
         before = await durable_rows(p)
+        claim = {"kind": "agent", "attempt_id": p.identity.attempt_id, "token": p.item.accepted.token}
+        fields = dict(reason="lease_lost", exit_code=137, process_ref=p.identity.process_ref, physical_stopped=True)
         with pytest.raises(httpx.HTTPStatusError) as rejection:
-            await client.attempt({"kind": "agent", "attempt_id": p.identity.attempt_id, "token": p.item.accepted.token}, "stopped", reason="lease_lost", exit_code=137, process_ref=p.identity.process_ref, physical_stopped=True)
+            await client.attempt(claim, "stopped", **fields)
         assert rejection.value.response.status_code == 409
         assert await durable_rows(p) == before
+        path = "/api/fleet/node/attempts/" + p.identity.attempt_id + "/reconcile-stopped"
+        body = fields | {"node_session_id": client.session_id, "original_node_session_id": p.identity.node_session_id, "token": p.item.accepted.token}
+        for changed, credential, expected in (
+            ({"token": "wrong"}, p.item.env[7].token, 403),
+            ({"original_node_session_id": "wrong"}, p.item.env[7].token, 409),
+            ({"physical_stopped": False}, p.item.env[7].token, 409),
+            ({"process_ref": "fleet-wrong"}, p.item.env[7].token, 409),
+            ({}, foreign.token, 403),
+        ):
+            denied = await http.post(path, headers={"Authorization": "Bearer " + credential}, json=body | changed)
+            assert denied.status_code == expected, denied.text
+            assert await durable_rows(p) == before
+        result = await client.reconcile_stopped(claim, original_node_session_id=p.identity.node_session_id, **fields)
+        assert result == {"state": p.identity.desired_placement_status, "stopped": True}
+        assert await point_bytes(p) == immutable
+        async with p.sf() as session:
+            assert await session.scalar(text("SELECT outcome->>'stop_reason' FROM fleet_attempts")) == "lease_lost"
+            assert await session.scalar(text("SELECT core_status FROM fleet_stream_seals")) == p.identity.desired_core_status
+            assert await session.scalar(text("SELECT count(*) FROM fleet_reservations WHERE state='released' AND released_at IS NOT NULL")) == 1
+        stopped = await durable_rows(p)
+        assert await client.reconcile_stopped(claim, original_node_session_id=p.identity.node_session_id, **(fields | {"reason": "cancelled", "exit_code": 0})) == result
+        assert await durable_rows(p) == stopped
 
 
 @pytest.mark.asyncio

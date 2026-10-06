@@ -28,7 +28,7 @@ async def advance_original_root(item):
 
 
 class NativeTerminalPreparation:
-    def __init__(self, item, directory, *, controller=None):
+    def __init__(self, item, directory, *, controller=None, cancellation=False):
         from deerflow_ecs_fleet.agent_workspace import AgentWorkspaceVersions
         from deerflow_ecs_fleet.workspace import NASWorkspace
 
@@ -36,6 +36,7 @@ class NativeTerminalPreparation:
         from deerflow.runtime.execution.workspace_boundary import WorkspaceWriterController
 
         self.item = item
+        self.cancellation = cancellation
         self.capability = item.runs._mutation_capability
         self.controller = controller if controller is not None else WorkspaceWriterController()
         # Native fixture composition only; installed cumulative-120 ownership
@@ -74,20 +75,20 @@ class NativeTerminalPreparation:
             latest = await item.writer.aget_tuple(item.config)
         status = record.status.value if hasattr(record.status, "value") else record.status
         outcome = {"success": "succeeded", "interrupted": "cancelled", "error": "failed", "timeout": "timed_out"}[status]
-        with remote_mutation_scope(self.capability.context):
+        with remote_mutation_scope(self.capability.context), self.capability.cancellation_settlement_scope():
             epoch = await self.controller.close_and_wait(deadline=deadline, final=True)
             key = hashlib.sha256(canonical([latest.config["configurable"]["checkpoint_id"], status, getattr(record, "error", None), getattr(record, "stop_reason", None)])).hexdigest()
             identity = WorkspaceBoundaryIdentity.from_context(
                 self.capability.context,
                 request_id=key,
                 checkpoint_id=latest.config["configurable"]["checkpoint_id"],
-                kind="final",
+                kind="paused" if self.cancellation and status == "interrupted" else "final",
                 publication_key=key,
                 presented_paths=(),
                 source_workspace_version="initial",
                 desired_core_status=status,
-                desired_task_status=outcome,
-                desired_placement_status=outcome,
+                desired_task_status="paused" if self.cancellation and status == "interrupted" else outcome,
+                desired_placement_status="cancelled" if self.cancellation and status == "interrupted" else outcome,
                 error=getattr(record, "error", None),
                 stop_reason=getattr(record, "stop_reason", None),
             )

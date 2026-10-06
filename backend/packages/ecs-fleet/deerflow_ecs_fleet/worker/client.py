@@ -61,6 +61,9 @@ class NodeClient:
     async def attempt(self, claim, operation, **fields):
         return await self.call("attempts/" + claim["attempt_id"] + "/" + operation, {"node_session_id": self.session_id, "token": claim["token"], **fields})
 
+    async def reconcile_stopped(self, claim, *, original_node_session_id, **fields):
+        return await self.call("attempts/" + claim["attempt_id"] + "/reconcile-stopped", {"node_session_id": self.session_id, "original_node_session_id": original_node_session_id, "token": claim["token"], **fields})
+
     async def close(self):
         if self._owned:
             await self._client.aclose()

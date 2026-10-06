@@ -70,7 +70,13 @@ class NodeDaemon:
                 row["stop_reason"] = row.get("stop_reason", "lease_lost")
                 observation = await self.containers.inspect(ref)
                 row["exit_code"] = observation["State"]["ExitCode"] if observation else row.get("exit_code", 137)
-                response = await self.client.attempt(row["claim"], "stopped", reason=row["stop_reason"], exit_code=row["exit_code"], **({"process_ref": ref, "physical_stopped": True} if row["claim"]["kind"] == "agent" else {}))
+                if row["claim"]["kind"] == "agent":
+                    original_session = row.get("grant", {}).get("node_session_id")
+                    if not isinstance(original_session, str) or not original_session:
+                        raise RecoveryRequired("Original Agent session missing from private start grant")
+                    response = await self.client.reconcile_stopped(row["claim"], original_node_session_id=original_session, reason=row["stop_reason"], exit_code=row["exit_code"], process_ref=ref, physical_stopped=True)
+                else:
+                    response = await self.client.attempt(row["claim"], "stopped", reason=row["stop_reason"], exit_code=row["exit_code"])
                 row["reported"] = True
                 row["server_state"] = response["state"]
                 await self._save_record(row)

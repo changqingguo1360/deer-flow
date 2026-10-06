@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06 已完成完整持久写隔离、120 秒累计清理期限、双阶段审查与独立验收，提交 `5e936510`；C07 已完成同事务 outbox、终态封口、持久 SSE 回放、双阶段审查及独立本地验收；C08 已完成完整源码审查、历史完整回归与当前受影响路径闭环，最终 SPEC→QUALITY 和 Root 本地验收通过；C09–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06 已完成完整持久写隔离、120 秒累计清理期限、双阶段审查与独立验收，提交 `5e936510`；C07 已完成同事务 outbox、终态封口、持久 SSE 回放、双阶段审查及独立本地验收；C08 已完成完整源码审查、历史完整回归与当前受影响路径闭环，最终 SPEC→QUALITY 和 Root 本地验收通过；C09 已完成孤立本地验收；C10–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -32,6 +32,8 @@
 若涉及 schedule，先锁 schedule/occurrence；然后 Agent task/generation、wait group、thread/run、job/placement、node、reservation/attempt；不涉及的层跳过。任何新路径必须匹配相同顺序。多 job 按 ID 排序。C 的 run owner 与 attempt lease 在同一事务更新。数据库写 fence 必须与被保护写操作同事务，不能用先查后写替代。
 
 ## Test execution and evidence
+
+**用户执行顺序（2026-10-06，覆盖后续 C10–C12/组合）：** 每个阶段先实现并跑通一条真实端到端主干，再验证该变更直接影响的必要分支。下文矩阵是待覆盖的行为说明，不要求在主干完成前铺开测试，也不要求为每个组合新增独立用例。优先复用现有测试；仅实际失败、源码变化或未决风险才扩大或重跑验证。文档、格式及未参与运行的测试修改不触发主干镜像重建。仓库明确要求的阶段收尾检查仍执行一次，失败后优先复核失败项。
 
 所有命令在目标 worktree 执行；backend 命令在 `backend/` 中：
 
@@ -611,67 +613,12 @@ git commit -m "feat(fleet): c08 实现 C workspace 和 checkpoint 联合恢复�
 
 ### Task C09: 远程取消、人工中断与故障隔离
 
-**Files:**
-- Create: `backend/app/fleet/agent_control.py`
-- Modify: `backend/app/gateway/routers/thread_runs.py`
-- Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/cancellation.py`
-- Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/worker/watchdog.py`
-- Modify: `backend/packages/harness/deerflow/runtime/runs/manager.py`
-- Test: `backend/tests/fleet/test_c09_remote_agent_operations.py`
-- Docs: `README.md`、`backend/AGENTS.md`；涉及前端时同步 `frontend/AGENTS.md`。
+- [x] 按[详细 C09 计划](2026-10-06-ecs-fleet-c09-control.md)完成 Task1–4：原执行 interrupt、rollback/取消完成 CAS、同 task 新 run keyed resume、实际断网与 stock Node 重启 STOP 对账。
+- [x] 使用原 run_agent/checkpoint/workspace/STOP 生命周期；取消不直接改变 generation 或释放容量，普通取消后写入仍被拒绝，受控清理累计最多120秒。
+- [x] 完成真实主干、必要相邻检查、既有失败定向复核及 SPEC→QUALITY/Root 验收；不把原完整回归失败改标为通过，不重跑有效主干或扩展矩阵。
+- [x] 同步文档、静态检查和 C09 slice。实际证据与限制见 [C09 验收](../../ecs-fleet-c09-acceptance.md)。
 
-**OpenSpec:** `remote-agent-operations` / `Remote cancellation and safe recovery`。
-
-- [ ] **Step 1 — 场景搭建与失败测试。** cancel 与 completion 两种提交顺序；graph interrupt/resume 经新 run；旧 worker 网络隔离保持 shell 写入，检查线程恢复 reservation 阻止第二写者。
-
-测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
-
-```python
-import pytest
-
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_c09_contract(fleet_probe):
-    observed = await fleet_probe.exercise("C09")
-    assert observed['unconfirmed_resources_released'] == False
-    assert observed['resume_new_run'] == True
-    assert observed['concurrent_thread_writers'] == 1
-```
-
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
-
-```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_c09_remote_agent_operations.py::test_c09_contract -vv
-```
-
-期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
-
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
-
-```python
-# stop-current-run => pause task + increment generation + durable cancel intent.
-# cancel-task => terminal cancellation intent; propagate policy to linked jobs in BC.
-# started owner lost => recovery reservation; require process/tool stop proof and review.
-```
-
-重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
-
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
-
-```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_c09_remote_agent_operations.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
-```
-
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
-
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
-
-```bash
-git commit -m "feat(fleet): c09 远程取消、人工中断与故障隔离"
-```
-
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `9.1` 至 `9.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+此节替代原 C09 示例文件清单和 pause/generation 伪代码；原示例不构成实际接口或额外交付物。公有 remote activation 继续关闭，后续 C10–C12 和 C→B→C 未完成。
 
 ### Task C10: 路由 preference 与 Scheduler 票据接入
 

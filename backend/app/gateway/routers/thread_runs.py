@@ -972,6 +972,10 @@ async def cancel_run(
         CancelOutcome.requested,
         CancelOutcome.taken_over,
     ):
+        if wait:
+            physically_stopped = await run_mgr.wait_execution_stopped(run_id, disconnected=request.is_disconnected)
+            if physically_stopped is not None:
+                return Response(status_code=204 if physically_stopped else 202)
         if wait and record.task is not None:
             try:
                 await record.task
@@ -1070,6 +1074,10 @@ async def stream_existing_run(
             if outcome == CancelOutcome.lease_valid_elsewhere:
                 await _raise_lease_valid_elsewhere(run_id, run_mgr, record)
             raise HTTPException(status_code=409, detail=_cancel_conflict_detail(run_id, record))
+        if wait:
+            physically_stopped = await run_mgr.wait_execution_stopped(run_id, disconnected=request.is_disconnected)
+            if physically_stopped is not None:
+                return Response(status_code=204 if physically_stopped else 202)
         if outcome == CancelOutcome.requested and record.store_only and not bridge.supports_cross_process:
             # The request is durable, but this bridge cannot observe the
             # owner's stream. Returning 202 is safer than hanging forever on

@@ -1,10 +1,912 @@
 # ECS Fleet implementation evidence
 
+## 2026-10-06 — C09 isolated local acceptance completed
+
+Final image `sha256:960f86678b81020b3f850bcf0ab0ae1674a6f9ab62ee92730fb53ae13b5bc444` passes the one actual stock Node restart main (natural exit0, 42.13 seconds), six-wheel/784-member inventory and thirteen installed-source checks. The original attempt session remains unchanged; physical STOP reconciliation acknowledges the old journal and releases capacity once without reviving the writer. Missing exact recovery source leaves recovery_required/unknown and the stock child naturally exits1. Two existing native identity/historical-ACK checks and nine necessary neighbors pass; SPEC→QUALITY finds no production defect. Evidence: `.local/fleet-evidence/c09/task4-restart-final-v1/`, `task4-lateack-green-v1/`, `task4-adjacent-final-v1/`.
+
+One existing broad run naturally finished with 14,816 passed, 10 failed, 72 skipped and 58 deselected; blocking-I/O passed75. Its failures are retained in `task4-final-offline-targets-v1/`, not relabelled green. Documentation budgets, existing cancellation fixtures, a native process timing race and local-only environment failures are fixed; all ten failures have focused GREEN rechecks, including an actually reached rollback fault. No new case matrix or current Docker main rerun. Whole C09 SPEC→QUALITY and Root isolated local acceptance are complete in this slice; [acceptance report](../../ecs-fleet-c09-acceptance.md) records exact scope. Root removed only three superseded restart diagnostic images with fresh zero-container-reference checks; receipt `task4-obsolete-restart-images-cleanup-v1.json`. Final, prior accepted mains and immutable dependencies remain available.
+
+## 2026-10-06 — Task4 one actual partition main accepted
+
+The one installed partition main passed with natural exit0 (40.49 seconds), using image `sha256:4302fe2fa2479706b178d31e326ff205444bcf077c0811eafc5fe686ee0b8e4a`. All retries reused that image; corrections concerned the host TCP fixture, direct loopback transport, and recording the original publication-deadline exception. No secondary cases were added or run. The actual shell continued after the TCP partition while fresh Gateway admission returned409. Before STOP acknowledgement, physical stop did not release the reservation. Same-session journal STOP replay released it once and left the task `recovery_required` without an exact accepted source. Actual writer overlap was1; stale writes/renew/poll were rejected. All owned container/TCP/task/stager handles settled and the owned UUID database was dropped. Evidence: `.local/fleet-evidence/c09/task4-partition-main-v5/`. Sequential SPEC and QUALITY reviews returned Ready; Root verified the saved runtime hashes, natural exit and current format-only source lineage. This establishes same-session transport recovery, not automatic daemon restart recovery. No secondary tests have been run in this step. Task4 as a whole and whole C09 remain pending only their necessary remaining requirements.
+
+
+## 2026-10-06 — user priority: main before secondary checks
+
+Task4 now has one source-ready actual TCP-partition main and a thin image builder. The sole implementer is authorized to reuse the accepted dependency image and existing verified wheels, build the current fixture image offline, verify installed bytes, and execute only that main. No secondary cases or broad reruns are authorized in this step. Actual runtime result is pending; Task4 and whole C09 remain pending. After main success, reuse unchanged accepted evidence and add only necessary secondary checks.
+
+
 Date: 2026-10-01. Goal: deliver B, then C, then C → B → C continuations.
 
 B has met its isolated local release gate; C and BC remain incomplete. Current status:
 [B acceptance](../../../docs/ecs-fleet-b-acceptance.md). Dated historical sections below
 do not override the final matrix.
+
+## Current C09 work — 2026-10-06
+
+Detailed Tasks1–4, finite regression closure and whole C09 SPEC→QUALITY/Root acceptance are complete in this slice. Current evidence and limitations are recorded at the top of this document. C10–C12 and C→B→C remain pending; public remote activation stays closed. Historical entries below retain their original scope and do not override this status.
+
+Task3 required secondary controls use the SAME existing native case, no new
+case/matrix/image. `task3-native-admission-controls-main-v1` naturalPASS1/exit0,
+wall5.306558832991868s, ownedUUID created/dropped and owners settled. Original
+public requests independently reject missing accepted-point pointer, missing
+stopped_at and mismatched task generation without durable-row changes. Actual
+original admission insert+flush then controlled failure rolls back all compared
+participants. Two original concurrent public resume requests yield exactly one
+200/one409. Original stock generation2 pauses again, receives accepted pair and
+native STOP/release, then original generation3 public resume completes with
+cached sideeffect1. Native STOP is not claimed as Docker evidence. Production,
+installed provider/host/wrapper and retained cleanup dependencies remain unchanged;
+installed v5 main therefore carries without rebuild/rerun. Exact source/static
+`/private/tmp/c09-task3-native-controls-source-v2.json` and raw XML/log/receipt
+are read by Root. Whole Task3 SPEC→QUALITY acceptance pending; Task4/C09 pending.
+Actual checkpoint-root deletion or a new public stale-session test is not claimed;
+unchanged shared root/session guards retain original accepted C08 scope.
+
+
+Task3 installed keyed-resume main now Root accepted after runtime SPEC→QUALITY
+Ready and fresh29 refs match, `task3-root-installed-main-acceptance-v5.json`.
+Current retained image1b29d757 is the proven Task3 main. No new cases or native
+reruns; next only necessary planned secondary controls, then Task4 main. Full
+Task3/C09 and C10–C12/BC remain pending; no activation/commit/push.
+
+
+Task3 installed same main v5 now naturalPASS1/exit0, wall24.767111791996285s.
+Image1b29d757cccb12053646ed470ed7ac8ddbbb2cb1a35ce81ac0e9529a3da00e22
+executes the reviewed admission-owner fix and original worker diagnostic;
+installed source/6wheel784member probe matched. Actual paused accepted checkpoint
+and cached parallel bash result precede original public keyed resume200; same
+task/newrun/generation2/sourcepoint/deadline/budget are retained. New original
+stock runner completes approved ToolMessage and accepted final success; actual
+NAS receipt bytes unchanged with exactly one sideeffect. Both containers had
+ExitCode0/Pid0/Runningfalse and original durable STOP ACK/released reservations.
+Owned handles allsettled and ownedUUID dropped. Raw
+`task3-installed-owner-fixed-main-v5.xml`, `-receipt.json` and directory
+`actual-resume-main.json` independently read by Root; installed-main SPEC then
+QUALITY acceptance pending. Stream route was not executed; this does not mark
+full Task3/C09 complete. No new cases/native reruns were added.
+
+
+Task3 same-main ownership diagnosis v4 captured the original `present_files`
+private-owner rejection, not a SQL lease defect. Immutable generation2 launch
+journal proves authoritative spec.user_id was correct while runtime context
+omitted user_id. Minimal v5 Fleet admission fix copies config/context and stamps
+user_id from authenticated RunExecutionParameters before frozen inputs; original
+parameters, Local injection, immutable history and private owner guard are unchanged.
+Source map `task3-admission-owner-source-ready-v5.json` SHA538867293c14e3dd87dd4cf1381abd5a06fd6a584ffe46828eb6d7c80a8bd626;
+Root fresh810 hashes match. Narrow SPEC Ready at
+`/private/tmp/c09-task3-admission-owner-spec-v1-review.md`; QUALITY pending.
+One-line original worker exception logging retains diagnosis without changing
+validation/control/status. Diagnostic image3a9f7a4c run naturally failed1 with all
+owners settled/ownedUUID dropped. No new cases; same installed main awaits review
+and one justified source replacement build. Full Task3/C09 still incomplete.
+
+
+Task3 installed main remains incomplete. User reaffirmed main-first verification;
+no additional cases were added. New3 source gate `task3-root-actual-source-gate-v1.json`
+verified 810 current inputs. One initial installed image83594969 built and checked;
+main-v1 failed before pause because the new fixture used a virtual sandbox path
+without the original command rewrite. Same-image host-only diagnostic-v2 retained
+the actual input-tool timeout and core error. A narrow fixture path correction
+uses original Runtime scoped paths and original bash CLI path rewrite; replacement
+imagecdaa452a installed byte checks passed. Same main path-fixed-v3 reached actual
+interrupted/input_required, cached pending bash result and one public NAS receipt;
+public keyed create returned200 with same task/newrun/generation/source/deadline/budget.
+The second worker then rejected execution ownership before model continuation;
+this is not a full-main PASS. All runs naturally exited, owners settled and owned
+UUID schemas dropped. Current action is capture the original rejection traceback
+and fix its demonstrated cause, without relaxing ownership checks or adding cases.
+Raw receipts/logs/XML: `task3-installed-main-v1*`,
+`task3-installed-main-diagnostic-v2*`, `task3-installed-main-path-fixed-v3*`.
+Old images remain retained pending Root cleanup after replacement acceptance.
+
+
+Task3 minimal source/native gate accepted by Root. SOURCEv3 SPECdelta and
+independent QUALITYv2 both Ready; Q1/Q2 closed without adding a test matrix.
+Fresh46 source/snapshot/baseline/ref/helper hashes match. Actual v11 one native
+main naturalPASS includes real public409 refusal then same-task keyed resume
+completion, cached sideeffect1 and original deadline/budget. Source acceptance
+`task3-root-native-source-acceptance-v3.json`; exact final reviews
+`task3-root-reviewed-source-gates-v3/`. Next only one installed stock main,
+independent new fixture/test/builder inputs reviewed before a single replacement
+image and actual Docker run. Current retained7768 remains the prior accepted
+Task2 image and is not relabelled as executing new Task3 source. No public
+activation or wholeTask3/C09 acceptance is claimed.
+
+Task3 Q1/Q2 fixed SOURCEv3 SPEC delta Ready. Production change from reviewedv2
+is only services resolver ConflictError→HTTP409; native change is only the main
+check/retained lifecycle wiring. Same currentv11 main1 PASS, natural0,
+wall5.163924416992813s, UUIDdrop/owners settled. It asserts actual profile conflict
+HTTP409/count(runs)1/unchanged generation, restores original operator config, then
+same-task keyed resume still completes with cached sideeffect1. Second writer is
+owned by original environment teardown; original Task2 retained checkpoint-owner
+and cleanup proof keep scopes until owners settle. Three cleanup helpers remain
+unchanged. These 409/cleanup facts use actual executed assertions and naturalPASS,
+not invented XML JSON fields. Root fresh46 source/snapshot/baseline/ref/helper hash
+checks have zero mismatches. Final manifest `task3-native-source-freeze-v3.json`
+SHA0c6f557d…; final delta SPEC records saved in
+`task3-root-reviewed-source-spec-v2/`. Independent QUALITY closure is in progress.
+Only independent new installed main/fixture/builder files may be prepared during
+review; no build/probe/runtime yet. Native passes do not complete Task3/C09.
+
+Task3 SOURCE QUALITY v1 requires two narrow fixes: Q1 resolver ConflictError is
+outside the original public HTTP409 mapping, so normal bound-thread rejection can
+surface500; Q2 the new native diagnostic can skip environment closure on Node
+failure/repeated caller cancellation and unwind its writer scope before owners
+settle. Production identity/admission/source checks were not found weakened.
+Root saved exact reviews in `task3-root-reviewed-source-quality-v1/` and authorized
+only HTTP conflict mapping plus retained cleanup/owner-scope correction
+(`task3-root-quality-fix-authorization-v1.json`). Same native main and one focused
+conflict-response assertion are sufficient; no broad test matrix or old-suite
+rerun is requested. Independent installed main files may be prepared, but image
+build/runtime remains unauthorized until the corrected source SPEC→QUALITY gate.
+Historical v10 PASS stays immutable; current fixes require fresh scoped evidence.
+
+Task3 minimal native main is GREEN: final v10 one PASS, natural0,
+wall4.755840833007824s (pytest3.33s), owned UUID DB dropped/owners settled. Actual
+public authenticated CSRF create uses original keyed interrupt input; same task
+receives new run/generation2 and original sourcepoint/checkpoint; original second
+AgentRunner resumes stock graph, cached completed sideeffect remains once, accepted
+final succeeds. Original deadline and continuation_budget0 are retained. Production
+changes add the narrow bound-thread resolver/original admission validation and
+recognize only the frozen prior paused source during new workspace acceptance.
+No generic paused admission or accepted-history clearing is introduced. Actual
+original guard409 RED and diagnosed source/fixture failures remain separate receipts.
+
+SOURCE v2 SPEC Ready: complete8path delta independently reconstructed exactly from
+six Task2 baselines, one accepted C08 Git baseline and the new test. Root fresh38
+source/snapshot/baseline/reference hash checks have zero mismatches. Receipt
+`task3-root-source-spec-acceptance-v1.json`; saved final SPEC reports
+`task3-root-reviewed-source-spec-v1/`. Independent QUALITY is now in progress.
+Native STOP is not installed Docker physical proof; stream shared wiring is source
+inspection, not a claimed stream runtime. No image was built, no Docker main was
+executed, and Task3/4 and whole C09 remain pending. User scope remains one main first,
+then necessary secondary checks, without expanding the test matrix.
+
+Task3 main source audit: original public create/stream defaults to Local backend,
+while original admission guard rejects paused tasks before participant.prepare and
+insert rejects retained current_run_id. Necessary main接线 is a neutral host-owned
+resolver only for keyed resume of an already Fleet-bound thread, plus narrow same-TX
+participant validation and new run/generation. Resolver reads do not replace final
+transactional accepted-pair/physical-stopped/released-reservation checks. General
+routing preference/Scheduler/public Fleet activation remain C10+ scope. Existing
+continuation_budget has no human-resume consumption contract; retain the original
+deadline and nonnegative budget rather than inventing consumption. Scope receipt
+`task3-root-main-scope-audit-v1.json`; sole Task3 author proceeds to one minimal
+native main diagnostic, then source review before any new installed-image gate.
+No Task3 passing runtime or whole C09 completion is claimed.
+
+Task2 is accepted: original actual main5 plus the prescribed seven native
+checkpoint/failure controls satisfy the detailed Task2 requirements. Final native
+v3 is7 PASS/0 failures/errors/skips, natural0, wall7.66134795799735s; owned UUID
+DB dropped and handles settled. Four full/delta × empty/pending observations prove
+accepted point checkpoint ID == latest restored root == actual saver tuple root.
+Actual corrupt-blob capture fails closed; original observer pool timeout settles
+both original owners; deferred real PG terminal commit failure leaves no half pair
+or released reservation. SOURCE controls v2 SPECv2→independent QUALITYv1 are Ready.
+Root freshly verified790 current+790 snapshot+466 references=2046 hashes with zero
+differences, raw XML/receipts and exact root IDs. Receipt
+`task2-root-complete-acceptance-v1.json`, saved reviews
+`task2-root-checkpoint-reviewed-gates-v1/`. Native seven do not claim Docker fault
+or STOP evidence; accepted actual main5 and older scoped controls remain historical
+carried evidence, not rerun under the changed opt-in native fixture. Production,
+installed image and actual main inputs are unchanged. Task3/4 and whole C09 remain
+pending; OpenSpec9.1–9.4 remain unchecked because they cover the whole C09 slice.
+User clarified main first, then necessary secondary paths; no more Task2 test
+matrix expansion. Next: one actual graph interrupt→public keyed resume→new run and
+generation→completion main, with necessary supplementary coverage only afterwards.
+
+Current image cleanup: after accepted five-main7768 replacement and fresh twice
+all36 running/stopped-container zero-reference audits, Root removed obsolete
+rollback-main-v3 (`6d322204ee63`) and cas-main-v5 (`6c0372776d1e`) without force/prune.
+All7 required retained images were verified before/after. Receipt
+`task2-cas-obsolete-images-cleanup-v1.json` records cumulative23 obsolete feature
+images removed and7 retained (current7768 plus6 required baseline/dependency images).
+Image logical sizes are not measured reclaimed bytes; shared layers remain. No
+containers or volumes were deleted. Historical6d/6c proofs stay immutable even
+though their images are now absent. Sole author proceeds to the prescribed narrow
+Task2 checkpoint/pending-write/query-failure/terminal-transaction controls only
+after the actual main acceptance; no new image, Task3 or activation is authorized.
+
+Task2 actual CAS main accepted: same immutable7768 runner passed all3 installed
+CAS orders plus unchanged rollback+interrupt defaults, all5 natural0/UUID DBdrop/
+owned handles settled. CAS wall31.940334874991095s; original defaults wall
+13.230518583004596/11.929877499991562s with actual cancellation elapsed
+1.381439707998652/1.4881935410085134s below unchanged90s barriers. Runtime
+SPECv1→independent QUALITYv1 are Ready with zero concrete scoped P0/P1/P2.
+Root independently verified raw XML/receipts, key original SQL/physical STOP facts,
+6-wheel790/784-member inventory and freshly all1720 source/snapshot/reference/context
+hashes. Acceptance `task2-cas-root-runtime-main-acceptance-v1.json`; original reviews
+`task2-cas-root-runtime-reviewed-gates-v1/manifest.json`. Detail-plan CAS checkbox is
+complete; checkpoint/failure controls and whole Task2/C09 remain pending, OpenSpec
+9.1–9.4 stay incomplete. Root next audits obsolete6d/6c all-container references
+before narrow deletion; current7768 and original6 required baseline images retained.
+
+SOURCEv12 changes only the host collector-prefix snapshot: existing physical lock,
+earlier original/3s bound, synchronous full assertions and deep copy, finally
+unlock before file write/public cancellation. SPECv12→independent QUALITYv9 are
+Ready; Root freshly verified1953 hashes. Root authorized same immutable7768 image
+(no new build) actual3CAS first; only all3GREEN permits original rollback+interrupt
+2defaults. Gate `task2-cas-root-source-gate-v12.json`. Native59/native7 carry by
+unchanged source; no new actual3GREEN or whole Task2 acceptance is yet claimed.
+
+Replacement `7768ea7d7a82` built once naturally0; installed784/790 wheel members,
+17 context inputs and10 actual module origins passed (original8 plus publication
+and daemon). Actual main-v6 is2PASS/1FAIL, natural1,31.91996620799182s. Cancel-first
+interrupt and completion-first rollback passed full original outcome/pair/STOP
+proof. Cancel-first rollback failed before first public cancellation: host read the
+collector prefix while a fifth original collector was unfinished; that exact
+collector later returned0 with empty stderr. All3 owned UUID DBs dropped, physical
+owners settled, scoped cleanup true. This is a readiness race, not a rollback
+business RED/GREEN. Root verified869 frozen snapshot/reference/context hashes and
+raw XML/receipt; classification `task2-cas-root-runtime-main-v6-failure-classification.json`.
+Root authorized only existing physical-lock protection of synchronous collector
+assertions/prefix snapshot, released before public cancellation. Production/image
+remain unchanged; no new build or default regression is authorized until renewed
+source gate and all3 actual CAS pass. Whole Task2 remains pending.
+
+SOURCEv11 changes only the new native test to retain its entire cleanup and gate
+PG scope exit. New final7 controls naturally passed (8.812334874994121s, UUID DB
+dropped/handles settled); original59 production proof carries by unchanged hashes.
+Sequential SPECv11→independent QUALITYv8 are Ready with v7 P2 closed. Root freshly
+verified all1901 source/snapshot/reference hashes, then authorized exactly ONE
+replacement runner/context `cas-main-v11` using existing local dependency image and
+audited caches. Actual3CAS are first; same-image original rollback+interrupt mains
+follow only if all3 pass. Gate: `task2-cas-root-source-gate-v11.json`. No installed
+GREEN/whole Task2 acceptance is implied, no cleanup of retained6c/6d yet.
+
+SOURCEv10 froze789 source +789 snapshot +264 references (1842 fresh checks;
+SHAcf4abce3323d1fa7fd754e25d105d64f46fb96fa3ce89558b6b6e8383a2e8026).
+SPECv10 is Ready. Independent QUALITYv7 is NotReady with one P2 in only the new
+native test: external cancellation of its bare Step gather can skip writer/native
+cleanup and let fixture resources unwind before retained owners settle. Production
+skip and acknowledgement paths have no new finding. Root returned this precise
+issue to the same execution owner for one retained whole-cleanup Task and one
+focused real cancellation control; production v10 bytes remain frozen unchanged.
+No build or installed execution is authorized until the renewed source gate.
+Formal original reports are preserved in `task2-cas-root-source-spec-v10/` and
+`task2-cas-root-source-quality-v7/`; no Task2/OpenSpec completion is implied.
+
+Latest Task2 original-publication fix: real native AgentWorkspacePublication.step
+reproduced the installed cancel-first failure with the original post-copy claim.
+Both rollback and interrupt returned OwnershipRejected("Cancelled execution rejects
+ordinary Node workspace work") through original NodeClient HTTP409. Raw
+`task2-cas-stale-prepared-native-red-v1.xml` has2FAIL, natural1,
+4.683904125005938s; its owned UUID database was dropped and handles settled.
+The narrow fix permits only an authenticated, immutable, already-prepared exact
+success superseded by winning cancellation to return readonly no-work. It leaves
+the old prepared row and claim lease unchanged; ordinary publication and true
+ownership errors retain their rejection. Original prepared acknowledgement now
+handles no-work. Native GREENv1 has2PASS, natural0,4.35511254100129s.
+Final native-ready-v1 exercises original post-copy claim and prepared pre/post
+verification for both actions plus necessary original CAS/rollback/interrupt and
+Node protocol/idle neighbors:59PASS, natural0,30.63353137500235s, UUID database
+dropped and handles settled. This is native original HTTP/PG/AgentRunner/NAS proof;
+the census adapter does not establish Docker/NodeDaemon execution. Actual loaded
+host module paths/hashes are distinct from installed wheel membership. New SOURCE
+freeze and renewed SPEC→QUALITY are pending; no replacement image or installed
+rerun is yet authorized. Task2/C09 and OpenSpec checkboxes remain incomplete.
+
+C08 verified commit: `80cedfdd89fa67d5e4e31a0beda90e7c05c88a8c`.
+All168 explicitly staged committed blobs matched accepted hashes and the worktree
+was clean at commit verification. Root whole receipt is
+`.local/fleet-evidence/c08-task6/task6-c08-whole-root-acceptance-v1.json`.
+
+[C09 detailed plan](2026-10-06-ecs-fleet-c09-control.md) supersedes the old premature
+pause/generation transition example. Cancellation intent, bounded original cleanup
+and new-run admission are distinct. Task1 interrupt SOURCEv4 passed SPEC→QUALITY.
+The actual stock lead/TCP/NodeDaemon/Docker main-v4 passed on its fresh installed
+image with1.7134237500140443s cancellation, unchanged90s timing assertion and
+actual paused pair/physical STOP/resource-release proof. Runtime SPEC→independent
+QUALITY v1 are Ready with zero concrete P0/P1/P2 findings. Root accepted Task1
+after a fresh1664 runtime and48 source comparison pass and raw XML verification;
+receipt `.local/fleet-evidence/c09/task1-root-runtime-acceptance-v1.json`.
+Old C09 image `9d19fb8b6297` was removed only after a fresh all36-container
+zero-reference check; current `05b99eaadc43` is retained. Cleanup receipt
+`.local/fleet-evidence/c09/task1-obsolete-image-cleanup-v1.json` records
+cumulative19 obsolete feature images removed and7 feature images retained.
+Historical RED bytes and image identities remain unchanged. Task2 rollback, Task3 graph
+pause/resume and Task4
+partition/race gates follow the proven main. No C09 acceptance or checkbox completion
+is implied; C10–C12/BC/activation remain pending.
+
+Current Task2: minimal rollback SOURCEv3 passed SPEC→independent QUALITY and
+Root source gate. One fresh runner `6d322204ee63` reused the audited dependency
+image; no dependency/provider rebuild or download occurred. Installed verification
+compared784 wheel members (790 archive members minus6 RECORD) and17 context
+inputs. Actual rollback main and unchanged Task1 interrupt both passed naturally
+on that same image: respectively1.2074060410086531s and1.5998504589952063s against
+the unchanged90s tool barrier, within the120s cumulative cleanup policy. Both
+accepted the exact paused pair, physically stopped Docker and released resources;
+owned databases and handles settled. Root verified1707 runtime references and1572
+source/snapshot hashes with zero discrepancies. Frozen runtime supplement
+`.local/fleet-evidence/c09/task2-runtime-supplement-v1.json` passed sequential
+runtime SPEC→independent QUALITY with zero scoped P0/P1/P2 findings. Root accepted
+this minimal replacement proof after fresh1707 runtime +1572 source checks;
+receipt `.local/fleet-evidence/c09/task2-root-runtime-main-acceptance-v1.json`.
+Both actual CAS commit orders, remaining controls and whole Task2/C09 are pending.
+Root then removed old Task1 image `05b99eaadc43` after a fresh all36-container
+zero-reference check and verification of all7 retained required images. Cleanup
+receipt `.local/fleet-evidence/c09/task2-obsolete-image-cleanup-v1.json` records
+cumulative20 obsolete feature images removed; current C09 image is `6d322204ee63`.
+No force/prune, container or volume deletion occurred. The next narrow CAS slice
+plan is `.local/fleet-evidence/c09/task2-cas-next-plan-v1.md`.
+Native CAS prerequisites now have3PASS/0failure/error/skip, natural exit0,
+4.7922202500049025s (`task2-cas-native-v1.xml` and receipt). These exercise the
+original AgentRunner/worker/repository against real isolated PostgreSQL: rollback
+and interrupt before original CAS, plus completed commit before cancellation409.
+Original observer remains active; wrapper calls the original repository once.
+Owned UUID database was dropped and handles settled. This is native evidence;
+installed stock race fixture and source readiness review are still in progress.
+The shared installed observation hook subsequently passed native-v2:6PASS,
+natural exit0,7.128342749987496s, including original rollback and interrupt
+neighbors. Final-byte gate `task2-cas-native-ready-v1` instead failed a new test
+premise: repository.get returns ISO timestamps, so direct timedelta addition
+raised TypeError. Exceptional fixture cleanup stopped its Node consumer before
+joining the executor, leaving late-cancel workspace reprepare without that
+consumer. Sole owner settled exact pytest PID39015 with two SIGINT; exit2 and
+195.95912091599894s are explicitly interrupted, not natural PASS. Exact owned
+UUID database was dropped and loader/pytest census is empty. Immutable correction
+`task2-cas-native-ready-v1-interruption.json` preserves the original generic
+receipt and true classification. Native timestamp parsing and fixture cleanup
+order were corrected without production changes: real Node consumer remains alive
+through executor settlement, then is stopped. Final ready-v2 has7PASS/0failure/
+error/skip, natural exit0,7.936507167003583s, including deliberate post-intent
+premise-exception cleanup; owned database dropped and handles settled. Frozen
+`task2-cas-main-source-ready-v1.json` (SHAe384c78232192e4f4b16faaa41c68ee93c4bcaf432829007503672b41afd9aa4)
+contains788 source/snapshot pairs and16 evidence references. Root independently
+verified all1592 hashes with zero mismatch. Delta from accepted SOURCEv3 is
+exactly two fixtures and two new CAS tests; accepted actual rollback/interrupt host
+tests remain unchanged. Sequential source SPEC→QUALITY is in progress before any
+new image authorization or installed CAS execution. Whole Task2 remains pending.
+CAS SOURCEv1 SPEC is NotReady with one concrete P2: native final shielded wait
+can time out or be externally cancelled while its original executor remains alive;
+the test then stops Node and closes resources too early. Original teardown.close
+does not join its retained original-executor/control-observer entries. The7PASS
+proof remains valid for completing paths, but does not cover this cleanup branch.
+Root preserved the formal review under `task2-cas-root-source-spec-v1/` and
+returned this defect to the same author for narrowly retained cleanup plus explicit
+timeout/cancellation controls, followed by a new freeze and renewed SPEC. No build
+or installed CAS run is authorized yet; source production delta remains zero.
+CAS SOURCEv2 (`807dabad090b1ad460254def09ea85687319de6a5507cf93ddf065c3bccc60e8`)
+changed only the native CAS test from v1. Final ready-v5 has10PASS, natural exit0,
+9.678873291995842s, DB dropped and handles settled; raw receipts verify retained
+cleanup identity and exact original errors for observational timeout, outer cancel,
+and original Runner ExecutionWorkspaceFailure. Root checked1610 hashes. SPECv2
+closed the premature Node-stop defect but found one new P2: a genuine original
+Runner TimeoutError is wrongly treated as hard cleanup expiry even after owners
+settle. The retained timeout context.expired() and cleanup.done() must distinguish
+original errors from actual hard/observational timeouts. This returns to the same
+author for one narrow fix/control and a new freeze. V4's9PASS/1FAIL remains a
+readiness ImportError failure, not Runner cleanup GREEN; source and receipts are
+preserved. Reviews are saved under `task2-cas-root-source-spec-v2/`. Actual CAS
+build/run, remaining Task2 controls and whole C09 continue to be pending.
+CAS SOURCEv3 (`ddab3618751b9a275abe0ec99cf4ffb7b69105e2c7f2f7041d2089e91e5573a6`)
+fixes timeout-origin classification; only native CAS test bytes differ from v2.
+A genuine original1s SQL pool-acquire timeout reproduced the defect (REDv2 natural1,
+4.4949207909812685s, DB dropped); the frozen-RunContext patch attempt REDv1 was
+only a readiness failure. Final native-ready-v6 has11PASS, natural0,
+11.58441275000223s, DB dropped and handles settled. Original TimeoutError identity,
+unexpired deadline and ordered executor/observer→Node→environment settlement
+are verified alongside the other three cleanup branches. Root checked1626 hashes
+with no discrepancy. Final SPECv3 is Ready, both prior P2 findings closed; formal
+reports are saved under `task2-cas-root-source-spec-v3/`. Independent QUALITY is
+now reviewing this narrow source gate. Actual hard expiry remains unexecuted;
+installed CAS build/run and complete Task2/C09 are still pending.
+Independent CAS QUALITYv1 is NotReady with one concrete P2: the unshielded Node
+join and generic BaseException cleanup aggregator consume hard-deadline cancellation,
+continue environment close and emit an aggregate instead of retained Pending.
+Both SPEC findings remain closed;11PASS evidence is valid for its observed paths.
+Root saved formal reports under `task2-cas-root-source-quality-v1/` and authorized
+same-author narrow phase/deadline retention fix plus one original native Node-join
+expiry control. The shared C08 cleanup helper and production are not to be changed.
+A fixture-local earlier bound may exercise this helper only; it is not production
+120s/LaunchSpec expiry proof. Source must be re-frozen and reviewed SPEC→QUALITY
+before any new build/installed CAS execution; whole Task2 remains pending.
+CAS SOURCEv4 (`58823073d49a483c7fc0d9f49453d6a994246051dcf439780553eb44112d8f3b`)
+changes only the native CAS test from v3. Node join now shields the same actual
+Task, each action checks the frozen earlier bound, and the cleanup owner detects
+expired aggregate cancellation before environment close. New same-Node post-real-
+poll fixture hold proves retained Pending, noncancelled Node and zero close calls
+at expiry; releasing the hold then joins actual owners and closes the environment.
+Final native-ready-v7 has12PASS, natural0,12.106251249992056s, owned database dropped
+and handles settled. Root verified1636 hashes with zero discrepancy. SPECv4 Ready
+closes the QUALITY P2; formal reports are saved under `task2-cas-root-source-spec-v4/`.
+Independent QUALITY re-review is pending. This expiry evidence is fixture-local,
+not production120s/LaunchSpec/physicalSTOP expiry. Production, shared C08 cleanup,
+other three CAS paths and original90s main bytes remain unchanged. Installed CAS
+and whole Task2/C09 are still pending; no fresh image is authorized yet.
+Independent QUALITYv2 is Ready with zero remaining scoped P0/P1/P2. Root full-read
+both reports and freshly checked1636 source/snapshot/reference hashes, zero mismatch.
+Reports are preserved under `task2-cas-root-source-quality-v2/`; concrete source gate
+is `task2-cas-root-source-gate-v4.json`. Root authorizes exactly one fresh CAS image
+`deerflow-c09-runner:cas-main-v4`, reusing the audited local dependency and three
+cached wheels, building only three app/harness/Fleet wheels offline. Actual three
+CAS orders must run first, followed by unchanged rollback/interrupt regressions on
+the same image. Runtime acceptance and replacement-image cleanup remain pending.
+Authorized ONE build completed naturally (exit0,2.036s), immutable CAS image
+`63302418162174f3e1524c10cb2c9fa8555205ac721b7c9065a2109f471ea412`.
+Three fresh offline wheels and three audited cached wheels were verified; installed
+probe includes17 context files and8 original origins. First actual3CAS window is
+3FAIL/0errors/skips, natural exit1,27.211054957995657s: one trusted collector failure
+and two original Runner exits before the planned CAS barrier. This is failed
+pre-barrier evidence, not committed-order business RED or acceptance. Root verified
+raw XML, all3 owned DB drops and settled exact handles. Classification receipt is
+`task2-cas-root-runtime-main-v1-failure-classification.json`. Sole author is diagnosing
+original logs; unchanged default regressions and further build are deferred. No
+image was deleted; prior accepted6d runner remains required.
+Read-only diagnosis traced the opt-in race model to the original artifact delivery
+prerequisite: it writes `outputs/parent.txt` then immediately returns final AI,
+omitting original `present_files`. Original worker's existing delivery check
+therefore stages `Artifact delivery incomplete` rather than prepared success; the
+fixture's exact success guard exits before its CAS marker. The first collector
+failure is a downstream shutdown symptom, not an independently established cause.
+Root authorizes only opt-in original present_files-before-final sequence and safe
+real guard diagnostics, followed by minimal delivery/native evidence and a new
+SOURCEv5 SPEC→QUALITY gate. Production/default main contracts stay unchanged;
+no replacement build is yet authorized.
+SOURCEv5 (`18a02f19374c317873ecef0ed5f8968c1bee4cdbaf36d9292ab057ee607eb8ce`)
+now freezes the opt-in original present_files step and safe real prepared-outcome
+receipt, plus one real ToolNode/present_files/RunJournal/output snapshot/delivery
+prerequisite. Exactly stock fixture and native CAS test differ from v4; production,
+default90s branch, original host assertions and generic cleanup are unchanged.
+Final native-ready-v9 has13PASS, natural0,12.248938917007763s, DB dropped and all
+handles settled. Root independently checks788 current+788 snapshots+101 evidence
+references=1677 hashes with zero difference and13 rawXML passes. Prerequisite-v1's
+legacy-path input error and ready-v8's invalid-nodeid collection exit4 are preserved
+as readiness failures, not business RED; intermediate untracked source capture
+limitations are explicitly recorded. SPECv5 review is pending before independent
+QUALITY and any single replacement build. Actual CAS GREEN remains unproved.
+SPECv5 is Ready, reports preserved under `task2-cas-root-source-spec-v5/`; independent
+QUALITYv3 re-review is now pending. Scope remains source readiness only.
+QUALITYv3 is Ready with no new scoped P0/P1/P2. Root full-read reports and fresh1677
+hash checks match exactly; reports are preserved under `task2-cas-root-source-quality-v3/`.
+Root concrete `task2-cas-root-source-gate-v5.json` authorizes ONE replacement context
+`/private/tmp/deerflow-c09-cas-main-v5`, tag `deerflow-c09-runner:cas-main-v5`, exact
+same dependency/cached3 wheels with offline fresh3 app/harness/Fleet wheels. Actual
+three CAS orders first, then unchanged rollback/interrupt on the same image; no
+further control expansion until these actual mains pass. Runtime/cleanup pending.
+ONE replacement build completed natural0/1.966099916s; immutable image
+`6c0372776d1ee6e31ffcd9465a8e1236ded767facf82066658d189cbdb20f4b1`.
+Original installed verifier checks784 non-RECORD/790 wheel members,17 context files
+and8 origins. Actual main-v2 is3FAIL, natural1,28.885026957985247s; Root reads raw
+XML/receipt and verifies all3 DB drops/exact handles settled. Two runs reach real
+prepared success (status success/error null) but host assertions count legitimate
+present_files partial points as terminal points before public cancellation.
+Rollback still reports collector failure; absent original collector stdout/stderr/
+exitcode prevents a proven cause claim. Host50ms docker-exec marker polling introduces
+extra short-lived processes into the strict collector census, a source-supported
+interference risk only. Root authorizes host-only original-log barrier observation,
+exact final/paused point counts with partial points separately recorded, and passive
+original collector-result diagnostics. Preserve unchanged cancellation/SQL/pair/STOP
+contracts; no production/stock/native change or new build. SOURCEv6 SPEC→QUALITY
+will gate a same6c-image actual rerun; whole Task2 remains pending.
+Root separately removed superseded failed SOURCEv4 image633 after fresh36-container
+zero-reference checks and all8 retained-image identity checks before/after removal.
+Receipt `task2-cas-failed-image-cleanup-v1.json` records cumulative21 obsolete feature
+images removed and8 required images retained. Accepted6d and current6c remain;
+no force/prune/container/volume deletion occurred. Image logical size is not a
+claimed reclaimed-space measurement.
+SOURCEv6 (`aff30a6f281d7efc840eaaf813fab41258f4979e3d3d43dae79245e5d5222e0b`)
+changes only the CAS host test. Barrier receipt observation uses original logs,
+terminal/partial points are separated with stronger full SQL identity checks, and
+original collector reader Tasks are passively recorded without changing their
+joins/results. Single normal release exec follows successful collector completion.
+Native13 is honestly carried by unchanged participating bytes, not rerun. Root
+checks1688 hashes with zero mismatch; SPECv6 Ready reports are preserved under
+`task2-cas-root-source-spec-v6/`. Independent QUALITYv4 is pending before a same6c
+image run; no new build is needed or authorized. Actual CAS and Task2 remain pending.
+Independent QUALITYv4 is Ready; Root full-read reports and freshly checked1688
+hashes with zero discrepancy. Preserved reports are under `task2-cas-root-source-quality-v4/`.
+Concrete `task2-cas-root-source-gate-v6.json` authorizes actual3CAS first on existing
+immutable6c, with fresh input/image identity verification and no build. Only after
+three GREEN may original unchanged rollback/interrupt run on the same image.
+Runtime supplement and reviews must precede any replacement acceptance/6d cleanup.
+Same6c-image fresh installed probe-v3 verified unchanged784/790 members,17 context
+files and8 origins; no build. Actual main-v3 has1PASS/2FAIL, natural exit1,
+29.277448874985566s; Root raw XML/receipt confirms three ownedDB drops and all handles
+settled. Completion-first fully reaches real commit, both cancellation409 conflicts,
+immutable final pair and physical STOP/resource release. Cancel-first rollback and
+interrupt both reach real prepared success/zero terminal points/first202 plus
+different duplicate202, then host's post-cancel collector-done assertion fires
+before new legitimate cancellation collectors settle. Final original collector
+observations each report5 runs/code0/empty stderr. This is an observation-timing
+failure, not proof of business cancellation failure. No default regressions or new
+build ran. Sole author is checking minimal host snapshot-before-cancel plus an
+outside-userdata barrier release without injecting exec PIDs into later collectors;
+source gate refresh is required before rerun. Whole Task2 remains pending.
+SOURCEv7 (`366ef239e4a0462e4d4923404dff61e272ce63723d52bd982209e33e603cc574`)
+changes only the host test. Success collector completion/prefix proof is frozen
+before first public cancel. Original new cancellation collectors may then run;
+final all-code0/empty-stderr/empty-registry/unchanged-prefix checks remain. Normal
+and finally release use original bounded Docker cp of exact owned small /tmp marker,
+checking independent active attempt/ref/image/labels and joining owned CLI on failure.
+No workload PID, fake result or new authority is introduced. Root checks1695 hashes
+with no difference; SPECv7 Ready preserved under `task2-cas-root-source-spec-v7/`.
+Independent QUALITYv5 is pending; no build, installed delta or default regression.
+Native13 and installed6c hashes are carry only. Cancel-first final pair/STOP and
+whole Task2 remain unproved.
+Independent QUALITYv5 is Ready. Root full-read reports and freshly verified1695
+hashes, zero discrepancy. Reports are preserved under `task2-cas-root-source-quality-v5/`.
+Concrete `task2-cas-root-source-gate-v7.json` authorizes a same6c-image actual3CAS
+rerun, no build. Only if all three pass may unchanged original rollback/interrupt
+main regressions run on the same immutable image. Runtime reviews/Root acceptance
+and later Task2 controls remain necessary; no whole Task2 checkbox or6d cleanup.
+Same6c main-v4 is3FAIL, natural exit1,29.854698624985758s. Root raw XML/receipt
+checks all3 DB drops and actual executor/client/container/stager/drain settlement,
+but scoped_cleanup_completed=false is preserved: main and finally release copies
+both failed, and original aggregate retains both errors. Six exact Docker cp calls
+return code1, `container rootfs is marked read-only`; writable /tmp tmpfs does not
+make Docker API archive copy permitted. No business cancellation GREEN or cleanup
+acceptance follows. Sole author source audit finds all original collector launches
+enter the same driver's quiesce_workspace; its full call owns CLI spawn/gather/
+exception joins/finally registry pop. Root authorizes a host-only shared lock covering
+that entire original call and exact bounded marker exec command until CLI settlement.
+This serializes only fixture marker/collector physical operations, preserving
+readonly container, genuine observer/renew/CAS/SQL/results. No fixture DB table or
+new image is required. SOURCEv8 re-freeze/reviews must precede same6c rerun; original
+native13/installed bytes remain carry and whole Task2 pending.
+SOURCEv8 (`102387df36608a9b80a5a11c27e6ea08ff07a4b45f8ad89503c33d272a4ee2ec`)
+adds only host-side retained physical-owner serialization; Root checks1702 hashes,
+zero mismatch. SPECv8 is NotReady with one P2: join_all_physical exits at first error
+or retained timeout, and its ordinary after-action exception is aggregated while
+later client/server/DB closure proceeds. Original driver.stop/stager joins are not
+actual wrapper/marker Task joins. Reports are preserved under
+`task2-cas-root-source-spec-v8/`. Same author is authorized a narrow non-bypassable
+all-owner settlement/close boundary plus one focused pending-owner/early-error tail
+control. Preserve actual Tasks/lock/resources on hard expiry; no authority extension,
+shared C08 helper/production/model change or new image. SOURCEv9 SPEC→QUALITY must
+precede any same6c actual rerun. Cancel-first and whole Task2 remain pending.
+SOURCEv9 (`b2f927856e1eb6256da56e5386b6354ba37e8dd85bce1660a8e31aaf106e8c8d`)
+changes only the CAS host test. A direct all-physical-owner close gate visits every
+owner and retains same Tasks/lock/resources on pending, outside error aggregation.
+Original database context is in the same manual AsyncExitStack; outerfinally also
+gates unexpected failures before actual resource close/DBdrop. Only all owners done
+permits closes and original-primary/error aggregation. Final focused physical-barrier-v2
+has1PASS, natural0,2.10903574997792s, actual Python children via original command,
+HTTPclient and parent/nested UUID databases settled. Root raw XML/control row and
+1718 hashes match, no discrepancy. This is native fixture close-boundary evidence,
+not installed Docker/CAS/production120s expiry. Native13/installed bytes are carry.
+SPECv9 Ready closes v8P2; reports saved under `task2-cas-root-source-spec-v9/`.
+Independent QUALITYv6 is pending before same6c actual rerun; no image rebuild.
+QUALITYv6 Ready closes v8P2 with no new scoped findings. Root full-read reports and
+fresh1718 hashes match. Preserved reports are under `task2-cas-root-source-quality-v6/`.
+Concrete `task2-cas-root-source-gate-v9.json` authorizes existing immutable6c actual3CAS
+first (no build), then unchanged original rollback/interrupt only if all three pass.
+Runtime supplement/reviews/Root verification must precede replacement acceptance
+or6d cleanup; remaining Task2controls/fullC09 remain pending.
+Same6c fresh installed-v5 verified unchanged784/790 members/17context/8origins,
+no build. Actual main-v5 is1PASS completion-first/2FAIL cancel-first, natural exit1,
+30.639751791983144s. Root raw XML/receipt verifies three DB drops, all clients/Task/
+container/stager/drain/physical owners settled, locks released and cleanup_completed=true.
+Original collectors and serialized marker exec all real code0; host readiness
+interference has been removed. Cancel-first both execute the real original path,
+but container exits137 and actual SQL remains core running/task+placement
+recovery_required/attempt unknown/finalpoint absent (only original partial accepted).
+The actual first cancellation/lease/execution deadlines are unexpired at failure,
+so this is a real cancellation runtime/business failure, not just an ExitCode0
+assumption or fixture expiry. Completion-first again passes original committed
+success, both409 conflicts, immutable final pair and physical STOP/resource release.
+No default regression/new build/source edit followed these failures. Sole author
+is tracing original observer/late-CAS cancellation/normalization/publication/STOP
+from original safe logs and SQL before proposing any narrowly reviewed production
+fix. Preserve frozen RED/scope and keep all Task2/C09 checks incomplete.
+Root full-read source/runtime diagnosisSHA78f59cc4675d429dcc023d20035f5ac457cb97d066efb1d051a23c6da43a672e
+and original claim/prepared/AgentWorkspacePublication.step. Native fixture previously
+skipped prepared requests; original Step replays original claim/census/copy/freshclaim.
+Observed postcancel workspace/claim409 is treated by Node as lease_lost→kill, while
+renew remained stop:false and validdeadlines. Exact409 request body/internaltypedcause
+was not captured and remains source-flow inference; do not invent historical telemetry.
+Diagnosis and narrower Root authorization are preserved under
+`task2-cas-root-business-diagnosis-v1/`. Root authorizes originalStep/HTTP/service/PG
+native reproduction then ONLY already-PREPARED exact valid old success descriptor
+readonly no-work handling under complete original identity/nonce/epoch/lease/deadline
+checks. Sealing/partial/generic409/ordinarywrite guards are excluded. Both prepared
+verification transactions must handle it; final Step None ack must not dereference.
+No oldrow/candidate/claimlease write or staleaccept, no trueownership loss masking.
+Source freeze/SPEC→QUALITY must precede ONE replacement image. ActualHOSTloaded
+module provenance is required separately from dormant installed wheel members.
+Rollback baseline test bytes differ from SOURCEv3 by formatting/imports and one
+added post-STOP public artifact assertion; all31 baseline business assertions are
+retained. The frozen supplement includes exact historical SHA reconstruction and
+diff, without claiming byte identity or a contemporaneous historical snapshot.
+
+Historical initial Task2 audit: accepted Task1 remote control rejects rollback, and
+its cleanup/publication/terminal checks only admit interrupt. The scoped extension
+preserves Local checkpoint rollback and leaves files in place, then pairs the actual
+restored root with the quiescent current workspace. Task1 review reports are also
+persisted unchanged under `.local/fleet-evidence/c09/task1-root-reviewed-gates-v1/`.
+
+Task2 native minimal main RED (`task2-native-main-red-v1.xml`) records1failure/
+0errors/0skips, natural exit1,3.3559292079880834s: original rollback HTTP409 instead
+of202. Its isolated database was dropped and handles settled. Installed baseline
+`task2-installed-main-red-v1.xml` also has1failure/0errors/0skips, natural1,
+11.364708500012057s, but fails the pre-cancel artifact path probe after the actual
+original supervised barrier. This is a readiness failure, not installed rollback
+business RED. Original LocalSandboxProvider path mapping is being used to repair
+the host probe; expected artifact bytes remain unchanged. Owned database and
+execution/container/client/stager handles were cleaned.
+
+Installed Task2 baseline v2 now reaches original supervised tool, verifies actual
+current artifact bytes through original Paths, observes changed checkpoint state,
+and fails original rollback HTTP409 !=202. `task2-installed-main-red-v2.xml` has
+1business failure/0errors/0skips, natural1,11.0184097920137s on accepted Task1
+image `05b99eaadc43`; owned database dropped and all handles settled. The first
+native implementation attempt named `task2-native-main-green-v1` is NOT GREEN:
+its receipt records natural1/3.4835233749763574s and ownership rejection instead
+of the required rollback error text. The sole implementer is tracing the exact
+fenced operation; no new runner image or Task2 acceptance exists.
+
+Task2 scoped rollback SOURCE v1 is frozen for sequential SPEC→QUALITY before
+new image build: `task2-rollback-main-source-ready-v1.json`,786 current/snapshot
+files, digest `e2f2c00cb26a43a05c2fd1db1eff0062b3345cadf191057ae5fc7322028c21ab`.
+Root checked1572 comparisons with zero mismatches. Final native-ready-v2 records
+105PASS/0fail/error/skip, natural0,5.18937766700401s across minimal native rollback,
+original interrupt/writer-order and existing Local full/delta rollback/resume.
+Diagnosis of the earlier failure identified `run.completion`: that original tail
+does not carry an error field. Current validation retains exact winning status and
+requires rollback error text on status/finalize, checking any optional error carried
+by other tails. SPEC review is running; no Task2 image/installed GREEN or acceptance
+is implied. Actual main GREEN precedes broader CAS/empty/delta controls.
+
+Scoped Task2 SOURCE SPEC v1 is Not Ready: one P2 at mutation.py365–368.
+Original lead rollback produces ABORTED for its transactional task-lifecycle STOP
+receipt, but the current core-error mapping requires FAILED. With an activated
+contributor this rejects legitimate cleanup, marks ownership lost and suppresses
+live END. Same sole implementer is correcting only matching first-winning rollback
+ABORTED authority, preserving ordinary error/Local behavior and exact accepted-point/
+identity/deadline checks. QUALITY and new image build have not started. Review and
+Root source check are saved unchanged in `.local/fleet-evidence/c09/task2-root-source-spec-v1/`.
+
+Scoped Task2 SOURCEv3 re-review SPEC round2 is Ready, no P0/P1/P2. Prior
+ABORTED receipt defect is closed with exact rollback/error/accepted paused pair/
+finishing/identity/deadline validation. Native owner-stop RED-v2 and GREEN-v1 are
+natural1 and0 respectively; original callback, not full private-MCP plugin execution.
+Two teardown-stalled windows (owner-stop-green-v2/native-ready-v3) were exact-owned
+pytest SIGINT/exit2 and are explicitly interrupted, never GREEN, via
+`task2-owner-stop-interrupted-windows-v1.json`; databases dropped and handles ended.
+SOURCEv2 is historical before final test cleanup coverage, not submitted for review.
+SOURCEv3 maps786 files/digest `18781852e4146e686f82c52237d25bfee5824db10e8692709027a1494480e22d`;
+Root and SPEC each checked current+snapshot1572 with no mismatch. Final native-v5
+records122PASS/0fail/error/skip, natural0,9.882113583007595s; full post-acquisition
+cleanup coverage and ordinary-error/core-only/conflicting receipt neighbors included.
+Root read-only format check: all10 delta/new files already formatted. Reports and
+Root checks are saved in `.local/fleet-evidence/c09/task2-root-source-spec-v2/`.
+Fresh independent QUALITY is running; no new image/build authorization or installed
+GREEN yet. Both actual CAS orders and full Task2/C09 acceptance remain pending.
+
+Task2 SOURCEv3 independent QUALITY v1 is Ready with no P0/P1/P2. Root freshly
+checked1572 current/snapshot bytes and raw final native122 XML/receipt, then
+recorded `.local/fleet-evidence/c09/task2-rollback-main-root-source-gate-v3.json`.
+Concrete permission covers one fresh app/harness/Fleet runner using audited cached
+archives/dependency for installed-byte verification and the unchanged actual main;
+no dependency/provider rebuild/download. Quality and Root gate copies are saved
+in `.local/fleet-evidence/c09/task2-root-source-quality-v1/`. This is scoped build
+readiness only: installed GREEN, both actual CAS orders and whole acceptance still
+need evidence.
+
+Task1 source RED: original trusted admission/claim/start authorization/running
+renewal succeeded, then original ASGI HTTP cancel returned409 instead of202.
+`task1-red-v4.xml` records1 behavioral failure/0errors/0skips, natural exit1,
+2.9843902080028784s. Earlier CSRF/auth/fixture setup failures are separate and not
+business RED. This covers the original ASGI route and real PostgreSQL; it does
+not prove TCP server, installed Runner or Docker physical stop. The sole owner
+has dropped its isolated database and settled handles; this RED is historical.
+
+Historical Task1 intent stage: `task1-green-intent-v1.xml` has1PASS/0fail/error/
+skip, natural0, 3.0181739580002613s. Extended writer boundary then produced a genuine
+`DID NOT RAISE CancelledError` failure (`task1-writer-red-v1.xml`, natural1,
+3.1015021250059363s), followed by `task1-writer-green-v1.xml`1PASS/0fail/error/skip,
+natural0,3.153830958006438s. All isolated databases were dropped and handles settled.
+These are successive bodies of the same minimal test, not additional distinct
+cases or final-source/installed-main acceptance.
+
+Final Task1 native gate `task1-final-native-gate-v5.xml` records8PASS/0fail/error/
+skip, natural0,5.278774333011825s; owned isolated database dropped and handles
+settled. One current native original Runner/worker probe plus7 existing neighbors
+exercise ASGI cancellation, real PG/NAS, exact paused pair and the original trusted
+STOP API. The driver supplies STOP proof; this does not establish TCP, installed
+stock lead-agent execution, NodeDaemon publication or physical Docker STOP.
+`task1-source-ready.json` freezes16 source/test paths with SHA
+`8476d190df859755f8d4db30ab21033365531ebbe524b5dbc826566a77ffdeff`;
+Root independently checked current/frozen bytes32 checks,0errors. Independent
+SOURCE SPEC v1 is Ready with0P0/P1/P2 and pre/post32 checks0errors; reports are
+`/private/tmp/c09-task1-spec-v1-review.md` and `.json`. QUALITY v1 completed
+with0P0/0P1/1P2 (Q1): initial/poll stop-wait SQL/session reads are not bounded
+by the immutable remaining deadline; query stalls/errors can bypass pending202
+and disconnect response. Root accepted Q1 and released the sole implementer
+for a narrow fix with meaningful minimal verification. Original v1 bytes and
+8PASS evidence stay immutable historical inputs; repaired bytes require a new
+freeze and sequential SPEC→QUALITY. Current-image build and actual Docker main
+have not started. QUALITY report: `/private/tmp/c09-task1-quality-v1-review.md`
+and `.json`. Tasks2–4
+and all OpenSpec9.1–9.4 remain incomplete.
+
+Q1 isolated regression RED is independently verified by Root from original XML/
+receipt:11 cases,10fail/0error/0skip and1PASS (external cancellation), natural1,
+4.107918541994877s; isolated DB created/dropped, owned handles reported settled.
+The body uses bounded session doubles to expose initial/poll lifecycle stalls,
+remaining-deadline clipping, disconnect and query failure. It does not prove
+actual PG stalls or installed Docker STOP. SQLAlchemy AsyncSession.__aexit__
+shields a separately created close Task; the sole owner is correcting observation
+and explicit close under one absolute bound rather than only timing SELECT.
+Root original receipt: `/private/tmp/c09-q1-root-red-verification-v1.json`.
+
+Q1 repair source is frozen in `task1-source-ready-v2.json` (SHA
+`a7a197c29834430ba53c85738dcc6283cc92bbfbab3f2064cfa16aba9066d648`,
+20610bytes). Only agent_control.py changes in production; budget test added,
+other15 prior paths unchanged. Root34 current/snapshot checks0errors, backend
+pending paths exactly17; final new test body matches original REDv3 bytes.
+Final-body REDv3 is12cases/10fail/2PASS/0error/skip,natural1,4.105076707986882s.
+Final native gate20PASS/0fail/error/skip,natural0,5.296503249992384s includes12
+controlled session-bound probes plus original8 unchanged native/neighbor bodies;
+isolated DB dropped and handles reported settled. No actual PG/network fault or
+installed physical STOP proof follows from these probes. Direct session close
+shares the same absolute bound as query/enter; unavailable observation stays
+pending and external cancellation propagates. This describes proposed repaired
+behavior, pending SPEC v2 then independent QUALITY. Root verification:
+`/private/tmp/c09-task1-root-source-readiness-v2.json`. SPEC v2 supplement is
+Ready,0P0/P1/P2 with pre/post34 checks0errors; fresh delta review carries forward
+only15 byte-identical paths from v1. Root fully read reports at
+`/private/tmp/c09-task1-spec-v2-review.md` and `.json`. QUALITY v2 completed
+with0P0/0P1/1P2 Q1-dispatch: original RunManager.wait_execution_stopped reads
+RunRepository.get before the bounded adapter, leaving an unbounded SQL/shielded
+session close path after accepted intent. The new direct Fleet helper itself
+passed review. Root accepted the remaining interface defect and released the
+sole owner for a narrow dispatch/classification correction, preserving explicit
+Local/B None fallthrough and unavailable Fleet pending202. Reports:
+`/private/tmp/c09-task1-quality-v2-review.md` and `.json`. Repaired bytes require
+fresh sequential supplement reviews; old v2 evidence remains historical.
+No build/runtime authorized. Strict OpenSpec validation is3passed/
+0failed; `/private/tmp/c09-q1-planning-validation-v2.json` is planning-only evidence,
+not C09 acceptance.
+
+Q1-dispatch repair is frozen in `task1-source-ready-v3.json` (SHA
+`74c5151dad90bb546208609dc14441c7e5e20a3f17c3575b76755c6d3e325602`,
+27064bytes; source digest `eb224a5346748b273865b5315c484a395f3a64379c244ce2d3e3180b0a40d843`).
+Root verifies all36 current/snapshot references, exact18 pending backend paths,
+13 byte-identical carry-forward paths and unchanged `_stop_read` helper. Manager
+now delegates directly to the bounded adapter; one bounded RunRow outer-join read
+classifies explicit Local/B delegation, remote pending and durable original STOP.
+Final9 dispatch-test bytes match original REDv2:8FAIL/1PASS,0error/skip,
+natural1/wall2.0605712920078076s. Of the8 failures,3 expose observable stall,
+error or wrong fallback;5 enforce removal of the redundant lookup path and are
+not five additional semantic defects. Final native gate29PASS/0fail/error/skip,
+natural0/wall5.364301624998916s includes9 dispatch controls,12 helper controls and
+8 unchanged native/main neighbors. The isolated database was created/dropped and
+owned handles settled. Session doubles are not actual PG transport fault proof;
+ASGI/native STOP is not installed TCP/NodeDaemon/Docker physical STOP proof.
+Root verification: `/private/tmp/c09-task1-root-source-readiness-v3.json`.
+Fresh incremental SPEC v3 is Ready with0P0/P1/P2, all36 pre/post hash checks
+matching; Root fully read `/private/tmp/c09-task1-spec-v3-review.md` and `.json`.
+Independent QUALITY v3 is Ready,0P0/P1/P2, all36 pre/post hashes match;
+Root read `/private/tmp/c09-task1-quality-v3-review.md` and its JSON disposition.
+Both concrete Q1 findings are closed at SOURCE level. Root authorizes the sole
+owner to prepare the minimal real TCP/NodeDaemon/installed-stock Docker main,
+using cached dependencies plus three rebuilt participating code wheels and three
+member-verified unchanged fixture/contract wheels. Only one current Runner image
+is planned; the original builder main must not rebuild dependencies/provider.
+The owner may freeze/self-check the new test/build-only inputs, build the one
+current Runner, verify installed bytes and execute the single actual main.
+Combined new-fixture/source and runtime SPEC→QUALITY follows that main; any
+production delta still requires renewed SOURCE review before a fresh image. No current C09 image/runtime or
+whole C09 acceptance is claimed. OpenSpec9.1–9.4 remain unchecked, and Tasks2–4 still follow actual main.
+
+Task1 runtime preparation now has three new test/build-only files and an
+actual single current Runner image. Root independently checked runtimeinput-v1
+809 package/context references, zero mismatches (manifest SHA
+`a5fd4afc26eafa8301247d01be37ed2e64c748ca49da7f902d95d85f11c32c7b`).
+Build-v1 failed before Docker because no-build-isolation lacked hatchling;
+build-v2 packaged the three fresh wheels offline but BuildKit interpreted bare
+sha256 FROM as a remote image name. These are retained setup failures, not
+business RED. Local cached dependency tag is inspected against exact da399...;
+input-v3/build-v4 reuse the verified six wheels and existing dependency, with no
+provider/dependency rebuild. Build-v3 interpreter invocation typo did not execute
+builder; retained separately. Build-v4 naturally completed and produced image
+`sha256:9d19fb8b629743de850819e040fdab18662a2ac2d028ce0a240b001e5de42cc7`.
+Root read the actual build output and installed-v1 receipt: byte verification
+natural0/wall0.5797395840054378s, actual six-wheel/fixture/libexec/binding checks.
+First actual main-v1 records1FAIL/0error/skip,natural1/wall8.444467166991672s:
+original trusted bootstrap did not acknowledge readiness, before the shell
+barrier/public cancel. The UUID database was actually created and dropped.
+Runtime remains unaccepted: there is no cancellation business result yet.
+Owner reports original container exited/removed and TCP/client cleanup executed;
+cleanup re-retrieval of the failed executor raised a fixture aggregation and
+prevented its final handles receipt. Root does not infer a complete receipt from
+that report. Safe exception-type/source-frame bootstrap diagnosis and actual
+residual-owner census are in progress; original failure evidence is preserved.
+SOURCEv3 production/native18 remain frozen. No Tasks2–4 expansion is started.
+
+Runtime-v2 reaches installed original stock lead and actual supervised shell,
+but public cancel is rejected403 by original CSRF before intent; retain as client
+setup failure. Matching cookie/header then reaches the original public intent.
+Root independently read runtime-main-v3 XML/receipt:1FAIL/0error/skip,
+natural1/wall102.42429399999673s. Actual original TCP interrupt202 succeeds and
+wait204 eventually follows original physical STOP, but observed interrupt elapsed
+91.49096608298714s exceeds the90s actual supervised tool lifetime. The unchanged
+assertion `Tool ended naturally instead of original cancellation` is a genuine
+business RED: eventual paused pair/physical stop does not establish prompt tool
+cancellation. No main acceptance is inferred. Actual UUIDDB created/dropped,
+execution/wait settled, clients closed, no owned containers, stager pending0 and
+driver attachments/drains0 are recorded in runtime-main-v3 owned receipts.
+Read-only diagnosis is now focused on original executor/graph-stream closure
+waiting for synchronous tool ownership before later writer quiescence. This is
+a proposed mechanism requiring exact source evidence, not a proven source fix.
+The sole owner must preserve the real main and its timing assertion, repair only
+original cancellation/owned-process settlement under unchanged identity and
+cumulative120s, then freeze/source SPEC→QUALITY before a fresh installed image.
+No broad/fault expansion, Tasks2–4 acceptance or production activation follows.
+
+Writer-order SOURCEv4 is frozen in task1-source-ready-v4.json,
+SHA `39e87b4ff0f32647d7d8acbea062db93c5950a5c7e230442bd67af6a59c11882`,
+17501bytes; sorted compact-JSON source digest
+`bbf0db1642a6b3e51cf161363261090bc5b92943df789f0dffb21d76e1e04ff8`.
+Root verifies all24 current/frozen paths48SHA checks,0errors;17 originalv3 paths
+carry forward byte-identically. Three production deltas are agent_control,
+workspace_boundary and workspace_process: close admission and send an original
+supervisor stop before executor cancellation, while leaving tickets/receipt
+readers/FDs/registry and physical settlement owned. Retained phase and pipe
+lock/select share the existing immutable deadline. Late retention requests stop;
+constructor initial payload precedes stop, expired deferred deadlines reject.
+Original later join/point acceptance/NodeSTOP remain the positive proof.
+Root independently reads final-native-gate-v4 XML/receipt35PASS/0fail/error/skip,
+natural0/wall5.855133500008378s, ownedDB dropped and handles settled. Coverage is
+original29 plus3 ordering controls and3 nearest original writer cases, not a
+Linux supervisor or installed Docker success proof. Original caller REDv1
+1FAIL/natural1/wall1.8551595000026282s and GREENv1
+1PASS/natural0/wall1.732653041020967s remain historical. An initial added pipe
+probe expected only stop and failed against the required initial+stop ordering;
+that fixture mismatch is retained separately and is not a second business RED.
+Actual main-v3 test body SHA95fe82b4... and its elapsed assertion remain exactly
+unchanged against runtimeinput-v6. Main-v3 still failed91.49096608298714>=90;
+no new image/runtime success is claimed. Root receipt is
+`/private/tmp/c09-task1-root-source-readiness-v4.json`. Fresh incremental SPECv4
+is Ready,0P0/P1/P2,48 pre/post SHA/AST checks match and exact24 backend pending
+paths confirmed. Root fully reads `/private/tmp/c09-task1-spec-v4-review.md`
+and its JSON disposition. Independent QUALITYv4 is Ready,0P0/P1/P2, with48 matching pre/post checks.
+Root reads `/private/tmp/c09-task1-quality-v4-review.md` and its JSON, then
+freshly verifies all48 current/snapshot references. Root authorizes fresh
+app/harness/Fleet wheels, one current Runner and installed-byte verification,
+followed by the unchanged actual main; no dependency/provider rebuild. Root gate
+receipt is `/private/tmp/c09-task1-root-source-gate-v4.json`. Actual runtime-main-v3
+remains failed and current new-image main proof is pending. Old C09 image is
+retained until replacement verification, then only zero-reference obsolete image
+cleanup is authorized; B/C08 retained images remain for relevant later gates.
+
+Task1 installed runtime supplement is frozen: task1-runtime-supplement-v1.json,
+SHA `20967994bdd4cb3e7628e32f2852c02f427d879c15e6db76a7b68544d89480e4`,
+375652bytes;832 original/frozen references1664checks all match (Root
+`/private/tmp/c09-task1-root-runtime-readiness-v1.json`). SOURCE24 remain exactv4.
+New image `sha256:05b99eaadc432850cfe85ba84fb86c5cc574d442765138b839d13d6d51965244`
+is from three freshly rebuilt functional code wheels and three member-verified
+cached wheels, existing dependency unchanged. Archive790members/installed784
+excluding6RECORD,17 copied input files, inventory SHA9bd4c51a... all verify.
+Build-v5 natural0/wall4.898535374988569s; installed-v2
+natural0/wall0.5490103749907576s. Actual main-v4
+1PASS/0fail/error/skip,natural0/wall12.386225582973566s, observed cancellation
+1.7134237500140443s against the original90s lifetime and unchanged test body.
+Actual shell113/3251299 and supervisor112/3251295 registry entries settled;
+collector census, Docker exited0 and exactly one accepted paused point pair
+checkpoint1f1c1004.../manifest9896fb... support physical/recovery evidence.
+Intent retains generation1/activeattempt/resources, task cancel remainsnull;
+final core interrupted/task paused/placement cancelled/stopped timestamp durable
+and reservation released once. There are two idempotent driver.stop calls but
+one Node stopped RPC; these are distinct actual counts. OwnedUUID DB dropped,
+execution/wait and clients closed, no owned containers/stager/attachments/drains.
+The cleanup field primary_failed_execution_already_observed=true is a legacy
+label from None-is-None on success, explicitly explained in supplement; XML and
+actual result show success, not an executor failure. Source bytes were preserved.
+Memory backend constructed/cleaned while memorytool/MCP/plugin/subagent execution
+is unclaimed. Runtime SPEC is running, then independent QUALITY is required.
+No wholeTask1/C09/OpenSpec9 checkmarks, later stages or activation are implied.
+Old C09 Runner9d19... is retained pending replacement verification/precise cleanup;
+historical main-v3 RED remains immutable.
+
+The earlier Docker recheck (before C09 runner builds) confirms the same6 retained
+feature images, no new obsolete feature
+image and none of the previously removed images present. Historical cumulative
+removals remain18; this recheck deletes0 additional images. Receipt:
+`/private/tmp/deerflow-docker-cleanup-recheck-2026-10-06.json`.
 
 ## Current C08 accepted slice — 2026-10-06
 

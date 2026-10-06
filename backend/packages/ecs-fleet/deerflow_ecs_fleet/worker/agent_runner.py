@@ -23,6 +23,50 @@ class AgentRunner:
             return await self._run(spec, grant=grant, environment=environment)
 
     async def _run(self, spec: LaunchSpec, *, grant, environment):
+        executor = asyncio.create_task(self._execute(spec, grant=grant, environment=environment), name="original-agent-executor-" + spec.run_id)
+        observer = None
+        retain = getattr(environment, "retain_executor", None)
+        if retain is not None:
+            retain(executor)
+        observe = getattr(environment, "observe_cancellation", None)
+        if observe is not None:
+
+            async def observe_original():
+                try:
+                    await observe()
+                except asyncio.CancelledError:
+                    raise
+                except BaseException:
+                    await environment.manager.mark_execution_ownership_lost(spec.run_id)
+                    executor.cancel()
+                    raise
+
+            observer = asyncio.create_task(observe_original(), name="original-agent-control-" + spec.run_id)
+            if retain is not None:
+                retain(observer, role="control-observer")
+        try:
+            while True:
+                try:
+                    return await asyncio.shield(executor)
+                except asyncio.CancelledError:
+                    if executor.done():
+                        return executor.result()
+                    await environment.manager.signal_execution_cancel(spec.run_id, action="interrupt")
+        finally:
+            if executor.done() and retain is not None:
+                retain(None)
+            if observer is not None:
+                observer.cancel()
+                joined = asyncio.gather(observer, return_exceptions=True)
+                while not joined.done():
+                    try:
+                        await asyncio.shield(joined)
+                    except asyncio.CancelledError:
+                        continue
+                if retain is not None:
+                    retain(None, role="control-observer")
+
+    async def _execute(self, spec: LaunchSpec, *, grant, environment):
         from contextlib import ExitStack
 
         from deerflow.config.extensions_config import extensions_config_scope
@@ -54,6 +98,7 @@ class AgentRunner:
             thread_id=spec.thread_id,
             owner_worker_id=identity.owner_worker_id,
             execution_backend="fleet",
+            task=asyncio.current_task(),
         )
         # Input decoding belongs to the trusted host provider. The optional Fleet
         # package never imports app; it only receives the resulting runtime object.

@@ -1632,7 +1632,10 @@ C08 has isolated local acceptance for checkpoint/workspace pairing, owner file
 reads and installed initial, new-turn and branch execution. See the
 [C08 acceptance report](docs/ecs-fleet-c08-acceptance.md) and
 [runtime contracts](docs/ecs-fleet-c08-runtime.md) for the exact evidence and boundaries.
-Gateway still rejects agents_enabled until C09-C12 recovery,
+C09 cancellation, rollback, keyed-resume, partition and stock Node restart STOP
+reconciliation have isolated local acceptance. See [C09 acceptance](docs/ecs-fleet-c09-acceptance.md)
+and [runtime contracts](docs/ecs-fleet-c09-runtime.md) for the verified scope.
+Gateway still rejects agents_enabled until C10-C12 recovery,
 cancellation and routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

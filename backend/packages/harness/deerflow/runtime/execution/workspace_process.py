@@ -7,6 +7,7 @@ import select
 import signal
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,6 +46,10 @@ class SupervisedCommand:
         self.failure = None
         self._buffer = bytearray()
         self._closed = False
+        self._send_lock = threading.RLock()
+        self._stop_requested = False
+        self._initial_payload_sent = False
+        self._pending_stop_deadline = None
         self.pipe_drains = ()
         self.tool_execution_id = original_workspace_tool_id()
         self.start_nonce = uuid4().hex + uuid4().hex
@@ -69,7 +74,11 @@ class SupervisedCommand:
             os.close(receipt_write)
         retain(self)
         try:
-            self._send({"args": args, "env": env, "pids_limit": pids_limit})
+            with self._send_lock:
+                self._send({"args": args, "env": env, "pids_limit": pids_limit})
+                self._initial_payload_sent = True
+                if self._pending_stop_deadline is not None:
+                    self.request_stop(self._pending_stop_deadline)
             sup = self._receive(min(self.deadline, time.monotonic() + 30))
             self._verify_receipt(sup, "supervisor", self.process.pid)
             self.supervisor = OriginalToolProcess(self.process.pid, sup["start_ticks"], "supervisor", self.tool_execution_id, self.start_nonce, self.source_digest)
@@ -108,9 +117,10 @@ class SupervisedCommand:
         data = json.dumps(value, separators=(",", ":")).encode() + b"\n"
         if len(data) > 1048576:
             raise ValueError("Private supervisor command exceeds bound")
-        view = memoryview(data)
-        while view:
-            view = view[os.write(self._control_write, view) :]
+        with self._send_lock:
+            view = memoryview(data)
+            while view:
+                view = view[os.write(self._control_write, view) :]
 
     def _receive(self, deadline):
         while True:
@@ -156,7 +166,34 @@ class SupervisedCommand:
         os.close(self._receipt_read)
         self._closed = True
 
+    def request_stop(self, deadline):
+        """Send one bounded stop without stealing the native shell receipt."""
+        if not self._send_lock.acquire(timeout=max(0, deadline - time.monotonic())):
+            raise TimeoutError("Original supervisor control remains owned")
+        try:
+            if self._closed or self._stop_requested or self.process.poll() is not None:
+                return
+            self._pending_stop_deadline = min(deadline, self._pending_stop_deadline) if self._pending_stop_deadline is not None else deadline
+            deadline = self._pending_stop_deadline
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("Original supervisor stop deadline elapsed")
+            if not self._initial_payload_sent:
+                # retain() precedes the initial launch payload. Defer the stop
+                # frame until that payload is complete, never interleave or
+                # send a control operation as the supervisor initial message.
+                return
+            if not select.select([], [self._control_write], [], remaining)[1]:
+                raise TimeoutError("Original supervisor stop deadline elapsed")
+            # Below PIPE_BUF and serialized with constructor commands. No
+            # receipt read, FD close, registry settlement, or quiescence claim.
+            data = b'{"operation":"stop"}\n'
+            if os.write(self._control_write, data) != len(data):
+                raise OwnershipRejected("Original supervisor stop was incomplete")
+            self._stop_requested = True
+        finally:
+            self._send_lock.release()
+
     def stop_and_join(self, deadline):
-        if not self._closed and self.process.poll() is None:
-            self._send({"operation": "stop"})
+        self.request_stop(deadline)
         self.join(deadline)

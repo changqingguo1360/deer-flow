@@ -463,8 +463,13 @@ thread/capacity until the original authenticated process is physically stopped;
 then its immutable desired statuses apply regardless of transport stop reason.
 The reason remains an observation in the attempt outcome; it cannot downgrade
 an exact accepted final/paused point or prevent physical-stop stream recovery.
-A fresh Node session still cannot report an old-session Agent attempt; that
-separate recovery boundary remains pending. A partial point or core-only terminal
+A fresh Node session still cannot use ordinary STOP for an old-session Agent attempt.
+C09 provides a dedicated STOP reconciliation operation after the original residual
+physical-stop proof. It authenticates current Node identity plus the private original
+attempt identity, preserves the recorded attempt session, and grants no writer lease.
+Already acknowledged historical STOP receipts are read-only and cannot change a newer
+run/generation/reservation. Missing exact recovery authority keeps the task blocked and
+worker heartbeat unknown. See [C09 runtime contracts](ecs-fleet-c09-runtime.md). A partial point or core-only terminal
 row cannot authorize final sealing or recovery END. Post-pair bookkeeping uses
 that exact accepted final/paused authority and never reopens filesystem gates.
 

@@ -231,59 +231,77 @@ class FleetRunOwnership:
         raise ValueError("Original accepted source changed during verification")
 
     async def stopped(self, *, reason, exit_code, process_ref, physical_stopped=False, **identity):
-        from deerflow_ecs_fleet.persistence.reservations import release_stopped
-
         if physical_stopped is not True:
             raise ValueError("Trusted node physical stop proof required")
         async with self.sf.begin() as session:
             rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, require_lease=False, **identity)
-            task, run, placement, node, reservation, attempt = rows
-            if attempt.process_ref != process_ref or process_ref != "fleet-" + attempt.id:
-                raise ValueError("Physical stop execution identity mismatch")
-            if attempt.stopped_at is not None:
-                return {"state": placement.state, "stopped": True}
-            attempt.stopped_at = now
-            attempt.outcome = {"exit_code": exit_code, "stop_reason": reason}
-            from deerflow_ecs_fleet.persistence.workspace_points import accepted_final
+            return await self._stopped_locked(session, rows, now, reason=reason, exit_code=exit_code, process_ref=process_ref)
 
-            point = await accepted_final(session, task=task, run=run, placement=placement, attempt=attempt)
-            if point is not None:
-                # Immutable final authority survives every authenticated physical STOP ACK.
-                # Transport stop reasons remain observations, not outcome authority.
-                # Leases grant new writes; they cannot rewrite an accepted pair.
-                task.state = point.desired_task_status
-                placement.state = point.desired_placement_status
-                attempt.state = "expired" if point.desired_placement_status == "timed_out" else point.desired_placement_status
-                attempt.finished_at = now
-            else:
-                # A stopped runner without the exact terminal pair requires
-                # explicit recovery. It never authorizes END or tool replay.
-                task.state = placement.state = "recovery_required"
-                attempt.state = "unknown"
-            await release_stopped(session, attempt)
-            await session.flush()
-            from app.fleet.events import FleetStreamSeals
+    async def reconcile_stopped(self, *, reason, exit_code, process_ref, physical_stopped=False, **identity):
+        if physical_stopped is not True:
+            raise ValueError("Trusted node physical stop proof required")
+        async with self.sf.begin() as session:
+            rows, now = await self.attempts.authenticate_stop_reconciliation(session, run_locker=self.lock_run, **identity)
+            return await self._stopped_locked(session, rows, now, reason=reason, exit_code=exit_code, process_ref=process_ref)
 
-            await FleetStreamSeals(self.sf).recover_locked(session, run=run, placement=placement, attempt=attempt, reservation=reservation)
+    async def _stopped_locked(self, session, rows, now, *, reason, exit_code, process_ref):
+        from deerflow_ecs_fleet.persistence.reservations import release_stopped
+
+        task, run, placement, node, reservation, attempt = rows
+        if attempt.process_ref != process_ref or process_ref != "fleet-" + attempt.id:
+            raise ValueError("Physical stop execution identity mismatch")
+        if attempt.stopped_at is not None:
             return {"state": placement.state, "stopped": True}
+        attempt.stopped_at = now
+        attempt.outcome = {"exit_code": exit_code, "stop_reason": reason}
+        from deerflow_ecs_fleet.persistence.workspace_points import accepted_final
+
+        point = await accepted_final(session, task=task, run=run, placement=placement, attempt=attempt)
+        if point is not None:
+            # Immutable final authority survives every authenticated physical STOP ACK.
+            # Transport stop reasons remain observations, not outcome authority.
+            # Leases grant new writes; they cannot rewrite an accepted pair.
+            task.state = point.desired_task_status
+            placement.state = point.desired_placement_status
+            attempt.state = "expired" if point.desired_placement_status == "timed_out" else point.desired_placement_status
+            attempt.finished_at = now
+        else:
+            # A stopped runner without the exact terminal pair requires
+            # explicit recovery. It never authorizes END or tool replay.
+            task.state = placement.state = "recovery_required"
+            attempt.state = "unknown"
+        await release_stopped(session, attempt)
+        await session.flush()
+        from app.fleet.events import FleetStreamSeals
+
+        await FleetStreamSeals(self.sf).recover_locked(session, run=run, placement=placement, attempt=attempt, reservation=reservation)
+        return {"state": placement.state, "stopped": True}
 
     async def renew(self, *, running=False, **identity):
         async with self.sf.begin() as session:
             rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, allow_terminal_run=not running, **identity)
             task, run, placement, node, reservation, attempt = rows
-            if node.admin_state == "disabled" or task.cancel_requested_at is not None or run.cancel_action is not None:
+            if node.admin_state == "disabled" or task.cancel_requested_at is not None:
                 return {"stop": True, "reason": "cancel_requested"}
-            expiry = min(now + timedelta(seconds=self.config.lease_seconds), task.deadline, attempt.execution_deadline)
+            cleanup_deadline = min(run.cancel_requested_at + timedelta(seconds=120), task.deadline, attempt.execution_deadline) if run.cancel_action is not None else None
+            if cleanup_deadline is not None and (run.cancel_action not in {"interrupt", "rollback"} or cleanup_deadline <= now):
+                return {"stop": True, "reason": "cancel_requested"}
+            expiry = min(now + timedelta(seconds=self.config.lease_seconds), task.deadline, attempt.execution_deadline, cleanup_deadline or task.deadline)
             run.lease_expires_at = attempt.lease_expires_at = expiry
             run.updated_at = placement.updated_at = task.updated_at = now
-            if running:
+            if running and run.cancel_action is None:
                 attempt.state = placement.state = "running"
                 run.status = "running"
                 attempt.started_at = attempt.started_at or now
                 reservation.state = "active"
             await session.flush()
             rows, now = await self.attempts.authenticate(session, run_locker=self.lock_run, allow_terminal_run=not running, **identity)
-            return {"stop": False, **self.grant(rows, now), "lease_expires_at": expiry.isoformat()}
+            return {
+                "stop": False,
+                **self.grant(rows, now),
+                "lease_expires_at": expiry.isoformat(),
+                **({"control": "cancel", "cancel_action": run.cancel_action, "cleanup_deadline": cleanup_deadline.isoformat()} if cleanup_deadline is not None else {}),
+            }
 
 
 def install_fleet_ownership(app, session_factory):
@@ -292,10 +310,14 @@ def install_fleet_ownership(app, session_factory):
     runtime = fleet_runtime(app)
     if runtime is None or not runtime.ready or session_factory is None:
         return
-    from .execution import fleet_thread_admission_guard
+    from .execution import BoundFleetRunBackend, fleet_thread_admission_guard
 
     app.state.run_store.set_thread_admission_guard(fleet_thread_admission_guard)
+    app.state.bound_run_execution_backend = BoundFleetRunBackend(session_factory, runtime.config)
     app.state.fleet_ownership = FleetRunOwnership(session_factory, runtime.config)
+    from .agent_control import FleetAgentRunControl
+
+    app.state.run_store.set_agent_run_control(FleetAgentRunControl(session_factory))
     from .workspace import FleetWorkspaceNodeService
 
     app.state.fleet_workspaces = FleetWorkspaceNodeService(session_factory, app.state.fleet_ownership)

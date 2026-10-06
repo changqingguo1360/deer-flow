@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy.exc import IntegrityError as SAIntegrityError
 
 from deerflow.runtime.execution.contracts import ExecutionPlan
+from deerflow.runtime.execution.control import AgentRunControl
 from deerflow.runtime.execution.mutation_context import OwnershipRejected
 from deerflow.runtime.user_context import AUTO, _AutoSentinel, resolve_user_id
 from deerflow.utils.time import is_lease_expired
@@ -247,6 +248,7 @@ class RunManager:
         self._runs_by_thread: dict[str, dict[str, None]] = {}
         self._lock = asyncio.Lock()
         self._store = store
+        self._agent_run_control: AgentRunControl | None = getattr(store, "_agent_run_control", None)
         self._persistence_retry_policy = persistence_retry_policy or PersistenceRetryPolicy()
         self._worker_id = worker_id or _generate_worker_id()
         self._run_ownership_config = run_ownership_config
@@ -1295,6 +1297,17 @@ class RunManager:
                 record.task.cancel()
         logger.info("Run %s cancellation signalled locally (action=%s)", run_id, action)
 
+    async def signal_execution_cancel(self, run_id: str, *, action: str) -> None:
+        """Trusted process-only signal for an already attached original executor."""
+        if action not in {"interrupt", "rollback"}:
+            raise ValueError("Unsupported cancellation action")
+        await self._signal_local_cancel(run_id, action=action)
+
+    async def wait_execution_stopped(self, run_id: str, *, disconnected=None) -> bool | None:
+        if self._agent_run_control is None:
+            return None
+        return await self._agent_run_control.wait_stopped(run_id, disconnected=disconnected)
+
     async def cancel(self, run_id: str, *, action: str = "interrupt") -> CancelOutcome:
         """Request cancellation of a run.
 
@@ -1325,6 +1338,11 @@ class RunManager:
         Returns:
             A :class:`CancelOutcome` enum describing what happened.
         """
+        if self._agent_run_control is not None:
+            controlled = await self._agent_run_control.request_cancel(run_id, action=action)
+            if controlled is not None:
+                return controlled
+
         # ------------------------------------------------------------------
         # Local path — this worker owns the run in-memory.
         # ------------------------------------------------------------------

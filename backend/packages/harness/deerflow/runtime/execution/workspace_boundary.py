@@ -47,6 +47,7 @@ class WorkspaceWriterController:
         self.pids_limit = None
         self.execution_deadline = None
         self._process_handles = []
+        self._process_stop_deadline = None
         self._process_join_lock = threading.Lock()
         self._join_tasks = set()
         self._condition = threading.Condition()
@@ -196,14 +197,19 @@ class WorkspaceWriterController:
                     raise TimeoutError("Actual workspace writers have not completed")
                 self._condition.wait(remaining)
 
-    async def close_and_wait(self, *, deadline, final=False):
-        # This execution deadline is supplied by the host. Partial barriers
-        # never read or start a final resource CleanupBudget.
+    def close_admission(self, *, final=False):
+        """Close new writers without waiting for the existing native bodies."""
         with self._condition:
             if not self._closed:
                 self._epoch += 1
             self._closed = True
             self._final = self._final or final
+        return self.barrier_epoch
+
+    async def close_and_wait(self, *, deadline, final=False):
+        # Preserve normal/partial settlement ordering. Only the original
+        # cancellation host requests process stop before ticket completion.
+        self.close_admission(final=final)
         await asyncio.to_thread(self._wait, deadline)
         if final:
             await self._run_process_join(deadline, True)
@@ -219,6 +225,22 @@ class WorkspaceWriterController:
         with self._condition:
             if not any(current is handle for current in self._process_handles):
                 self._process_handles.append(handle)
+            deadline = self._process_stop_deadline
+        if deadline is not None:
+            # A launch already holding a ticket can reach retention after the
+            # private host closes admission. Keep ownership and stop it too.
+            handle.request_stop(deadline)
+
+    def request_process_stop(self, *, deadline):
+        """Signal retained supervisors; receipt readers and tickets stay owned."""
+        with self._condition:
+            if not self._closed or not self._final:
+                raise OwnershipRejected("Original final gate must close before cancellation stop")
+            self._process_stop_deadline = min(deadline, self._process_stop_deadline) if self._process_stop_deadline is not None else deadline
+            deadline = self._process_stop_deadline
+            handles = tuple(self._process_handles)
+        for handle in handles:
+            handle.request_stop(deadline)
 
     async def stop_and_join_processes(self, *, deadline):
         # The private original host owns these handles and OS pipes. A partial

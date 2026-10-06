@@ -551,7 +551,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
 
     @contextmanager
     def bootstrap_cleanup_scope():
-        with remote_mutation_scope(mutation_capability.context), model_credential_scope(resolver), workspace_writer_scope(workspace_writers):
+        with remote_mutation_scope(mutation_capability.context), mutation_capability.cancellation_settlement_scope(), model_credential_scope(resolver), workspace_writer_scope(workspace_writers):
             push_current_app_config(execution)
             try:
                 yield
@@ -616,6 +616,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
                 from deerflow.runtime.execution.mutation_context import remote_mutation_scope
 
                 scoped.enter_context(remote_mutation_scope(mutation_capability.context))
+                scoped.enter_context(mutation_capability.cancellation_settlement_scope())
                 scoped.enter_context(workspace_writer_scope(workspace_writers))
                 scoped.enter_context(model_credential_scope(resolver))
                 scoped.enter_context(extensions_config_scope(private.extensions))
@@ -794,6 +795,14 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             prepare_terminal=workspace_publications.prepare_terminal,
         )
 
+        from .agent_control import OriginalAgentCancellation
+
+        cancellation = OriginalAgentCancellation(sf, mutation_capability, manager, teardown, workspace_writers)
+        object.__setattr__(context, "observe_cancellation", cancellation.read)
+        object.__setattr__(context, "prepare_cancellation", cancellation.prepare)
+        object.__setattr__(context, "cancellation_checkpoint_scope", mutation_capability.cancellation_checkpoint_scope)
+        object.__setattr__(context, "cancellation_rollback_scope", mutation_capability.cancellation_rollback_scope)
+
         async def close():
             await teardown.close()
 
@@ -801,6 +810,8 @@ async def build_agent_environment(*, bootstrap, spec, grant):
 
         return AgentEnvironment(
             identity=bootstrap.identity,
+            observe_cancellation=cancellation.observe,
+            retain_executor=cancellation.retain,
             mutation_scope=lambda: remote_mutation_scope(mutation_capability.context),
             context=context,
             manager=manager,

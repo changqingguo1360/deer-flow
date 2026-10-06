@@ -168,11 +168,33 @@ class AgentAttempts:
 
     async def authenticate(self, session, *, attempt_id, node_id, node_session_id, token, run_locker, require_lease=True, allow_terminal_run=False):
         rows = await self.locked(session, attempt_id, run_locker=run_locker)
-        task, run, placement, node, reservation, attempt = rows
+        node, attempt = rows[3], rows[5]
         if attempt is None or not isinstance(token, str) or len(token) > 256 or attempt.node_id != node_id or not hmac.compare_digest(attempt.token_hash, hashlib.sha256(token.encode()).hexdigest()):
             raise PermissionError("Agent attempt unavailable")
         if node is None or node.session_id != node_session_id or attempt.node_session_id != node_session_id:
             raise ValueError("Stale node session")
+        return await self._validated_rows(session, rows, node_id=node_id, token=token, require_lease=require_lease, allow_terminal_run=allow_terminal_run)
+
+    async def authenticate_stop_reconciliation(self, session, *, attempt_id, node_id, node_session_id, original_node_session_id, token, run_locker):
+        rows = await self.locked(session, attempt_id, run_locker=run_locker)
+        node, attempt = rows[3], rows[5]
+        if attempt is None or not isinstance(token, str) or len(token) > 256 or attempt.node_id != node_id or not hmac.compare_digest(attempt.token_hash, hashlib.sha256(token.encode()).hexdigest()):
+            raise PermissionError("Agent attempt unavailable")
+        if node is None or node.session_id != node_session_id or not original_node_session_id or attempt.node_session_id != original_node_session_id:
+            raise ValueError("Stop reconciliation session mismatch")
+        if attempt.start_authorized_at is None or attempt.process_ref != "fleet-" + attempt.id:
+            raise ValueError("Started original process identity required")
+        historical_stopped = attempt.stopped_at is not None
+        if historical_stopped:
+            reservation = rows[4]
+            if reservation is None or reservation.state != "released" or reservation.released_at is None or reservation.attempt_id != attempt.id or reservation.node_id != attempt.node_id:
+                raise ValueError("Durable stopped reservation required")
+        return await self._validated_rows(session, rows, node_id=node_id, token=token, require_lease=False, allow_terminal_run=False, historical_stopped=historical_stopped)
+
+    async def _validated_rows(self, session, rows, *, node_id, token, require_lease, allow_terminal_run, historical_stopped=False):
+        task, run, placement, node, reservation, attempt = rows
+        if attempt is None or not isinstance(token, str) or len(token) > 256 or attempt.node_id != node_id or not hmac.compare_digest(attempt.token_hash, hashlib.sha256(token.encode()).hexdigest()):
+            raise PermissionError("Agent attempt unavailable")
         now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
         if task is None or run is None or placement is None or reservation is None:
             raise ValueError("Agent ownership unavailable")
@@ -184,6 +206,12 @@ class AgentAttempts:
             or (placement.user_id, placement.thread_id) != (run.user_id, run.thread_id)
         ):
             raise ValueError("Agent execution identity mismatch")
+        if historical_stopped:
+            frozen = attempt.launch_spec.get("launch_spec", {})
+            if require_lease or attempt.stopped_at is None or reservation.state != "released" or reservation.released_at is None:
+                raise ValueError("Historical STOP receipt unavailable")
+            if (frozen.get("run_id"), frozen.get("agent_task_id"), frozen.get("user_id"), frozen.get("thread_id")) != (run.run_id, task.id, run.user_id, run.thread_id):
+                raise ValueError("Historical STOP frozen identity mismatch")
         permitted_finishing = False
         if allow_terminal_run and task.state == placement.state == "finishing":
             from .workspace_points import accepted_final
@@ -193,9 +221,8 @@ class AgentAttempts:
                 raise ValueError("Exact accepted final cleanup authority required")
             now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
         if (
-            task.current_run_id != run.run_id
-            or task.generation != placement.generation
-            or task.generation != attempt.launch_spec.get("launch_spec", {}).get("generation")
+            (not historical_stopped and (task.current_run_id != run.run_id or task.generation != placement.generation))
+            or placement.generation != attempt.launch_spec.get("launch_spec", {}).get("generation")
             or (require_lease and task.state not in {"queued", "running"} and not permitted_finishing)
         ):
             raise ValueError("Stale Agent generation")

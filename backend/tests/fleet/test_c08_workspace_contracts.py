@@ -170,7 +170,12 @@ async def test_original_daemon_physically_stops_journal_before_rejecting_legacy_
         path = request.url.path
         if path.endswith("/session"):
             return httpx.Response(200, json={"node_id": "original-node", "node_session_id": "original-session"})
-        if path.endswith("/stopped"):
+        if path.endswith("/reconcile-stopped"):
+            body = __import__("json").loads(request.content)
+            assert body["node_session_id"] == "original-session"
+            assert body["original_node_session_id"] == "old-original-session"
+            assert body["process_ref"] == "fleet-original-attempt"
+            assert body["physical_stopped"] is True
             assert child.poll() is not None
             events.append("original-stop-report")
             return httpx.Response(200, json={"state": "stopped"})
@@ -183,7 +188,7 @@ async def test_original_daemon_physically_stops_journal_before_rejecting_legacy_
         raise ValueError("workspace contract capability absent")
 
     journal = AttemptJournal(tmp_path / "private")
-    journal.save({"claim": {"kind": "agent", "attempt_id": "original-attempt", "token": "original-private-fixture-token"}, "node_id": "original-node", "reported": False})
+    journal.save({"claim": {"kind": "agent", "attempt_id": "original-attempt", "token": "original-private-fixture-token"}, "node_id": "original-node", "grant": {"node_session_id": "old-original-session"}, "reported": False})
     async with httpx.AsyncClient(base_url="http://test/", transport=httpx.MockTransport(transport)) as http:
         try:
             client = NodeClient(gateway_url="http://test/", credential="df_fleet_private-fixture", http_client=http, claim_kind="agent", compatibility_loader=installed_preflight)

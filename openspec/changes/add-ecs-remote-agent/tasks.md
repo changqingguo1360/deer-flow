@@ -65,10 +65,14 @@ C08 实际验收 — 2026-10-06：[验收报告](../../../docs/ecs-fleet-c08-acc
 
 ## 9. C09 远程取消、人工中断与故障隔离
 
-- [ ] 9.1 写并运行 backend/tests/fleet/test_c09_remote_agent_operations.py，确认 C09 行为测试 RED。
-- [ ] 9.2 完成计划列出的接口、事务和部署接线；满足 `Remote cancellation and safe recovery`。
-- [ ] 9.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 9.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+实施依据：[源审计后的 C09 详细计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-c09-control.md)。先验证实际 interrupt 主干，再补 rollback、graph interrupt/resume 与 partition 竞态；以下完成项以实际验收报告为准。取消请求不改变原 generation 或释放资源，204 必须有原执行物理停止证据。
+
+C09 实际验收（2026-10-06）：详细 Task1–4 已通过 SPEC→QUALITY 和 Root 本地验收。真实 interrupt、rollback/CAS、keyed resume、断网/stock Node 重启主干均有证据；有限相邻及原失败用例复核通过。原整体回归 14,816 passed / 10 failed 原样保留，不改称全套通过；十项失败随后定向闭环，blocking-I/O75通过。见 [验收报告](../../../docs/ecs-fleet-c09-acceptance.md)。本 slice 不启用 remote Agent；C10–C12 与 C→B→C 仍待实施。
+
+- [x] 9.1 写并运行 backend/tests/fleet/test_c09_remote_agent_operations.py，确认 C09 行为测试 RED。
+- [x] 9.2 完成计划列出的接口、事务和部署接线；满足 `Remote cancellation and safe recovery`。
+- [x] 9.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 9.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 10. C10 路由 preference 与 Scheduler 票据接入
 

@@ -132,7 +132,7 @@ class RunRepository(RunStore):
             guard = self._thread_admission_guard or getattr(participant, "guard_thread", None)
             if guard is None:
                 raise ConflictError("Thread execution backend is unavailable")
-            await guard(session, user_id=user_id, thread_id=thread_id, backend=binding.backend, requested_backend=backend, operation=operation)
+            await guard(session, user_id=user_id, thread_id=thread_id, backend=binding.backend, requested_backend=backend, operation=operation, participant=participant)
 
     async def check_thread_admission(self, thread_id, *, user_id, operation="checkpoint_write"):
         resolved = resolve_user_id(user_id or AUTO, method_name="RunRepository.check_thread_admission")
@@ -146,6 +146,10 @@ class RunRepository(RunStore):
                 return binding.backend
             backend, _ = await self._persisted_thread_backend(session, user_id=user_id, thread_id=thread_id)
             return backend
+
+    def set_agent_run_control(self, control):
+        """Install the trusted host-neutral original execution control adapter."""
+        self._agent_run_control = control
 
     async def _terminal_hook(self, phase, session, *, run_id, status, error=None, stop_reason=None):
         if self._terminal_participant is not None and status in {"success", "error", "interrupted", "timeout"}:
@@ -788,6 +792,11 @@ class RunRepository(RunStore):
             values["stop_reason"] = stop_reason
 
         async with self._sf() as session:
+            observe = getattr(self._mutation_capability, "observe_cancellation_async", None)
+            if observe is not None:
+                action = await observe(session)
+                if action is not None:
+                    return StatusFinalization(finalized=False, cancel_action=action)
             await self._terminal_hook("before_transition", session, run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             await validate_mutation(self._mutation_capability, session, "run.finalize", run_id=run_id, status=status, error=error, stop_reason=stop_reason)
             result = await session.execute(

@@ -1,9 +1,18 @@
 """Private, immutable execution mutation authority; never graph configuration."""
 
+import asyncio
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Protocol
+
+
+class ExecutionCancellationRequested(asyncio.CancelledError):
+    """The original identity is valid, but durable control revoked ordinary writes."""
+
+    def __init__(self, action):
+        super().__init__("Original execution cancellation requested")
+        self.action = action
 
 
 class OwnershipRejected(RuntimeError):
