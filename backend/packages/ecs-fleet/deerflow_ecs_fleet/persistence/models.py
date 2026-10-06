@@ -28,6 +28,7 @@ class NodeRow(FleetBase):
         Column("session_id", String(64)),
         Column("protocol_version", Integer, nullable=False, server_default="1"),
         Column("runtime_digest", String(128)),
+        Column("agent_compatibility", json_type),
         Column("cpu_millis", Integer, nullable=False),
         Column("memory_mib", Integer, nullable=False),
         Column("agent_limit", Integer, nullable=False, server_default="0"),
@@ -107,13 +108,39 @@ class AttemptRow(FleetBase):
     )
 
 
+class SchedulerTicketRow(FleetBase):
+    __table__ = Table(
+        "fleet_scheduler_tickets",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("occurrence_id", String(64), nullable=False),
+        Column("scheduled_task_id", String(64), nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("profile", String(64), nullable=False),
+        Column("node_id", String(64), ForeignKey("fleet_nodes.id"), nullable=False),
+        Column("node_session_id", String(64), nullable=False),
+        Column("lease_owner", String(128), nullable=False),
+        Column("run_id", String(64)),
+        Column("state", String(24), nullable=False, server_default="held"),
+        timestamp("expires_at"),
+        timestamp("created_at"),
+        timestamp("consumed_at", nullable=True),
+        timestamp("released_at", nullable=True),
+        CheckConstraint("state IN ('held','consumed','released')", name="ck_fleet_ticket_state"),
+        Index("uq_fleet_ticket_live_occurrence", "occurrence_id", unique=True, postgresql_where=text("state != 'released'")),
+    )
+
+
 class ReservationRow(FleetBase):
     __table__ = Table(
         "fleet_reservations",
         metadata,
         Column("id", String(64), primary_key=True),
         Column("node_id", String(64), ForeignKey("fleet_nodes.id"), nullable=False),
-        Column("attempt_id", String(64), ForeignKey("fleet_attempts.id"), nullable=False, unique=True),
+        Column("attempt_id", String(64), ForeignKey("fleet_attempts.id"), nullable=True, unique=True),
+        Column("ticket_id", String(64), ForeignKey("fleet_scheduler_tickets.id"), nullable=True, unique=True),
+        CheckConstraint("attempt_id IS NOT NULL OR ticket_id IS NOT NULL", name="ck_fleet_reservation_identity"),
         Column("cpu_millis", Integer, nullable=False),
         Column("memory_mib", Integer, nullable=False),
         Column("agent_units", Integer, nullable=False, server_default="0"),

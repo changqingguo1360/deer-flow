@@ -343,9 +343,15 @@ async def test_f0005_upgrade_retains_nodes_claims_credentials_and_legacy_profile
     await fleet.start(ExtensionRuntimeDeps(session_factory=sf))
     try:
         async with engine.connect() as conn:
-            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0009_workspace_points"
+            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0010_scheduler_tickets"
             for table, rows in before.items():
-                assert [dict(row) for row in (await conn.execute(text("SELECT * FROM " + table))).mappings()] == rows
+                # Existing columns/bytes survive; f0010 adds a nullable ticket
+                # identity. Use a new projection rather than a cached SELECT *
+                # prepared before DDL on another pooled connection.
+                columns = ",".join(rows[0])
+                assert [dict(row) for row in (await conn.execute(text("SELECT " + columns + " FROM " + table))).mappings()] == rows
+            assert (await conn.execute(text("SELECT ticket_id FROM fleet_reservations WHERE id='busy-r'"))).scalar_one() is None
+            assert (await conn.execute(text("SELECT agent_compatibility FROM fleet_nodes WHERE id='legacy'"))).scalar_one() is None
             assert (await conn.execute(text("SELECT profile_allowlist FROM fleet_nodes WHERE id='legacy'"))).scalar_one() is None
         assert await fleet.scheduler.claim_job("legacy", node_session_id="s") is not None
         await fleet.nodes.register(node_id="new-cli", name="new-cli", cpu_millis=1000, memory_mib=512)

@@ -27,7 +27,7 @@ class ClassifiedReads(StopReads):
                 row = result.one_or_none()[:7]
                 if not self.attempted:
                     row = (None, None, row[2], None, None, row[5], None)
-                row += ({"execution_backend": self.backend}, "run" if self.placed else None)
+                row += ({"execution_backend": self.backend}, "run" if self.placed else None, "pending", "queued" if self.placed else None)
                 return type("Result", (), {"one_or_none": lambda self: row})()
             return result
 

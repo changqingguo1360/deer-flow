@@ -78,6 +78,8 @@ class NodeRegistry:
             # Fence the old incarnation using only the node lock. Reconciliation
             # acquires execution -> node -> reservation locks separately. Old
             # reservations remain charged until physical stop is established.
+            node.agent_compatibility = None
+            node.runtime_digest = None
             node.session_id = str(uuid4())
             node.protocol_version = protocol_version
             node.health = "unknown"

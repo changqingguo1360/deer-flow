@@ -942,6 +942,9 @@ class RunRepository(RunStore):
 
         try:
             async with RunAdmissionUnitOfWork(self._sf).transaction() as session:
+                before_thread_lock = getattr(participant, "before_thread_lock", None)
+                if before_thread_lock is not None:
+                    await before_thread_lock(session)
                 if session.get_bind().dialect.name == "postgresql":
                     await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || '|thread-execution|' || :key,0))"), {"key": json.dumps([resolved_user_id, thread_id])})
                 if participant is not None and idempotency_key is not None:
@@ -1013,7 +1016,12 @@ class RunRepository(RunStore):
             # The UoW has already rolled back core and participant writes.
             # A concurrent process may have committed the same idempotency key.
             if idempotency_key is not None:
-                async with self._sf() as session:
+                async with RunAdmissionUnitOfWork(self._sf).transaction() as session:
+                    before_thread_lock = getattr(participant, "before_thread_lock", None)
+                    if before_thread_lock is not None:
+                        await before_thread_lock(session)
+                    if session.get_bind().dialect.name == "postgresql":
+                        await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || '|thread-execution|' || :key,0))"), {"key": json.dumps([resolved_user_id, thread_id])})
                     existing = (await session.execute(select(RunRow).where(RunRow.idempotency_key == idempotency_key))).scalar_one_or_none()
                     if existing is not None:
                         stored = self._row_to_dict(existing)

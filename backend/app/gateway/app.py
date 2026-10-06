@@ -339,6 +339,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     task_repo=app.state.scheduled_task_repo,
                     task_run_repo=app.state.scheduled_task_run_repo,
                     launch_run=lambda **kwargs: launch_scheduled_thread_run(app=app, **kwargs),
+                    execution_admission=getattr(app.state, "fleet_scheduler_tickets", None),
                     poll_interval_seconds=startup_config.scheduler.poll_interval_seconds,
                     lease_seconds=startup_config.scheduler.lease_seconds,
                     max_concurrent_runs=startup_config.scheduler.max_concurrent_runs,

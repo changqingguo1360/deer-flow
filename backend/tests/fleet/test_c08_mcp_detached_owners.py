@@ -82,7 +82,7 @@ async def test_actual_detached_sdk_owner_blocks_original_publication_sql_and_res
     connection = {"transport": "stdio", "command": sys.executable, "args": [str(Path(__file__).with_name("c04_mcp_fixture.py"))], "env": {"ERP_AUTH": "c04-target-access"}}
     loop, thread = None, None
     original_owner = None
-    publication = closing = None
+    publication = closing = creating = None
 
     @settled_workspace_activity
     async def original_session_call(server, request_scope):
@@ -146,6 +146,16 @@ async def test_actual_detached_sdk_owner_blocks_original_publication_sql_and_res
                     with pytest.raises(BaseException):
                         await detaching
             else:
+                creator_join_entered = asyncio.Event()
+                original_shield = asyncio.shield
+
+                def observe_creator_join(future):
+                    inflight = pool._inflight.get(("original", scope))
+                    if asyncio.current_task() is creating and inflight is not None and future is inflight[2]:
+                        creator_join_entered.set()
+                    return original_shield(future)
+
+                monkeypatch.setattr(asyncio, "shield", observe_creator_join)
                 creating = asyncio.create_task(original_session_call("original", scope))
                 if path == "creation-double-cancel":
                     async with asyncio.timeout(3):
@@ -155,9 +165,14 @@ async def test_actual_detached_sdk_owner_blocks_original_publication_sql_and_res
 
                 await wait_entered()
                 original_owner = pool._inflight[("original", scope)][2]
+                # entered only proves the SDK cleanup is parked. The requester
+                # must also be in its owner join before this cancellation;
+                # otherwise cancellation at ready can enter that join forever.
+                await asyncio.wait_for(creator_join_entered.wait(), timeout=3)
                 creating.cancel()
-                with pytest.raises(BaseException):
-                    await creating
+                with pytest.raises((asyncio.CancelledError, ValueError)):
+                    async with asyncio.timeout(3):
+                        await creating
             assert not original_owner.done()
             assert not controller.unsettled, "The cancelled/returned tool activity really settled"
             sql_started = asyncio.Event()
@@ -184,6 +199,8 @@ async def test_actual_detached_sdk_owner_blocks_original_publication_sql_and_res
             assert teardown.closed and unwound == ["original-private-resources"]
     finally:
         release.set()
+        if creating is not None:
+            await asyncio.gather(creating, return_exceptions=True)
         if publication is not None:
             await asyncio.gather(publication, return_exceptions=True)
         if closing is not None:

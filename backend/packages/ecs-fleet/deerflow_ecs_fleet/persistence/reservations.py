@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from .models import NodeRow, ReservationRow
 
 
-async def reserve(session, node, attempt, *, cpu_millis: int, memory_mib: int, agent_units: int = 0) -> bool:
+async def has_capacity(session, node, *, cpu_millis: int, memory_mib: int, agent_units: int = 0) -> bool:
     """Node must already be locked; all unreleased states consume capacity."""
     if cpu_millis <= 0 or memory_mib <= 0 or agent_units < 0:
         raise ValueError("Invalid resource budget")
@@ -21,6 +21,12 @@ async def reserve(session, node, attempt, *, cpu_millis: int, memory_mib: int, a
         )
     ).one()
     if used[0] + cpu_millis > node.cpu_millis or used[1] + memory_mib > node.memory_mib or used[2] + agent_units > node.agent_limit:
+        return False
+    return True
+
+
+async def reserve(session, node, attempt, *, cpu_millis: int, memory_mib: int, agent_units: int = 0) -> bool:
+    if not await has_capacity(session, node, cpu_millis=cpu_millis, memory_mib=memory_mib, agent_units=agent_units):
         return False
     session.add(attempt)
     await session.flush()

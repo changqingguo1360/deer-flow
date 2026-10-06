@@ -35,6 +35,6 @@
 - 目标 worktree：`~/.codex/worktrees/deerflow2/personal-agent-ecs`；不改主 checkout。
 - 具体文件与 TDD 步骤见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-c-remote-agent.md)。
 - Postgres、NAS、worker 容器和现有 DeerFlow runtime 受影响；默认 feature flags 关闭，已有 local 路径保持兼容。
-- C01–C05 已完成实施、审查与本地验收；C06–C12 待实施。实际证据以 tasks.md 与 implementation-progress 为准；本变更尚未全部完成，不得 archive 或写 IMPLEMENTED 标记。
+- C01–C10 已完成实施、审查与孤立本地验收；C11–C12 待实施。实际证据以 tasks.md 与 implementation-progress 为准；本变更尚未全部完成，不得 archive 或写 IMPLEMENTED 标记。
 
 C06 actual write-surface refinement (2026-10-02): execute C06a primary SQL repositories, C06b Store/definitions, then C06c memory/extensions/scheduler/MCP tracking. The approved durable-mutation requirement is unchanged; see [detailed plan](../../../docs/superpowers/plans/2026-10-02-ecs-fleet-c06-durable-mutations.md). No C06 implementation or acceptance is claimed by this planning update.

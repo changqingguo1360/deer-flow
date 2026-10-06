@@ -1635,7 +1635,11 @@ reads and installed initial, new-turn and branch execution. See the
 C09 cancellation, rollback, keyed-resume, partition and stock Node restart STOP
 reconciliation have isolated local acceptance. See [C09 acceptance](docs/ecs-fleet-c09-acceptance.md)
 and [runtime contracts](docs/ecs-fleet-c09-runtime.md) for the verified scope.
-Gateway still rejects agents_enabled until C10-C12 recovery,
+C10 routing and Scheduler ticket admission have passed the native HTTP/PG main;
+Whole SPEC and QUALITY reviews are Ready; exposed regressions have targeted passing
+rechecks after the full-backend run was interrupted. C10 is locally accepted. See the
+[C10 contracts and verification boundaries](docs/ecs-fleet-c10-runtime.md).
+Gateway still rejects agents_enabled until C11-C12 recovery,
 cancellation and routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

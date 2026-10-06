@@ -37,7 +37,12 @@ class ScheduledTaskService:
         queue_timeout_seconds: int = 3600,
         multi_instance: bool = False,
         run_lease_grace_seconds: int = 10,
+        execution_admission=None,
     ) -> None:
+        self._execution_admission = execution_admission
+        if execution_admission is not None:
+            task_repo.execution_retirement = execution_admission.retire_waiting
+            task_run_repo.execution_retirement = execution_admission.retire_waiting
         self._task_repo = task_repo
         self._task_run_repo = task_run_repo
         self._launch_run = launch_run
@@ -53,6 +58,8 @@ class ScheduledTaskService:
         self._skip_next_lease_reconciliation = False
 
     async def run_once(self, *, now: datetime) -> None:
+        if self._execution_admission is not None:
+            await self._execution_admission.reconcile()
         if self._multi_instance:
             if self._skip_next_lease_reconciliation:
                 self._skip_next_lease_reconciliation = False
@@ -233,6 +240,7 @@ class ScheduledTaskService:
             now=now,
             lease_seconds=self._lease_seconds,
             global_max_concurrent_runs=self._max_concurrent_runs,
+            **({"execution_admission": self._execution_admission.reserve} if self._execution_admission is not None else {}),
         )
         if claimed is None:
             return self._queued_result(task_run_id, execution_thread_id)
@@ -249,6 +257,7 @@ class ScheduledTaskService:
                 assistant_id=task.get("assistant_id"),
                 prompt=task["prompt"],
                 owner_user_id=task.get("user_id"),
+                **({"execution": task.get("execution"), "execution_ticket": claimed.get("_execution_ticket"), "execution_lease_owner": self._lease_owner} if self._execution_admission is not None else {}),
                 metadata={
                     "scheduled_task_id": task["id"],
                     "scheduled_task_run_id": task_run_id,
@@ -549,6 +558,8 @@ class ScheduledTaskService:
     async def start(self) -> None:
         if self._task is not None:
             return
+        if self._execution_admission is not None:
+            await self._execution_admission.reconcile()
         restart_error = _RESTART_RECOVERY_ERROR
         if self._multi_instance:
             await self._reconcile_active_state(now=datetime.now(UTC))

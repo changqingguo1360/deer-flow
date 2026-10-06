@@ -46,6 +46,23 @@ class ExecutionProfile(BaseModel):
         return value
 
 
+class AgentRoutingBinding(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    allowed_user_ids: tuple[str, ...] = Field(min_length=1)
+    model_name: str = Field(min_length=1)
+    model_version: str = Field(min_length=1)
+    compatibility: dict
+    secret_refs: tuple[dict, ...] = ()
+    continuation_budget: int = Field(default=0, ge=0)
+
+    @field_validator("compatibility")
+    @classmethod
+    def actual_installed_contract(cls, value):
+        from .launch_spec import WorkerCompatibility
+
+        return WorkerCompatibility.model_validate(value).model_dump(mode="json")
+
+
 class FleetConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -62,6 +79,8 @@ class FleetConfig(BaseModel):
     max_input_bytes: int = Field(default=64 * 1024 * 1024, gt=0, le=2**31 - 1)
     profiles: dict[str, ExecutionProfile] = Field(default_factory=dict)
     scheduled_job_slots: dict[str, str] = Field(default_factory=dict)
+    agent_bindings: dict[str, AgentRoutingBinding] = Field(default_factory=dict)
+    ticket_seconds: int = Field(default=60, ge=1, le=120)
 
     @field_validator("profiles")
     @classmethod
@@ -76,6 +95,12 @@ class FleetConfig(BaseModel):
     def execution_dependencies(self) -> Self:
         import re
 
+        for name, binding in self.agent_bindings.items():
+            profile = self.profiles.get(name)
+            if profile is None or profile.kind != "agent" or profile.runtime_digest != binding.compatibility["runtime_digest"]:
+                raise ValueError("Agent routing binding requires its pinned agent profile")
+            if "*" in binding.allowed_user_ids:
+                raise ValueError("Agent routing grants require explicit user identities")
         for slot, profile_name in self.scheduled_job_slots.items():
             if re.fullmatch(NAME_PATTERN, slot) is None:
                 raise ValueError("Invalid scheduled job slot name")

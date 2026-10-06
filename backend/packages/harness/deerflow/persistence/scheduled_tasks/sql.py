@@ -61,6 +61,7 @@ class ScheduledTaskRepository:
         run_repository: RunRepository | None = None,
         mutation_capability=None,
     ) -> None:
+        self.execution_retirement = None
         self._sf = session_factory
         self._mutation_capability = mutation_capability
         self._run_repository = run_repository or RunRepository(session_factory)
@@ -101,6 +102,7 @@ class ScheduledTaskRepository:
         schedule_spec: dict[str, Any],
         timezone: str,
         next_run_at: datetime | None,
+        execution: dict | None = None,
     ) -> dict[str, Any]:
         reject_remote_operation(self._mutation_capability)
         now = datetime.now(UTC)
@@ -110,6 +112,7 @@ class ScheduledTaskRepository:
             thread_id=thread_id,
             context_mode=context_mode,
             assistant_id=assistant_id,
+            execution=execution,
             title=title,
             prompt=prompt,
             schedule_type=schedule_type,
@@ -190,6 +193,8 @@ class ScheduledTaskRepository:
                 await session.rollback()
                 return "executing"
             if run is not None:
+                if self.execution_retirement is not None:
+                    await self.execution_retirement(session, task=task, occurrence=run, error=error, now=now)
                 run.status = "interrupted"
                 run.error = error
                 run.finished_at = now
@@ -236,6 +241,8 @@ class ScheduledTaskRepository:
                 await session.rollback()
                 return "executing"
             if run is not None:
+                if self.execution_retirement is not None:
+                    await self.execution_retirement(session, task=task, occurrence=run, error=error, now=now)
                 run.status = "interrupted"
                 run.error = error
                 run.finished_at = now
@@ -526,12 +533,18 @@ class ScheduledTaskRepository:
             result = await session.execute(stmt)
             rows = list(result.scalars())
             now = datetime.now(UTC)
+            cancelled = 0
             for row in rows:
+                task_run = await session.scalar(select(ScheduledTaskRunRow).where(ScheduledTaskRunRow.task_id == row.id, ScheduledTaskRunRow.status.in_(("queued", "launching", "running"))).limit(1))
+                candidate = await self._find_underlying_run(session, task_run, row)
+                if candidate is not None and candidate.status in {"pending", "running"} and (candidate.kwargs_json or {}).get("execution_backend") == "fleet":
+                    continue
+                cancelled += 1
                 row.status = "cancelled"
                 row.last_error = error
                 row.updated_at = now
             await session.commit()
-            return len(rows)
+            return cancelled
 
     async def reconcile_stuck_once_tasks(
         self,
@@ -569,6 +582,8 @@ class ScheduledTaskRepository:
                 task_run = run_result.scalars().first()
                 candidate = await self._find_underlying_run(session, task_run, task)
                 if candidate is not None and candidate.status in {"pending", "running"}:
+                    if (candidate.kwargs_json or {}).get("execution_backend") == "fleet":
+                        continue
                     if _lease_is_alive(candidate.lease_expires_at, now=now, grace_seconds=lease_grace_seconds):
                         continue
                     # Run takeover commits in its own short transaction. If this

@@ -68,6 +68,17 @@ class RunAdmissionUnitOfWork:
 
     @asynccontextmanager
     async def transaction(self) -> AsyncIterator[AsyncSession]:
+        from deerflow.runtime.runs.store.base import RunIdempotencyConflict
+
+        reused = None
         async with self.session_factory() as session:
             async with session.begin():
-                yield session
+                try:
+                    yield session
+                except RunIdempotencyConflict as signal:
+                    # Trusted participant reuse may atomically replace a short
+                    # prelaunch reservation on the original admitted run. Signal
+                    # reuse to RunManager only after that same transaction commits.
+                    reused = signal
+            if reused is not None:
+                raise reused

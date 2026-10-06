@@ -76,10 +76,11 @@ C09 实际验收（2026-10-06）：详细 Task1–4 已通过 SPEC→QUALITY 和
 
 ## 10. C10 路由 preference 与 Scheduler 票据接入
 
-- [ ] 10.1 写并运行 backend/tests/fleet/test_c10_remote_agent_admission.py，确认 C10 行为测试 RED。
-- [ ] 10.2 完成计划列出的接口、事务和部署接线；满足 `Authorized routing and queued scheduler budget`。
-- [ ] 10.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 10.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+C10 本地验收（2026-10-06）：[验收报告](../../../docs/ecs-fleet-c10-acceptance.md)。真实 HTTP/PG 主干及4个 C10 用例通过；完整与有限修正 SPEC→QUALITY Ready，Root独立核验37文件哈希和实际数据库观测。按用户要求停止过宽全量回归：原结果 INTERRUPTED 保留，6项失败定向复核全部通过；blocking-I/O75通过。严格 OpenSpec/格式/静态检查通过。本 slice 不启用 remote Agent；C11–C12 和 C→B→C 待实施。
+- [x] 10.1 写并运行 backend/tests/fleet/test_c10_remote_agent_admission.py，确认 C10 行为测试 RED。
+- [x] 10.2 完成计划列出的接口、事务和部署接线；满足 `Authorized routing and queued scheduler budget`。
+- [x] 10.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 10.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 11. C11 C 任务摘要、部署和本地回归
 

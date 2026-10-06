@@ -1341,6 +1341,15 @@ class RunManager:
         if self._agent_run_control is not None:
             controlled = await self._agent_run_control.request_cancel(run_id, action=action)
             if controlled is not None:
+                if controlled == CancelOutcome.cancelled and self._store is not None:
+                    stored = await self._store.get(run_id, user_id=None)
+                    if stored is not None:
+                        refreshed = self._record_from_store(stored)
+                        async with self._lock:
+                            cached = self._runs.get(run_id)
+                            if cached is not None and cached.store_only:
+                                for name in ("status", "error", "updated_at", "stop_reason"):
+                                    setattr(cached, name, getattr(refreshed, name))
                 return controlled
 
         # ------------------------------------------------------------------

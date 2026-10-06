@@ -281,9 +281,13 @@ async def test_f0006_upgrade_preserves_b_records(fleet_database, tmp_path):
     await fleet.start(ExtensionRuntimeDeps(session_factory=sf))
     try:
         async with engine.connect() as conn:
-            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0009_workspace_points"
+            assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0010_scheduler_tickets"
             for table, expected in before.items():
-                assert [dict(row) for row in (await conn.execute(text("SELECT * FROM " + table))).mappings()] == expected
+                # Freeze the original projection across the new nullable node
+                # column and avoid reusing a pre-DDL SELECT * prepared plan.
+                columns = ",".join(expected[0])
+                assert [dict(row) for row in (await conn.execute(text("SELECT " + columns + " FROM " + table))).mappings()] == expected
+            assert (await conn.execute(text("SELECT agent_compatibility FROM fleet_nodes WHERE id='existing'"))).scalar_one() is None
             for table in ("fleet_agent_tasks", "fleet_launch_specs", "fleet_run_placements", "fleet_event_outbox", "fleet_stream_seals"):
                 assert (await conn.execute(text("SELECT count(*) FROM " + table))).scalar_one() == 0
     finally:

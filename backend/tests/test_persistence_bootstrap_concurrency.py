@@ -28,7 +28,7 @@ from deerflow.persistence.bootstrap import bootstrap_schema
 pytestmark = pytest.mark.asyncio
 
 
-HEAD = "0018_thread_execution_bindings"
+HEAD = "0019_scheduled_execution"
 
 
 def _url(tmp_path: Path) -> str:

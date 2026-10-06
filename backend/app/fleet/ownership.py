@@ -43,6 +43,14 @@ class FleetRunOwnership:
         worker = WorkerCompatibility.model_validate(worker.model_dump(mode="json"))
         if worker.workspace_contract_version != 1:
             raise ValueError("Installed workspace contract capability required for new Agent claims")
+        # Existing NodeClient claim advertisement is readiness, not an operator grant.
+        # Persist it against exactly this incarnation before scanning any work.
+        async with self.sf.begin() as session:
+            node = await session.get(NodeRow, node_id, with_for_update=True)
+            if node is None or node.session_id != node_session_id:
+                raise ValueError("Stale node session")
+            node.agent_compatibility = worker.model_dump(mode="json")
+            node.runtime_digest = worker.runtime_digest
         if not self.config.enabled or not self.config.agents_enabled or not self.config.jobs_enabled:
             return None
         async with self.sf() as session:
@@ -56,6 +64,16 @@ class FleetRunOwnership:
             ).all()
         for run_id, task_id in candidates:
             async with self.sf.begin() as session:
+                from deerflow_ecs_fleet.persistence.models import ReservationRow, SchedulerTicketRow
+
+                from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
+                from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
+
+                scheduled = await session.scalar(select(SchedulerTicketRow).where(SchedulerTicketRow.run_id == run_id).order_by(SchedulerTicketRow.created_at.desc()).limit(1))
+                occurrence = None
+                if scheduled is not None:
+                    await session.get(ScheduledTaskRow, scheduled.scheduled_task_id, with_for_update=True)
+                    occurrence = await session.get(ScheduledTaskRunRow, scheduled.occurrence_id, with_for_update=True)
                 task = await session.get(AgentTaskRow, task_id, with_for_update={"skip_locked": True})
                 if task is None:
                     continue
@@ -109,8 +127,34 @@ class FleetRunOwnership:
                     lease_expires_at=expiry,
                     execution_deadline=spec.execution_deadline,
                 )
-                if not await reserve(session, node, attempt, cpu_millis=spec.resources.cpu_millis, memory_mib=spec.resources.memory_mib, agent_units=1):
-                    continue
+                if scheduled is None:
+                    if not await reserve(session, node, attempt, cpu_millis=spec.resources.cpu_millis, memory_mib=spec.resources.memory_mib, agent_units=1):
+                        continue
+                else:
+                    ticket = await session.get(SchedulerTicketRow, scheduled.id, with_for_update=True, populate_existing=True)
+                    reservation = await session.scalar(select(ReservationRow).where(ReservationRow.ticket_id == ticket.id).with_for_update())
+                    now = await session.scalar(select(func.clock_timestamp()))
+                    if (
+                        ticket.state != "consumed"
+                        or ticket.expires_at <= now
+                        or ticket.run_id != run_id
+                        or ticket.node_id != node_id
+                        or ticket.node_session_id != node_session_id
+                        or occurrence is None
+                        or occurrence.status not in {"launching", "running"}
+                        or occurrence.run_id != run_id
+                        or run.idempotency_key != "scheduled-task:" + occurrence.id
+                        or reservation is None
+                        or reservation.state != "reserved"
+                        or reservation.attempt_id is not None
+                        or (reservation.cpu_millis, reservation.memory_mib, reservation.agent_units) != (spec.resources.cpu_millis, spec.resources.memory_mib, 1)
+                    ):
+                        continue
+                    session.add(attempt)
+                    await session.flush()
+                    reservation.attempt_id = attempt.id
+                    occurrence.status = "running"
+                    occurrence.lease_owner = occurrence.lease_expires_at = None
                 run.owner_worker_id = agent_owner(attempt_id)
                 run.lease_expires_at = expiry
                 run.updated_at = now
@@ -315,6 +359,10 @@ def install_fleet_ownership(app, session_factory):
     app.state.run_store.set_thread_admission_guard(fleet_thread_admission_guard)
     app.state.bound_run_execution_backend = BoundFleetRunBackend(session_factory, runtime.config)
     app.state.fleet_ownership = FleetRunOwnership(session_factory, runtime.config)
+    app.state.fleet_routing_config = runtime.config
+    from .scheduler_tickets import FleetSchedulerTickets
+
+    app.state.fleet_scheduler_tickets = FleetSchedulerTickets(session_factory, runtime.config)
     from .agent_control import FleetAgentRunControl
 
     app.state.run_store.set_agent_run_control(FleetAgentRunControl(session_factory))

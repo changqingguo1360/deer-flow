@@ -189,5 +189,5 @@ that cannot tell sibling branches apart.
 
 - Optional Fleet remote streams prepare before response headers/cancel: invalid cursors are 400, missing unconsumed history 410; runtime history or accepted-mapping loss closes without END. Replay uses original placement pointers; END requires the matching immutable seal and consumed tail. Preparation checks the suffix once; runtime pointer pages/checks are bounded to128. Remote `/wait` prepares `(record, None)` to retain queued owner binding, including taskless records; store-only observers never cancel on disconnect/EOF. Seal repeats reject immutable conflicts transactionally. Local semantics stay unchanged; Fleet activation remains closed. See [remote stream contracts](../../docs/RUN_EVENT_STREAM.md) for retention, authority, publisher and fixture details.
 
-Fleet `reconcile-stopped` uses exact `_NODE_PATH` bearer auth; it grants no writes.
-See [C09 contracts](../../../docs/ecs-fleet-c09-runtime.md).
+Fleet STOP requires `_NODE_PATH` bearer auth and grants no writes;
+[C09](../../../docs/ecs-fleet-c09-runtime.md), [C10 routing](../../../docs/ecs-fleet-c10-runtime.md).

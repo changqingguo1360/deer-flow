@@ -43,7 +43,6 @@ class FleetAgentRunControl:
         self.sf = session_factory
 
     async def request_cancel(self, run_id, *, action):
-        from deerflow_ecs_fleet.launch_spec import LaunchSpec
         from deerflow_ecs_fleet.persistence.models import AttemptRow, RunPlacementRow
 
         async with self.sf.begin() as session:
@@ -54,40 +53,48 @@ class FleetAgentRunControl:
             # Never silently reinterpret the public action as interrupt.
             attempt = await session.get(AttemptRow, locator.active_attempt_id) if locator.active_attempt_id else None
             if attempt is None:
-                return CancelOutcome.not_cancellable
-            spec = LaunchSpec.model_validate(attempt.launch_spec["launch_spec"])
-            from deerflow_ecs_fleet.persistence.attempts import AgentAttempts
+                from .scheduler_tickets import FleetSchedulerTickets
 
-            task, run, placement, node, reservation, attempt = await AgentAttempts().locked(session, attempt.id, run_locker=lambda session, key: session.get(RunRow, key, with_for_update=True))
-            now = await session.scalar(select(func.clock_timestamp()))
-            if (
-                task is None
-                or run is None
-                or placement is None
-                or node is None
-                or reservation is None
-                or task.current_run_id != run_id
-                or task.generation != placement.generation
-                or task.generation != spec.generation
-                or (task.user_id, task.thread_id) != (run.user_id, run.thread_id)
-                or (placement.user_id, placement.thread_id) != (run.user_id, run.thread_id)
-                or placement.active_attempt_id != attempt.id
-                or placement.node_id != attempt.node_id
-                or run.owner_worker_id != "fleet-agent:" + attempt.id
-                or (run.kwargs_json or {}).get("execution_backend") != "fleet"
-            ):
-                return CancelOutcome.not_cancellable
-            if run.cancel_action is not None:
-                return CancelOutcome.cancelled if attempt.stopped_at is not None else CancelOutcome.requested
-            if action not in {"interrupt", "rollback"}:
-                return CancelOutcome.not_cancellable
-            if run.status not in {"pending", "running"} or attempt.stopped_at is not None or task.state not in {"queued", "running"} or placement.state not in {"claimed", "running"}:
-                return CancelOutcome.not_cancellable
-            run.cancel_action = action
-            run.cancel_requested_at = now
-            run.updated_at = now
-            await session.flush()
-            return CancelOutcome.requested
+                return await FleetSchedulerTickets(self.sf, None).cancel_unassigned(session, run_id=run_id, action=action)
+            return await self._request_assigned_cancel(session, run_id=run_id, attempt=attempt, action=action)
+
+    async def _request_assigned_cancel(self, session, *, run_id, attempt, action):
+        """Original assigned checks, also used after locked admission handoff."""
+        from deerflow_ecs_fleet.launch_spec import LaunchSpec
+
+        spec = LaunchSpec.model_validate(attempt.launch_spec["launch_spec"])
+        from deerflow_ecs_fleet.persistence.attempts import AgentAttempts
+
+        task, run, placement, node, reservation, attempt = await AgentAttempts().locked(session, attempt.id, run_locker=lambda session, key: session.get(RunRow, key, with_for_update=True))
+        now = await session.scalar(select(func.clock_timestamp()))
+        if (
+            task is None
+            or run is None
+            or placement is None
+            or node is None
+            or reservation is None
+            or task.current_run_id != run_id
+            or task.generation != placement.generation
+            or task.generation != spec.generation
+            or (task.user_id, task.thread_id) != (run.user_id, run.thread_id)
+            or (placement.user_id, placement.thread_id) != (run.user_id, run.thread_id)
+            or placement.active_attempt_id != attempt.id
+            or placement.node_id != attempt.node_id
+            or run.owner_worker_id != "fleet-agent:" + attempt.id
+            or (run.kwargs_json or {}).get("execution_backend") != "fleet"
+        ):
+            return CancelOutcome.not_cancellable
+        if run.cancel_action is not None:
+            return CancelOutcome.cancelled if attempt.stopped_at is not None else CancelOutcome.requested
+        if action not in {"interrupt", "rollback"}:
+            return CancelOutcome.not_cancellable
+        if run.status not in {"pending", "running"} or attempt.stopped_at is not None or task.state not in {"queued", "running"} or placement.state not in {"claimed", "running"}:
+            return CancelOutcome.not_cancellable
+        run.cancel_action = action
+        run.cancel_requested_at = now
+        run.updated_at = now
+        await session.flush()
+        return CancelOutcome.requested
 
     async def wait_stopped(self, run_id, *, disconnected=None):
         from deerflow_ecs_fleet.persistence.models import AgentTaskRow, AttemptRow, RunPlacementRow
@@ -98,7 +105,19 @@ class FleetAgentRunControl:
             before_clock = time.monotonic()
             original = await _stop_read(
                 self.sf,
-                select(AttemptRow.id, AgentTaskRow.generation, RunRow.cancel_requested_at, AgentTaskRow.deadline, AttemptRow.execution_deadline, func.clock_timestamp(), AttemptRow.stopped_at, RunRow.kwargs_json, RunPlacementRow.run_id)
+                select(
+                    AttemptRow.id,
+                    AgentTaskRow.generation,
+                    RunRow.cancel_requested_at,
+                    AgentTaskRow.deadline,
+                    AttemptRow.execution_deadline,
+                    func.clock_timestamp(),
+                    AttemptRow.stopped_at,
+                    RunRow.kwargs_json,
+                    RunPlacementRow.run_id,
+                    RunRow.status,
+                    RunPlacementRow.state,
+                )
                 .select_from(RunRow)
                 .outerjoin(RunPlacementRow, RunPlacementRow.run_id == RunRow.run_id)
                 .outerjoin(AttemptRow, (AttemptRow.id == RunPlacementRow.active_attempt_id) & (AttemptRow.run_id == RunRow.run_id) & (AttemptRow.kind == "agent"))
@@ -113,6 +132,8 @@ class FleetAgentRunControl:
             # pending; unavailable classification never falls through to END.
             if original[8] is None and (original[7] or {}).get("execution_backend") != "fleet":
                 return None
+            if original[0] is None and original[2] is not None and original[9] == "interrupted" and original[10] == "cancelled":
+                return True
             if original[0] is None or original[2] is None or original[3] is None or original[4] is None:
                 return False
             if original[6] is not None:

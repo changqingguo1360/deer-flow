@@ -32,7 +32,7 @@ async def test_actual_f0008_upgrade_repeat_and_concurrent_startup(fleet_database
     first, second = service_class()(settings(tmp_path)), service_class()(settings(tmp_path))
     await asyncio.gather(first.start(ExtensionRuntimeDeps(session_factory=sf)), second.start(ExtensionRuntimeDeps(session_factory=sf)))
     async with engine.connect() as conn:
-        assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0009_workspace_points"
+        assert (await conn.execute(text("SELECT version_num FROM fleet_alembic_version"))).scalar_one() == "f0010_scheduler_tickets"
         names = await conn.run_sync(lambda c: inspect(c).get_table_names())
         assert {"fleet_workspace_requests", "fleet_workspace_manifests", "fleet_workspace_points"} <= set(names)
     await first.stop()

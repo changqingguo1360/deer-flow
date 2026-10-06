@@ -62,6 +62,7 @@ class ScheduledTaskRunRepository:
         run_repository: RunRepository | None = None,
         mutation_capability=None,
     ) -> None:
+        self.execution_retirement = None
         self._sf = session_factory
         self._mutation_capability = mutation_capability
         self._run_repository = run_repository or RunRepository(session_factory)
@@ -295,6 +296,7 @@ class ScheduledTaskRunRepository:
         now: datetime,
         lease_seconds: int,
         global_max_concurrent_runs: int,
+        execution_admission=None,
     ) -> dict[str, Any] | None:
         """Atomically move one waiting row into the lease-fenced launch phase."""
         reject_remote_operation(self._mutation_capability)
@@ -322,6 +324,21 @@ class ScheduledTaskRunRepository:
                     ),
                 )
             )
+            ticket = None
+            if execution_admission is not None:
+                locator = await session.get(ScheduledTaskRunRow, run_record_id)
+                if locator is None:
+                    await session.rollback()
+                    return None
+                task = await self._lock_task(session, locator.task_id)
+                row = await session.get(ScheduledTaskRunRow, run_record_id, with_for_update=True, populate_existing=True)
+                if row.status != "queued":
+                    await session.rollback()
+                    return None
+                ticket = await execution_admission(session, task=task, occurrence=row, lease_owner=lease_owner, lease_expires_at=now + timedelta(seconds=lease_seconds))
+                if ticket is False:
+                    await session.rollback()
+                    return None
             result = await session.execute(
                 update(ScheduledTaskRunRow)
                 .where(
@@ -341,7 +358,10 @@ class ScheduledTaskRunRepository:
                 return None
             await session.commit()
             row = await session.get(ScheduledTaskRunRow, run_record_id)
-            return self._row_to_dict(row) if row is not None else None
+            result = self._row_to_dict(row) if row is not None else None
+            if result is not None and ticket is not None:
+                result["_execution_ticket"] = ticket
+            return result
 
     async def requeue_claimed_run(
         self,
@@ -413,6 +433,8 @@ class ScheduledTaskRunRepository:
                     await session.rollback()
                     continue
 
+                if self.execution_retirement is not None:
+                    await self.execution_retirement(session, task=task, occurrence=row, error=error, now=now)
                 row.status = "failed"
                 row.error = error
                 row.finished_at = now
@@ -709,6 +731,11 @@ class ScheduledTaskRunRepository:
                 row.lease_owner = None
                 row.lease_expires_at = None
                 candidate = await self._find_underlying_run(session, row, task)
+                if candidate is not None and candidate.status in {"pending", "running"} and (candidate.kwargs_json or {}).get("execution_backend") == "fleet":
+                    self._associate_scheduled_run(row, candidate)
+                    self._associate_task_with_run(task, row, candidate)
+                    row.status = "running"
+                    continue
                 if row.status == "launching" and candidate is None:
                     row.status = "queued"
                 else:
@@ -794,6 +821,10 @@ class ScheduledTaskRunRepository:
                     stale += 1
                     continue
                 if candidate is not None and candidate.status in {"pending", "running"}:
+                    if candidate.kwargs_json.get("execution_backend") == "fleet":
+                        row.status = "running"
+                        row.lease_owner = row.lease_expires_at = None
+                        continue
                     if _lease_is_alive(candidate.lease_expires_at, now=now, grace_seconds=lease_grace_seconds):
                         # A peer can observe the committed durable run before
                         # the launcher writes its scheduled-run bookkeeping.

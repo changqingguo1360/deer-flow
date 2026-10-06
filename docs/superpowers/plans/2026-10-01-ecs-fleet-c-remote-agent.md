@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06 已完成完整持久写隔离、120 秒累计清理期限、双阶段审查与独立验收，提交 `5e936510`；C07 已完成同事务 outbox、终态封口、持久 SSE 回放、双阶段审查及独立本地验收；C08 已完成完整源码审查、历史完整回归与当前受影响路径闭环，最终 SPEC→QUALITY 和 Root 本地验收通过；C09 已完成孤立本地验收；C10–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06 已完成完整持久写隔离、120 秒累计清理期限、双阶段审查与独立验收，提交 `5e936510`；C07 已完成同事务 outbox、终态封口、持久 SSE 回放、双阶段审查及独立本地验收；C08 已完成完整源码审查、历史完整回归与当前受影响路径闭环，最终 SPEC→QUALITY 和 Root 本地验收通过；C09 已完成孤立本地验收；C10 已按[详细主干计划](2026-10-06-ecs-fleet-c10-routing.md)完成本地验收，C11–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -33,7 +33,7 @@
 
 ## Test execution and evidence
 
-**用户执行顺序（2026-10-06，覆盖后续 C10–C12/组合）：** 每个阶段先实现并跑通一条真实端到端主干，再验证该变更直接影响的必要分支。下文矩阵是待覆盖的行为说明，不要求在主干完成前铺开测试，也不要求为每个组合新增独立用例。优先复用现有测试；仅实际失败、源码变化或未决风险才扩大或重跑验证。文档、格式及未参与运行的测试修改不触发主干镜像重建。仓库明确要求的阶段收尾检查仍执行一次，失败后优先复核失败项。
+**用户执行顺序（2026-10-06，覆盖后续 C10–C12/组合）：** 每个阶段先实现并跑通一条真实端到端主干，再验证该变更直接影响的必要分支。下文矩阵是待覆盖的行为说明，不要求在主干完成前铺开测试，也不要求为每个组合新增独立用例。优先复用现有测试；仅实际失败、源码变化或未决风险才扩大或重跑验证。文档、格式及未参与运行的测试修改不触发主干镜像重建。按用户最新范围修正，不再每阶段运行整套后端；收尾采用真实主干、直接受影响的既有用例及格式/静态检查，已暴露失败定向闭环。全量历史或中断结果保留原始状态，不能改称全部通过。
 
 所有命令在目标 worktree 执行；backend 命令在 `backend/` 中：
 
@@ -633,7 +633,7 @@ git commit -m "feat(fleet): c08 实现 C workspace 和 checkpoint 联合恢复�
 
 **OpenSpec:** `remote-agent-admission` / `Authorized routing and queued scheduler budget`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 参数矩阵 local/remote/auto 与权限；两个 scheduler 用真实 PG 争票据；模拟消费票据事务崩溃，验证 run admission key 与 reservation 回收。
+- [x] **Step 1 — 场景搭建与失败测试。** 参数矩阵 local/remote/auto 与权限；两个 scheduler 用真实 PG 争票据；模拟消费票据事务崩溃，验证 run admission key 与 reservation 回收。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -649,7 +649,7 @@ async def test_c10_contract(fleet_probe):
     assert observed['ticket_leaks_after_reconcile'] == 0
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c10_remote_agent_admission.py::test_c10_contract -vv
@@ -657,7 +657,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c10_remote_agent_admission.py::test_
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # ticket acquisition reserves capacity with short expiry; occurrence stays queued until launch.
@@ -667,7 +667,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_c10_remote_agent_admission.py::test_
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_c10_remote_agent_admission.py -vv
@@ -676,13 +676,13 @@ PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
 
 期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): c10 路由 preference 与 Scheduler 票据接入"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `10.1` 至 `10.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `10.1` 至 `10.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task C11: C 任务摘要、部署和本地回归
 

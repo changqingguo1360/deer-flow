@@ -410,6 +410,11 @@ _CONTEXT_INTERNAL_CALLER_KEYS: frozenset[str] = frozenset({"non_interactive"})
 #   ``langgraph_auth_user*``    — populated only by LangGraph Server auth.
 _SERVER_OWNED_AUTHZ_CONTEXT_KEYS: frozenset[str] = frozenset(
     {
+        "execution_backend",
+        "placement",
+        "token",
+        "owner_worker_id",
+        "lease_expires_at",
         "is_internal",
         "authz_attributes",
         "channel_user_id",
@@ -1211,6 +1216,8 @@ async def start_run(
     trusted_schedule_id: str | None = None,
     trusted_schedule_mode: str = "reuse_thread",
     execution_backend=None,
+    execution_ticket=None,
+    execution_lease_owner=None,
 ) -> RunRecord:
     """Create a RunRecord and launch the background agent task.
 
@@ -1368,6 +1375,9 @@ async def start_run(
                     execution_backend = await resolver(parameters)
                 except ConflictError as exc:
                     raise HTTPException(status_code=409, detail=str(exc)) from exc
+        from app.fleet.routing import resolve_execution_backend
+
+        execution_backend = await resolve_execution_backend(request.app, body.execution, parameters, bound=execution_backend, ticket=execution_ticket, lease_owner=execution_lease_owner)
         execution_plan = (execution_backend or LocalExecutionBackend()).plan(parameters)
 
         async def run_after_metadata(record: RunRecord) -> None:
@@ -1522,6 +1532,9 @@ async def launch_scheduled_thread_run(
     app: Any | None = None,
     owner_user_id: str | None = None,
     metadata: dict[str, Any] | None = None,
+    execution=None,
+    execution_ticket=None,
+    execution_lease_owner=None,
 ) -> dict[str, Any]:
     if request is None:
         if app is None:
@@ -1536,6 +1549,7 @@ async def launch_scheduled_thread_run(
             cookies={},
         )
     body = RunCreateRequest(
+        execution=execution or {},
         assistant_id=assistant_id,
         input={"messages": [{"role": "user", "content": prompt}]},
         command=None,
@@ -1570,6 +1584,8 @@ async def launch_scheduled_thread_run(
         thread_id,
         request,
         idempotency_key=idempotency_key,
+        execution_ticket=execution_ticket,
+        execution_lease_owner=execution_lease_owner,
         **({"trusted_schedule_id": metadata["scheduled_task_id"], "trusted_schedule_mode": metadata.get("scheduled_context_mode", "reuse_thread")} if metadata and "scheduled_task_id" in metadata else {}),
     )
     return {"run_id": record.run_id, "thread_id": record.thread_id}
