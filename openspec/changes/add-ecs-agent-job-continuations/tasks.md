@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -48,12 +48,12 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 6. BC06 取消、用户输入和 generation 竞态
 
-按[实际事务接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc06-generation.md)推进：human operation参加原准入UoW，waiting在确切STOP/release后同事务supersede；assigned先原cancel/STOP握手再升generation；explicit resume用新的trusted source receipt。一个实际主干先行，再至多一个集中必要边界。完整19文件补丁已批准应用，Root 指纹核对一致；race 修复后 main-green-05 主干自然退出0，1passed11.96s；boundary-05 唯一集中边界自然退出0，1passed32.10s，七个 owned schema 清理完成。当前419源码指纹已独立核对；SPEC 已 Ready；QUALITY 发现首次非 waiting 运行接管会先取消再拒绝的 P1，原作者已应用两行事务 guard，quality-green-01 同一边界1passed33.00s、八个 owned schema 清理、初始queued/assigned请求409且完整SQL不变；QUALITY 复审、源码提交及本阶段验收待完成，详见[资格报告](../../../docs/ecs-fleet-bc06-acceptance.md)。
+已按[实际事务接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc06-generation.md)完成 BC06 本地验收，源码 `8abe7af9f9b4683f055ba577ee9b0b6cac686a45` 的23个 reviewed Python blobs一致。main-green-05 主干1passed11.96s；quality-green-01 同一集中边界1passed33.00s、八个 owned schema 清理，首次非waiting queued/assigned请求409且完整SQL不变。SPEC Ready；QUALITY P1 经两行原事务guard修复和独立复审后 Ready。原生范围和历史失败详见[验收报告](../../../docs/ecs-fleet-bc06-acceptance.md)；BC07–BC10仍未完成。
 
 - [x] 6.1 写并运行 backend/tests/fleet/test_bc06_fleet_agent_job_dependencies.py，确认 BC06 行为测试 RED。main-red-06 实际 session HTTP409 证明 waiting human admission 缺口；自然退出1/自有schema清理，不代表全部 generation/resume 行为均已执行。
-- [ ] 6.2 完成计划列出的接口、事务和部署接线；满足 `Generation fences continuation and user edits`。
-- [ ] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 6.2 完成计划列出的接口、事务和部署接线；满足 `Generation fences continuation and user edits`。
+- [x] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 7. BC07 跨 run 预算、deadline 与恢复裁决
 

@@ -1,3 +1,7 @@
+## 2026-10-07 — BC06 locally accepted
+
+BC06 source `8abe7af9f9b4683f055ba577ee9b0b6cac686a45` matches23 reviewed Python blobs. Actual native main1passed11.96s and the sole corrected boundary1passed33.00s exited naturally0; eight owned schemas dropped. Independent SPEC and corrected QUALITY Ready. Initial nonwaiting human handoffs reject without mutation; waiting generation, exact STOP, awaited/detached and source receipt contracts are qualified at their recorded native scopes. [Acceptance](../../ecs-fleet-bc06-acceptance.md) preserves historical failures and limitations. BC07–BC10 and final installed combined entrypoint remain required. Older status sections below are historical.
+
 # ECS Fleet implementation evidence
 
 ## 2026-10-07 — BC06 current qualification

@@ -13,7 +13,7 @@
 **前置：** add-ecs-remote-agent 验收通过，B/C 独立执行均可用。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-agent-job-continuations/proposal.md)、[tasks](../../../openspec/changes/add-ecs-agent-job-continuations/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** BC01 原生基础已验收，源码提交 `ce92de4a`、记录 `62784b46`；BC02 已按[当前源码接线计划](2026-10-06-ecs-fleet-bc02-yield.md)验收，源码提交 `c08b8014`；BC03 已完成原生验证与独立复审（源码提交 `87e0d428`）；BC04、BC05 已独立审查及本地验收（源码 `f24a88d7`、`c153ad19`）；BC06 当前主干和修复后的集中边界已通过，SPEC 已 Ready，QUALITY 复审和源码提交待完成，见[实际接线计划](2026-10-07-ecs-fleet-bc06-generation.md)。BC07–BC10 尚未完成。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
+**计划状态：** BC01 原生基础已验收，源码提交 `ce92de4a`、记录 `62784b46`；BC02 已按[当前源码接线计划](2026-10-06-ecs-fleet-bc02-yield.md)验收，源码提交 `c08b8014`；BC03 已完成原生验证与独立复审（源码提交 `87e0d428`）；BC04、BC05 已独立审查及本地验收（源码 `f24a88d7`、`c153ad19`）；BC06 已本地验收（源码 `8abe7af9`），主干11.96s、修复后同一集中边界33.00s及独立 SPEC→QUALITY Ready，见[实际接线计划](2026-10-07-ecs-fleet-bc06-generation.md)。BC07–BC10 尚未完成。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
