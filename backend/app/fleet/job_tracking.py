@@ -58,3 +58,59 @@ def bind_private_fleet_driver(session_factory, drivers, mutation_capability, plu
     jobs = FleetJobService(session_factory, config, tracking_reader=read_tracking, parent_capability=BoundJobParent(mutation_capability))
     drivers.register("fleet", FleetTaskDriver(jobs))
     return config
+
+
+class BoundFleetYield:
+    """Private dependency collector; shares the original publication SQL authority."""
+
+    def __init__(self, session_factory, parent):
+        self.sf, self.parent = session_factory, parent
+
+    def check_context(self):
+        from deerflow.runtime.execution.mutation_context import OwnershipRejected, current_remote_mutation_context
+
+        if current_remote_mutation_context() != self.parent._capability.context:
+            raise OwnershipRejected("Original Fleet yield scope required")
+
+    async def validate_requested(self, job_ids):
+        from deerflow_ecs_fleet.persistence.models import JobLinkRow, JobRow
+
+        from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+        self.check_context()
+        if not isinstance(job_ids, list) or not job_ids or len(job_ids) > 128 or any(not isinstance(value, str) or not value for value in job_ids):
+            raise ValueError("Await requires bounded background task IDs")
+        owner = self.parent.owner
+        async with self.sf.begin() as session:
+            await self.parent.validate(session, user_id=owner.user_id, thread_id=owner.thread_id, source_run_id=owner.parent_run_id)
+            for value in sorted(set(job_ids)):
+                job = await session.scalar(select(JobRow).where(JobRow.tracking_task_id == value, JobRow.user_id == owner.user_id).with_for_update())
+                link = await session.get(JobLinkRow, job.id) if job is not None else None
+                if link is None or link.link_mode != "awaited" or any(getattr(link, name) != getattr(owner, name) for name in ("agent_task_id", "generation", "parent_run_id", "user_id", "thread_id")):
+                    raise OwnershipRejected("Await requires original owned awaited background tasks")
+            await self.parent.validate(session, user_id=owner.user_id, thread_id=owner.thread_id, source_run_id=owner.parent_run_id)
+
+    async def prepare(self):
+        from deerflow_ecs_fleet.persistence.wait_groups import WaitGroups
+
+        self.check_context()
+        return await WaitGroups(self.sf, parent_capability=self.parent).prepare_remaining()
+
+    async def finalize(self, session, group, identity, candidate):
+        from deerflow_ecs_fleet.persistence.models import AgentTaskRow, WaitGroupRow
+
+        from deerflow.runtime.execution.mutation_context import OwnershipRejected
+
+        self.check_context()
+        row = await session.get(WaitGroupRow, group["id"], with_for_update=True)
+        expected = self.parent.owner
+        if row is None or any(getattr(row, name) != getattr(expected, name) for name in ("agent_task_id", "generation", "parent_run_id", "user_id", "thread_id")) or row.job_ids != group["job_ids"]:
+            raise OwnershipRejected("Original prepared dependency group changed")
+        if row.state not in {"preparing", "waiting_jobs"} or (row.checkpoint_id is not None and row.checkpoint_id != identity.checkpoint_id) or (row.workspace_point_id is not None and row.workspace_point_id != identity.request_id):
+            raise OwnershipRejected("Original dependency proof conflicts")
+        task = await session.get(AgentTaskRow, identity.agent_task_id)
+        if task.wait_group_id not in {None, row.id}:
+            raise OwnershipRejected("Original task dependency group conflicts")
+        task.wait_group_id = row.id
+        row.checkpoint_id, row.workspace_point_id, row.state = identity.checkpoint_id, identity.request_id, "waiting_jobs"
+        await session.flush()

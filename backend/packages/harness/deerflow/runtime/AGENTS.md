@@ -370,3 +370,12 @@ client metadata cannot grant routing or branch identity. `store_only` records
 defer to trusted SQL admission, while actual Local executors retain their
 same-worker guard. See [C08 runtime contracts](../../../../../docs/ecs-fleet-c08-runtime.md)
 for accepted-source preparation, immutable file reads and branch recovery.
+
+
+Cooperative yield uses a neutral host-injected RunContext controller. Explicit
+await ends through the first before_model hook after complete ToolNode settlement.
+Natural graph completion also collects unconsumed awaited children before hidden
+goal evaluation. Neither unfinished interrupts nor ordinary failures become
+success. The original terminal participant pairs checkpoint/files and desired
+waiting outcome; physical STOP remains the host's release barrier. Local None
+preserves its lifecycle. See [BC02 boundary](../../../../../docs/ecs-fleet-bc02-runtime.md).

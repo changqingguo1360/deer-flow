@@ -125,6 +125,12 @@ def get_available_tools(
                 }
             )
         )
+    from deerflow.runtime.execution.yield_control import current_yield
+
+    if current_yield() is not None:
+        from deerflow.tools.builtins.fleet_await import await_fleet_jobs
+
+        builtin_tools.append(await_fleet_jobs)
     if include_upload_tool:
         builtin_tools.append(list_uploaded_files)
     skill_evolution_config = getattr(config, "skill_evolution", None)

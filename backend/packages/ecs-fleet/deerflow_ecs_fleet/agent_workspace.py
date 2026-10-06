@@ -94,10 +94,12 @@ class WorkspaceBoundaryIdentity:
             raise ValueError("Partial boundary cannot terminalize")
         if self.kind != "partial" and (
             self.desired_core_status not in {"success", "error", "interrupted", "timeout"}
-            or self.desired_task_status not in {"succeeded", "failed", "cancelled", "timed_out", "paused", "input_required"}
+            or self.desired_task_status not in {"succeeded", "failed", "cancelled", "timed_out", "paused", "input_required", "waiting_jobs"}
             or self.desired_placement_status not in {"succeeded", "failed", "cancelled", "timed_out"}
         ):
             raise ValueError("Final desired outcomes required")
+        if self.desired_task_status == "waiting_jobs" and (self.kind != "final" or self.desired_core_status != "success" or self.desired_placement_status != "succeeded" or self.error is not None):
+            raise ValueError("Waiting jobs requires successful final pair")
 
     def private_bytes(self):
         return canonical(asdict(self))

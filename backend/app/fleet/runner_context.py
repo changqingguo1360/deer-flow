@@ -609,6 +609,12 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         private_submitter = McpTaskService(
             repository=mcp_repository, drivers=drivers, poll_interval_seconds=private.mcp_tasks.poll_interval_seconds, lease_seconds=private.mcp_tasks.lease_seconds, max_concurrent_polls=private.mcp_tasks.max_concurrent_polls
         )
+        cooperative_yield = None
+        if private_fleet_config is not None and private_fleet_config.continuations_enabled:
+            from app.fleet.job_tracking import BoundFleetYield
+            from deerflow.runtime.execution.yield_control import CooperativeYield
+
+            cooperative_yield = CooperativeYield(BoundFleetYield(sf, drivers.get("fleet").jobs.parent_capability))
         private_tools = None
         private_memory = None
         from deerflow.persistence.agent_definition_context import agent_definition_store_scope
@@ -629,6 +635,10 @@ async def build_agent_environment(*, bootstrap, spec, grant):
 
                     names = tuple(sorted(name for name, profile in private_fleet_config.profiles.items() if profile.kind == "job"))
                     scoped.enter_context(fleet_job_submitter_scope(private_submitter, profile_names=names, scheduled_job_slots=private_fleet_config.scheduled_job_slots))
+                if cooperative_yield is not None:
+                    from deerflow.runtime.execution.yield_control import yield_scope
+
+                    scoped.enter_context(yield_scope(cooperative_yield))
                 scoped.enter_context(agent_definition_store_scope(*definitions))
                 if private_memory is not None:
                     scoped.enter_context(memory_manager_scope(private_memory))
@@ -782,6 +792,8 @@ async def build_agent_environment(*, bootstrap, spec, grant):
 
         workspace_publications = FleetWorkspacePublisher(sf, mutation_capability, controller=workspace_writers, teardown=teardown, session_pool=get_session_pool())
         repository._terminal_participant = workspace_publications.terminal
+        workspace_publications.cooperative_yield = cooperative_yield
+        workspace_publications.terminal.cooperative_yield = cooperative_yield
         checkpointer.after_root_commit = workspace_publications.on_root_commit
 
         context = RunContext(
@@ -801,6 +813,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             checkpoint_durability="sync",
             bind_checkpoint_accessor=workspace_publications.bind_accessor,
             prepare_terminal=workspace_publications.prepare_terminal,
+            cooperative_yield=cooperative_yield,
         )
 
         from .agent_control import OriginalAgentCancellation

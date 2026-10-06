@@ -457,6 +457,7 @@ class RunContext:
     checkpoint_durability: str | None = field(default=None)
     bind_checkpoint_accessor: Any | None = field(default=None)
     prepare_terminal: Any | None = field(default=None)
+    cooperative_yield: Any | None = field(default=None)
     prepare_cancellation: Any | None = field(default=None)
     cancellation_checkpoint_scope: Any | None = field(default=None)
     cancellation_rollback_scope: Any | None = field(default=None)
@@ -1148,7 +1149,11 @@ async def run_agent(
 
         await _stream_once(graph_input, initial_runnable_config)
         graph_paused = await _remote_graph_paused()
-        while not graph_paused and not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
+        yielding = False
+        if ctx.cooperative_yield is not None and not graph_paused and not record.abort_event.is_set():
+            snapshot = await accessor.aget({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
+            yielding = await ctx.cooperative_yield.prepare(snapshot.values.get("messages", []))
+        while not yielding and not graph_paused and not record.abort_event.is_set() and not llm_error_fallback_message and (journal is None or not journal.had_llm_error_fallback):
             continuation_input = await _prepare_goal_continuation_input(
                 bridge=bridge,
                 accessor=accessor,
@@ -1168,6 +1173,9 @@ async def run_agent(
                 break
             await _stream_once(continuation_input, _continuation_runnable_config())
             graph_paused = await _remote_graph_paused()
+            if ctx.cooperative_yield is not None and not graph_paused and not record.abort_event.is_set():
+                snapshot = await accessor.aget({"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}})
+                yielding = await ctx.cooperative_yield.prepare(snapshot.values.get("messages", []))
 
         # 8. Final status
         if record.abort_event.is_set():

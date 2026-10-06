@@ -64,3 +64,10 @@ turn presenting the same path is a new version. Runtime user/thread/run must
 match the original private execution context. Root versus subgraph is determined
 from the graph task namespace structure, independently of the saver namespace.
 Local presentation keeps its original message shape.
+
+
+Bound cooperative yield exposes `await_fleet_jobs` only through the private host
+controller. Validate optional requested job IDs against original awaited ownership;
+include all remaining awaited children. A request does not stop parallel ToolNode
+siblings: the first before_model hook ends the graph after every ToolMessage is
+saved, before another model call. See [BC02 boundary](../../../../../docs/ecs-fleet-bc02-runtime.md).

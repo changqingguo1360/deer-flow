@@ -329,7 +329,8 @@ await 工具，运行时为这些依赖建立等待组并执行相同的安全�
 ### 9.2 让出与继续的时序
 
 1. C 提交一个或多个 awaited jobs；这些 job 可先完成，结果始终持久保存。
-2. C 调用 `await_fleet_jobs(job_ids)`；工具校验所有 job 属于当前 task/generation，
+2. C 调用 `await_fleet_jobs(job_ids)`；可选 IDs 使用提交工具返回的公开 `task_id`，
+   服务端解析到原 job 并校验当前 task/generation 的 awaited 归属；不传则收集所有剩余依赖。
    写入 preparing wait group，并请求运行时在工具消息已保存的安全边界结束本次 run。
 3. 运行时停止后续 graph 步骤、完成 checkpoint、停止本地工具并封存 workspace。
    在原终结事务中提交 run.success、精确 checkpoint/workspace 配对及 waiting_jobs 的

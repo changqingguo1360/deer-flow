@@ -152,7 +152,7 @@ async def test_bc01_contract(checkpoint_owner):
         links = (await connection.execute(text("SELECT agent_task_id,generation,parent_run_id,job_id,link_mode FROM fleet_job_links ORDER BY job_id"))).mappings().all()
         assert {row["job_id"] for row in links} == {first.remote_task_id, second.remote_task_id}
         assert all((row["agent_task_id"], row["generation"], row["parent_run_id"]) == (item.spec.agent_task_id, item.spec.generation, item.spec.run_id) for row in links)
-        assert await connection.scalar(text("SELECT version_num FROM fleet_alembic_version")) == "f0011_continuations"
+        assert await connection.scalar(text("SELECT version_num FROM fleet_alembic_version")) == "f0012_yield"
         stored = (await connection.execute(text("SELECT job_ids FROM fleet_wait_groups WHERE continuation_key='continuation-one'"))).scalar_one()
         assert stored == [first.remote_task_id]
         assert await connection.scalar(text("SELECT count(*) FROM fleet_wait_groups WHERE continuation_key='continuation-one'")) == 1

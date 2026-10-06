@@ -690,6 +690,10 @@ def build_middlewares(
         middlewares.append(SafetyFinishReasonMiddleware.from_config(safety_config))
 
     # ClarificationMiddleware should always be last
+    from deerflow.runtime.execution.yield_control import YieldMiddleware, current_yield
+
+    if current_yield() is not None:
+        middlewares.insert(0, YieldMiddleware())
     middlewares.append(ClarificationMiddleware())
 
     # Extension contributions are merged only here, once the full stack exists.

@@ -419,8 +419,8 @@ class WorkspaceRequestRow(FleetBase):
             """
 (kind='partial' AND desired_core_status IS NULL AND desired_task_status IS NULL AND desired_placement_status IS NULL AND error IS NULL AND stop_reason IS NULL) OR (kind IN
 ('final','paused') AND desired_core_status IS NOT NULL AND desired_task_status IS NOT NULL AND desired_placement_status IS NOT NULL AND desired_core_status IN
-('success','error','interrupted','timeout') AND desired_task_status IN ('succeeded','failed','cancelled','timed_out','paused','input_required') AND desired_placement_status IN
-('succeeded','failed','cancelled','timed_out'))
+('success','error','interrupted','timeout') AND desired_task_status IN ('succeeded','failed','cancelled','timed_out','paused','input_required','waiting_jobs') AND desired_placement_status IN
+('succeeded','failed','cancelled','timed_out') AND (desired_task_status!='waiting_jobs' OR (kind='final' AND desired_core_status='success' AND desired_placement_status='succeeded' AND error IS NULL)))
 """,
             name="ck_fleet_workspace_request_outcome",
         ),
@@ -487,8 +487,8 @@ class WorkspacePointRow(FleetBase):
             """
 (kind='partial' AND desired_core_status IS NULL AND desired_task_status IS NULL AND desired_placement_status IS NULL AND error IS NULL AND stop_reason IS NULL) OR (kind IN
 ('final','paused') AND desired_core_status IS NOT NULL AND desired_task_status IS NOT NULL AND desired_placement_status IS NOT NULL AND desired_core_status IN
-('success','error','interrupted','timeout') AND desired_task_status IN ('succeeded','failed','cancelled','timed_out','paused','input_required') AND desired_placement_status IN
-('succeeded','failed','cancelled','timed_out'))
+('success','error','interrupted','timeout') AND desired_task_status IN ('succeeded','failed','cancelled','timed_out','paused','input_required','waiting_jobs') AND desired_placement_status IN
+('succeeded','failed','cancelled','timed_out') AND (desired_task_status!='waiting_jobs' OR (kind='final' AND desired_core_status='success' AND desired_placement_status='succeeded' AND error IS NULL)))
 """,
             name="ck_fleet_workspace_point_outcome",
         ),

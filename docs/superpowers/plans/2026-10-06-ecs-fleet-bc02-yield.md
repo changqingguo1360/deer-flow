@@ -25,11 +25,15 @@ Source/design reconciliation: accepted C workspace terminal transactions deliber
 
 ## Main-first execution
 
-- [ ] Audit actual graph ToolNode termination, stock worker completion, host publication, physical STOP and group schemas; resolve integration choices from current source.
-- [ ] Write one actual PG main in `test_bc02_fleet_agent_job_dependencies.py`, run meaningful missing-behavior RED, then implement the actual original path to GREEN.
-- [ ] Observe paired tool calls, old run success, aggregate waiting_jobs and no readiness before actual STOP/release. Include normal-end autoawait in the main scenario if it exercises the same production path; do not create a speculative matrix.
-- [ ] After main passes, at most one concentrated boundary for a concrete uncovered rejection or regression. No full backend/Fleet suite or formatting-only runtime rerun/build.
-- [ ] Preserve literal argv/cwd/natural exit, source maps, actual SQL/checkpoint/process observations and owned UUID-schema cleanup. Reuse the private existing test PG carrier through environment only.
+- [x] Audit actual graph ToolNode termination, stock worker completion, host publication, physical STOP and group schemas; resolve integration choices from current source.
+- [x] Write one actual PG main in `test_bc02_fleet_agent_job_dependencies.py`, run meaningful missing-behavior RED, then implement the actual original path to GREEN.
+- [x] Observe paired tool calls, old run success, aggregate waiting_jobs and no readiness before actual STOP/release. Include normal-end autoawait in the main scenario if it exercises the same production path; do not create a speculative matrix.
+- [x] After main passes, at most one concentrated boundary for a concrete uncovered rejection or regression. No full backend/Fleet suite or formatting-only runtime rerun/build.
+- [x] Preserve literal argv/cwd/natural exit, source maps, actual SQL/checkpoint/process observations and owned UUID-schema cleanup. Reuse the private existing test PG carrier through environment only.
 - [ ] Changed-file Ruff/diff, fresh whole-slice SPEC then QUALITY, requirement/evidence inspection, actual capability docs, explicit source commit and postcommit OpenSpec2.1–2.4 receipt.
 
 This plan is not execution evidence. Full installed C→B→C belongs to the later combination gate; any narrower native proof is labeled at its actual scope. Failed attempts remain unchanged.
+
+Root inspected meaningful main RED red4.log: original owning AgentRunner process exit0, paired submit/await/sibling tool calls, core run success, actual task succeeded instead of waiting_jobs and one extra model invocation after await. Earlier3 attempts are fixture failures, not missing-behavior RED. Production implementation now proceeds; BC02 is not accepted or checked in OpenSpec.
+
+Final native main1passed6.59s and concentrated normal-end boundary1passed9.18s, both natural pytest0/original AgentRunner child0/owned-schema drop. Two awaited jobs, complete tool pairs, no extra explicit-await model call, exact sealed output bytes and group/checkpoint/point IDs observed. Before STOP core success/task+placement finishing/reservation reserved/readinessfalse; after authenticated matching-process STOP waiting_jobs/released/readinesstrue. Boundary collects two terminal unconsumed awaited results and excludes one detached child; requested public tracking IDs are validated. Root matched23 frozen hashes and qualified the sole post-run two-line docstring clarification by tested-byte SHA and unchanged executable AST. Fresh SPEC and QUALITY are Ready; no further runtime batch or image build.

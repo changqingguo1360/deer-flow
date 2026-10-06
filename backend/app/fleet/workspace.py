@@ -237,6 +237,10 @@ class FleetWorkspacePublisher:
         # mutations, materialized with the original full/delta compiled graph.
         snapshot = await self.accessor.aget({"configurable": {"thread_id": self.capability.context.thread_id, "checkpoint_ns": ""}})
         status = record.status.value
+        yielding = getattr(self, "cooperative_yield", None)
+        waiting = status == "success" and yielding is not None and yielding.group is not None
+        if waiting and (snapshot.next or any(task.interrupts for task in snapshot.tasks)):
+            raise OwnershipRejected("Unfinished graph cannot yield as success")
         key = hashlib.sha256(canonical([snapshot.config["configurable"]["checkpoint_id"], status, record.error, record.stop_reason])).hexdigest()
         controlled = record.abort_event.is_set() and record.abort_action in {"interrupt", "rollback"}
         human_input = self.controller.awaiting_human_input(snapshot) if not controlled else False
@@ -250,7 +254,7 @@ class FleetWorkspacePublisher:
             status=status,
             error=record.error,
             stop_reason=record.stop_reason,
-            task_status="input_required" if requires_input else "paused" if paused else None,
+            task_status="waiting_jobs" if waiting else "input_required" if requires_input else "paused" if paused else None,
         )
         epoch = await self.publish(identity)
         candidate = FleetWorkspaceNodeService._manifest(await self.wait_prepared(identity, barrier_epoch=epoch, deadline=self.teardown.budget.deadline))
@@ -725,6 +729,7 @@ class FleetWorkspaceTerminalParticipant:
         self.capability = capability
         self.controller = controller
         self.prepared = None
+        self.cooperative_yield = None
         from deerflow_ecs_fleet.persistence.workspace_points import WorkspaceRequests
 
         self.requests = WorkspaceRequests()
@@ -914,6 +919,11 @@ class FleetWorkspaceTerminalParticipant:
         task.accepted_workspace_point_id = placement.final_workspace_point_id = identity.request_id
         task.state = placement.state = "finishing"
         request.state = "accepted"
+        if identity.desired_task_status == "waiting_jobs":
+            yielding = self.cooperative_yield
+            if yielding is None or yielding.group is None:
+                raise OwnershipRejected("Original dependency group required")
+            await yielding.host.finalize(session, yielding.group, identity, candidate)
         await session.flush()
         # Flush/unique/FK waits precede the original fresh wallclock fence.
         await self.capability._guard.validate(_SessionCursor(session), thread_id=identity.thread_id, operation="workspace.accept", allow_terminal=True)

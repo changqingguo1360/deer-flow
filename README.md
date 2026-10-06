@@ -1647,6 +1647,7 @@ C12 is locally accepted: normal startup, the production-image main and one conce
 fault case passed, with independent reviews and a verified source commit. See [C12 runtime boundaries](docs/ecs-fleet-c12-runtime.md).
 All Fleet flags default to disabled; no real operator configuration was activated.
 C→B→C is in progress: BC01 native child ownership and sealed-group foundation is
-accepted after independent SPEC and QUALITY reviews. Yield and continuation delivery remain outstanding. See the
+accepted after independent SPEC and QUALITY reviews. BC02 native yield and automatic-wait
+checks and independent reviews passed; BC02 is locally accepted. Continuation delivery remains outstanding. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).
