@@ -23,6 +23,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { FleetTaskSummary } from "@/components/workspace/fleet-task-summary";
 import {
   backgroundTaskPresentation,
   isActiveBackgroundTask,
@@ -34,6 +35,8 @@ import {
   useCancelBackgroundTask,
 } from "@/core/background-tasks";
 import { useMcpTasksEnabled } from "@/core/features";
+import { useFleetTasks, useCancelFleetRun } from "@/core/fleet/hooks";
+import { isUnsettledFleetTask } from "@/core/fleet/presentation";
 import { useI18n } from "@/core/i18n/hooks";
 import { formatTimeAgo } from "@/core/utils/datetime";
 import { cn } from "@/lib/utils";
@@ -45,11 +48,15 @@ export function ThreadBackgroundTasks({ threadId }: { threadId: string }) {
     enabled: mcpTasksEnabled,
   });
   const cancelTask = useCancelBackgroundTask(threadId);
-  const tasks = tasksQuery.data ?? [];
+  const fleetQuery = useFleetTasks(threadId);
+  const cancelFleet = useCancelFleetRun(threadId);
+  const fleetTasks = fleetQuery.data ?? [];
+  const fleetActive = fleetTasks.filter(isUnsettledFleetTask).length;
+  const tasks = mcpTasksEnabled ? (tasksQuery.data ?? []) : [];
   const activeTasks = tasks.filter(isActiveBackgroundTask);
   const recentTasks = tasks.filter((task) => !isActiveBackgroundTask(task));
 
-  if (!mcpTasksEnabled) {
+  if (!mcpTasksEnabled && fleetTasks.length === 0 && !fleetQuery.isError) {
     return null;
   }
 
@@ -66,9 +73,11 @@ export function ThreadBackgroundTasks({ threadId }: { threadId: string }) {
         >
           <ListChecksIcon />
           <span className="hidden lg:inline">{t.backgroundTasks.label}</span>
-          {activeTasks.length > 0 && (
+          {activeTasks.length + fleetActive > 0 && (
             <span className="bg-primary text-primary-foreground grid size-4 place-items-center rounded-full text-[10px] font-semibold">
-              {activeTasks.length > 9 ? "9+" : activeTasks.length}
+              {activeTasks.length + fleetActive > 9
+                ? "9+"
+                : activeTasks.length + fleetActive}
             </span>
           )}
         </Button>
@@ -83,62 +92,96 @@ export function ThreadBackgroundTasks({ threadId }: { threadId: string }) {
         </SheetHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {tasksQuery.isLoading ? (
+          {fleetQuery.isError && (
             <div
-              role="status"
-              className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
+              role="alert"
+              className="border-destructive/30 mb-4 rounded-xl border p-4 text-sm"
             >
-              <LoaderCircleIcon className="size-4 animate-spin" />
-              {t.common.loading}
-            </div>
-          ) : tasksQuery.isError ? (
-            <div className="border-destructive/30 bg-destructive/5 rounded-xl border p-4 text-sm">
-              <p className="text-destructive font-medium">
-                {t.backgroundTasks.loadFailed}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {tasksQuery.error.message}
-              </p>
+              <p>{t.fleetTasks.loadFailed}</p>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="mt-3"
-                onClick={() => void tasksQuery.refetch()}
+                onClick={() => void fleetQuery.refetch()}
               >
                 {t.backgroundTasks.retry}
               </Button>
             </div>
-          ) : tasks.length === 0 ? (
-            <div className="text-muted-foreground flex flex-col items-center px-6 py-14 text-center">
-              <ListChecksIcon className="mb-3 size-8 opacity-40" />
-              <p className="text-foreground text-sm font-medium">
-                {t.backgroundTasks.empty}
-              </p>
-              <p className="mt-1 text-xs">{t.backgroundTasks.emptyHint}</p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {activeTasks.length > 0 && (
-                <TaskSection
-                  threadId={threadId}
-                  title={t.backgroundTasks.active}
-                  tasks={activeTasks}
-                  cancellingTaskId={
-                    cancelTask.isPending ? cancelTask.variables : undefined
-                  }
-                  onCancel={(taskId) => cancelTask.mutate(taskId)}
-                />
-              )}
-              {recentTasks.length > 0 && (
-                <TaskSection
-                  threadId={threadId}
-                  title={t.backgroundTasks.recent}
-                  tasks={recentTasks}
-                />
-              )}
-            </div>
           )}
+          {fleetTasks.length > 0 && (
+            <section className="mb-5 space-y-2" aria-label={t.fleetTasks.title}>
+              {fleetTasks.map((task) => (
+                <FleetTaskSummary
+                  key={task.task_id}
+                  task={task}
+                  threadId={threadId}
+                  onCancel={(runId) => cancelFleet.mutate(runId)}
+                  isCancelling={
+                    cancelFleet.isPending &&
+                    cancelFleet.variables === task.current_run_id
+                  }
+                />
+              ))}
+            </section>
+          )}
+          {mcpTasksEnabled &&
+            (tasksQuery.isLoading ? (
+              <div
+                role="status"
+                className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
+              >
+                <LoaderCircleIcon className="size-4 animate-spin" />
+                {t.common.loading}
+              </div>
+            ) : tasksQuery.isError ? (
+              <div className="border-destructive/30 bg-destructive/5 rounded-xl border p-4 text-sm">
+                <p className="text-destructive font-medium">
+                  {t.backgroundTasks.loadFailed}
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {tasksQuery.error.message}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-3"
+                  onClick={() => void tasksQuery.refetch()}
+                >
+                  {t.backgroundTasks.retry}
+                </Button>
+              </div>
+            ) : tasks.length === 0 &&
+              fleetTasks.length > 0 ? null : tasks.length === 0 ? (
+              <div className="text-muted-foreground flex flex-col items-center px-6 py-14 text-center">
+                <ListChecksIcon className="mb-3 size-8 opacity-40" />
+                <p className="text-foreground text-sm font-medium">
+                  {t.backgroundTasks.empty}
+                </p>
+                <p className="mt-1 text-xs">{t.backgroundTasks.emptyHint}</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {activeTasks.length > 0 && (
+                  <TaskSection
+                    threadId={threadId}
+                    title={t.backgroundTasks.active}
+                    tasks={activeTasks}
+                    cancellingTaskId={
+                      cancelTask.isPending ? cancelTask.variables : undefined
+                    }
+                    onCancel={(taskId) => cancelTask.mutate(taskId)}
+                  />
+                )}
+                {recentTasks.length > 0 && (
+                  <TaskSection
+                    threadId={threadId}
+                    title={t.backgroundTasks.recent}
+                    tasks={recentTasks}
+                  />
+                )}
+              </div>
+            ))}
         </div>
       </SheetContent>
     </Sheet>

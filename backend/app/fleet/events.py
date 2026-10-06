@@ -376,6 +376,52 @@ class FleetStreamReader:
             return None
         return RemoteStreamIdentity(**{name: row[name] for name in RemoteStreamIdentity.__dataclass_fields__})
 
+    async def unassigned_stream_state(self, run_id, prepared):
+        """Prove an empty committed original stream without fabricating Attempt."""
+        from deerflow_ecs_fleet.persistence.models import AttemptRow, EventOutboxRow, LaunchSpecRow, RunPlacementRow
+        from sqlalchemy import exists
+
+        from deerflow.persistence.models.run_event import RunEventRow
+        from deerflow.persistence.run.model import RunRow
+
+        if prepared.expected_user_id is None or prepared.expected_thread_id is None:
+            return None  # Only a prepared owned subscription has empty-stream authority.
+        placement, run, spec = RunPlacementRow, RunRow, LaunchSpecRow
+        query = (
+            select(placement.state, run.status)
+            .join(run, and_(run.run_id == placement.run_id, run.user_id == placement.user_id, run.thread_id == placement.thread_id))
+            .join(
+                spec,
+                and_(
+                    spec.id == placement.launch_spec_ref,
+                    spec.run_id == placement.run_id,
+                    spec.agent_task_id == placement.agent_task_id,
+                    spec.generation == placement.generation,
+                    spec.user_id == placement.user_id,
+                    spec.thread_id == placement.thread_id,
+                ),
+            )
+            .where(
+                placement.run_id == run_id,
+                placement.user_id == prepared.expected_user_id,
+                placement.thread_id == prepared.expected_thread_id,
+                placement.active_attempt_id.is_(None),
+                run.kwargs_json["execution_backend"].as_string() == "fleet",
+                ~exists(select(AttemptRow.id).where(AttemptRow.kind == "agent", AttemptRow.run_id == run_id)),
+                ~exists(select(EventOutboxRow.seq).where(EventOutboxRow.run_id == run_id)),
+                ~exists(select(RunEventRow.id).where(RunEventRow.run_id == run_id, RunEventRow.event_type == STREAM_FRAME_EVENT.event_type, RunEventRow.category == STREAM_FRAME_EVENT.category)),
+            )
+        )
+        async with self.sf() as session:
+            row = (await session.execute(query)).first()
+        if row is None:
+            return None
+        if row == ("queued", "pending"):
+            return "queued"
+        if TERMINAL_RESULTS.get(row.status) == row.state:
+            return "terminal"
+        return None
+
     async def prepare(self, record, cursor):
         from deerflow_ecs_fleet.persistence.models import RunPlacementRow
 
@@ -739,12 +785,12 @@ class FleetGatewayBridge(StreamBridge):
             if current.identity is None:
                 identity = await self.reader.identity(run_id)
                 if identity is None:
-                    from deerflow_ecs_fleet.persistence.models import RunPlacementRow
-
-                    async with self.reader.sf() as session:
-                        placement = await session.get(RunPlacementRow, run_id)
-                        if placement is None or placement.state != "queued":
-                            return  # Mapping was abandoned; client must reconnect, never infer END.
+                    state = await self.reader.unassigned_stream_state(run_id, current)
+                    if state == "terminal":
+                        yield END_SENTINEL
+                        return
+                    if state != "queued":
+                        return  # Missing/inconsistent/history mappings never prove END.
                 else:
                     if (current.expected_user_id is not None and identity.user_id != current.expected_user_id) or (current.expected_thread_id is not None and identity.thread_id != current.expected_thread_id):
                         return

@@ -11,6 +11,11 @@ const state = rs.hoisted(() => ({
   cancel: rs.fn(),
 }));
 
+rs.mock("@/core/fleet/hooks", () => ({
+  useFleetTasks: () => ({ data: [], isError: false }),
+  useCancelFleetRun: () => ({ mutate: rs.fn(), isPending: false }),
+}));
+
 rs.mock("@/core/features", () => ({
   useMcpTasksEnabled: () => ({ enabled: true }),
 }));

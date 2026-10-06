@@ -331,6 +331,30 @@ export const zhCN: Translations = {
     },
   },
 
+  fleetTasks: {
+    title: "远程 Agent",
+    run: "运行",
+    loadFailed: "远程 Agent 状态暂不可用",
+    location: { queued: "等待远程容量", remote: "远程执行" },
+    status: {
+      queued: "排队中",
+      running: "远程执行中",
+      waiting_jobs: "等待任务结果",
+      paused: "已暂停",
+      input_required: "需要输入",
+      unknown: "需要确认",
+      finishing: "正在完成",
+      recovery_required: "需要确认",
+      succeeded: "已完成",
+      failed: "失败",
+      cancelled: "已取消",
+      timed_out: "超时",
+      needsConfirmation: "需要确认",
+      stopping: "正在停止",
+      stopUnconfirmed: "尚未确认停止",
+    },
+  },
+
   subagentBatches: {
     label: "批处理",
     title: "子智能体批处理",

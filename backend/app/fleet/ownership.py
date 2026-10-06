@@ -51,7 +51,8 @@ class FleetRunOwnership:
                 raise ValueError("Stale node session")
             node.agent_compatibility = worker.model_dump(mode="json")
             node.runtime_digest = worker.runtime_digest
-        if not self.config.enabled or not self.config.agents_enabled or not self.config.jobs_enabled:
+        # New-admission switches do not revoke accepted queued placements.
+        if not self.config.enabled:
             return None
         async with self.sf() as session:
             candidates = (

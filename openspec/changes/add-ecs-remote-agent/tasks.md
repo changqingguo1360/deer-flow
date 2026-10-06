@@ -84,6 +84,8 @@ C10 本地验收（2026-10-06）：[验收报告](../../../docs/ecs-fleet-c10-ac
 
 ## 11. C11 C 任务摘要、部署和本地回归
 
+当前源码审计完成，按[主干优先 C11 计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-c11-operations.md)推进。任务摘要采用独立 C 类型接入现有面板；关闭只拒绝新准入，保留已接受排队任务领取和运行对账；补齐从未分配 Attempt 的权威终态流关闭。真实 HTTP/PG 主干、从未分配流 END 和关闭 C 后的原始 Local 执行已取得有限 GREEN；最终源码冻结、双阶段审查和实际验收仍在进行，11.1–11.4 不勾选。按用户收敛要求保持3个后端及2个前端新增用例，仅复核源码变更直接影响的行为；有效历史 B 证据保留原范围。
+
 - [ ] 11.1 写并运行 backend/tests/fleet/test_c11_remote_agent_operations.py，确认 C11 行为测试 RED。
 - [ ] 11.2 完成计划列出的接口、事务和部署接线；满足 `Remote task visibility and reversible enablement`。
 - [ ] 11.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。

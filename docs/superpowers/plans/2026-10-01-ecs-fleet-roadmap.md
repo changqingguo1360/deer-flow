@@ -1,6 +1,6 @@
 # ECS Fleet B → C → B/C 实施总览
 
-2026-10-03: B has passed isolated local acceptance; C01-C07 have local slice acceptance; C08-C12 and BC remain pending. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and implementation progress. Earlier planning notes are historical.
+2026-10-06: B and C01–C10 have isolated local acceptance. C11 is in implementation; C12 and C→B→C remain pending. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md), [C10 acceptance](../../../docs/ecs-fleet-c10-acceptance.md) and [C11 plan](2026-10-06-ecs-fleet-c11-operations.md). Earlier planning and broad-test notes are historical; current verification follows the user’s main-first, directly affected scope.
 
 | 顺序 | OpenSpec change | Superpowers 计划 | 完成门槛 |
 |---|---|---|---|

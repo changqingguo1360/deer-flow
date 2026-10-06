@@ -13,7 +13,7 @@
 **前置：** add-ecs-fleet-jobs 验收通过，表与协议已迁移。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-remote-agent/proposal.md)、[tasks](../../../openspec/changes/add-ecs-remote-agent/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06 已完成完整持久写隔离、120 秒累计清理期限、双阶段审查与独立验收，提交 `5e936510`；C07 已完成同事务 outbox、终态封口、持久 SSE 回放、双阶段审查及独立本地验收；C08 已完成完整源码审查、历史完整回归与当前受影响路径闭环，最终 SPEC→QUALITY 和 Root 本地验收通过；C09 已完成孤立本地验收；C10 已按[详细主干计划](2026-10-06-ecs-fleet-c10-routing.md)完成本地验收，C11–C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
+**计划状态：** C01 已完成基础实现、审查与本地验证；C02 已完成可信内部原子准入；C03 已完成所有权与本地恢复隔离；C04 已完成真实 runner 的实施、双阶段审查与独立本地验收；C05 已完成 checkpoint 同事务隔离的实施、双阶段审查与独立本地验收；C06 已完成完整持久写隔离、120 秒累计清理期限、双阶段审查与独立验收，提交 `5e936510`；C07 已完成同事务 outbox、终态封口、持久 SSE 回放、双阶段审查及独立本地验收；C08 已完成完整源码审查、历史完整回归与当前受影响路径闭环，最终 SPEC→QUALITY 和 Root 本地验收通过；C09 已完成孤立本地验收；C10 已按[详细主干计划](2026-10-06-ecs-fleet-c10-routing.md)完成本地验收，C11 正按[实际接线计划](2026-10-06-ecs-fleet-c11-operations.md)推进，C12 待执行。完成项以 OpenSpec tasks 和 implementation-progress 中的实际证据为准。下面示例中的判据与命令仍是计划，不代表已经通过。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 

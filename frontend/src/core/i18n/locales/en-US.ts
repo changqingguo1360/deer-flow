@@ -350,6 +350,33 @@ export const enUS: Translations = {
     },
   },
 
+  fleetTasks: {
+    title: "Remote Agent",
+    run: "Run",
+    loadFailed: "Remote Agent tracking unavailable",
+    location: {
+      queued: "Waiting for remote capacity",
+      remote: "Remote execution",
+    },
+    status: {
+      queued: "Queued",
+      running: "Running remotely",
+      waiting_jobs: "Waiting for results",
+      paused: "Paused",
+      input_required: "Input required",
+      unknown: "Needs confirmation",
+      finishing: "Finishing",
+      recovery_required: "Needs confirmation",
+      succeeded: "Completed",
+      failed: "Failed",
+      cancelled: "Cancelled",
+      timed_out: "Timed out",
+      needsConfirmation: "Needs confirmation",
+      stopping: "Stopping",
+      stopUnconfirmed: "Stop unconfirmed",
+    },
+  },
+
   subagentBatches: {
     label: "Batches",
     title: "Subagent batches",

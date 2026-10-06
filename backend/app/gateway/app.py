@@ -24,6 +24,7 @@ from app.gateway.routers import (
     console,
     features,
     feedback,
+    fleet_agent_tasks,
     fleet_artifacts,
     fleet_inputs,
     fleet_management,
@@ -828,6 +829,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Durable MCP tasks are scoped to their owning thread.
     app.include_router(mcp_tasks.router)
+    app.include_router(fleet_agent_tasks.router)
     app.include_router(subagent_batches.router)
 
     # Memory API is mounted at /api/memory

@@ -1,7 +1,8 @@
-# ECS Fleet durable-job deployment
+# ECS Fleet deployment
 
 B durable jobs share the Fleet control plane with the later C remote Agent runner.
-C and continuations are not available yet. All feature flags default to false. The local B runtime, worker/Compose matrix and full regression are accepted; see
+C01–C11 are locally accepted, including task visibility and admission drain. Public C activation
+remains closed until C12; C→B→C continuations remain pending. All feature flags default to false. The local B runtime, worker/Compose matrix and full regression are accepted; see
 [B acceptance](../ecs-fleet-b-acceptance.md) for counts and scope.
 
 ## Components and identities
@@ -234,3 +235,61 @@ Save issued credentials immediately in private worker files; later status respon
 never return tokens or token hashes. Draining stops new claims and retains current
 work; disabling with charged capacity is refused. Nodes with execution history remain
 durable records, even after stopping and disabling.
+
+
+## Remote Agent visibility and admission drain (C11)
+
+Owned Agent goals are read through `GET /api/threads/{thread_id}/agent-tasks` and
+its `/{task_id}` detail route. Normal run-read permission and thread ownership apply;
+node credentials do not grant these user permissions. The existing thread task panel
+shows C summaries independently of the MCP/B task switch. Summaries contain only
+allowlisted task/run state, profile/location category, cancellation intent, recovery,
+stop confirmation and held-resource state. They never contain launch payloads,
+credentials, private node/process references or arbitrary outcomes.
+
+Close new C admission with `agents_enabled: false` while retaining the ready Fleet
+service. Previously accepted queued C placements can still claim, and original
+queries, cancellation, renewal, STOP and reconciliation remain available. Closing
+`jobs_enabled` separately does not prevent accepted C from claiming. Drain a node
+before taking it away; a terminal run or accepted cancellation does not prove its
+container stopped or its reservations were released. Globally unload Fleet only
+after accepted B and C work is accounted for. The Gateway startup activation guard
+still rejects enabling C until the C12 release gate is accepted.
+
+## Offline production Agent image recipe
+
+[`docker/fleet/agent.Dockerfile`](../../docker/fleet/agent.Dockerfile) is the C11
+production recipe, distinct from the B worker daemon image. Prepare a trusted named
+BuildKit context containing `SHA256SUMS`, `requirements.lock`, `wheelhouse/`,
+`model-bindings.json`, `runtime-bundle.json`, `workspace-contracts.json` and `skills/`.
+Hash every supplied immutable artifact and pin every Python requirement with hashes.
+The offline wheelhouse must include `deer-flow`, `deerflow-harness`,
+`deerflow-extension-api`, `deerflow-ecs-fleet` and the approved model provider's full
+closure. Supply exactly one installed `deerflow.fleet.agent_environment` entry point
+named `gateway`. These are operator-approved nonsecret assets; credentials and real
+private runtime configuration do not belong in the context or image layers.
+
+From the repository root, with an already available digest-pinned Linux Python >=3.12
+base and prepared local artifacts:
+
+```bash
+docker buildx build --load --network=none \
+  --build-arg AGENT_BASE=python@sha256:<approved-base-digest> \
+  --build-context agent_artifacts=/absolute/frozen-agent-artifacts \
+  --file docker/fleet/agent.Dockerfile \
+  --tag deerflow-agent:approved .
+```
+
+The recipe verifies artifacts, installs without indexes, checks the installed dependency
+closure, copies the actual installed isolated bootstrap and workspace collector into
+`/opt/deerflow`, and makes approved JSON/skills immutable. It runs as UID/GID65534 in
+`/workspace` with `python -I -S /opt/deerflow/libexec_bootstrap.py --provider gateway`.
+Fleet supplies each attempt's original frozen launch contract and private credential
+through its existing execution protocol; do not run this image with daemon credentials
+or the Docker socket mounted inside it.
+
+This recipe has not yet passed a production-image build/runtime gate. Native C11
+HTTP/PostgreSQL checks prove host protocol and visibility only. C12 must build these
+actual artifacts, verify installed compatibility and launch/stop the real Runner
+before opening public C activation. Prior C09 container evidence retains its original
+image and scope; it is not evidence that this new recipe was executed.

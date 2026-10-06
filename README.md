@@ -1639,6 +1639,10 @@ C10 routing and Scheduler ticket admission have passed the native HTTP/PG main;
 Whole SPEC and QUALITY reviews are Ready; exposed regressions have targeted passing
 rechecks after the full-backend run was interrupted. C10 is locally accepted. See the
 [C10 contracts and verification boundaries](docs/ecs-fleet-c10-runtime.md).
+C11 owned task summaries, admission draining, never-assigned stream closure,
+Local execution and focused UI checks have passed; whole SPEC/QUALITY and local acceptance
+are complete. See
+[C11 current contracts](docs/ecs-fleet-c11-runtime.md).
 Gateway still rejects agents_enabled until C11-C12 recovery,
 cancellation and routing slices pass. Remote Agent runs are not available
 yet. All Fleet flags default to disabled. See the

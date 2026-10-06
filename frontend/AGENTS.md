@@ -79,6 +79,15 @@ administrative machine actions remain outside the thread task UI. A task card la
 or cancellation request cannot prove physical stop. Pure mapping tests live in the node project; actual card/details/cancel interactions live
 in `thread-background-tasks.dom.test.tsx` with happy-dom.
 
+Remote Agent goals use the separate `core/fleet/` summary contract and
+`FleetTaskSummary` in the existing `ThreadBackgroundTasks` panel. Owner/thread-scoped
+queries remain enabled independently of the MCP/B switch. Cancellation uses the
+original owned run endpoint. Keep recovery, cancellation intent, durable STOP and
+held resources distinct; terminal run status cannot prove task completion or release.
+The public read and admission-drain boundary is documented in
+[the C11 runtime guide](../docs/ecs-fleet-c11-runtime.md). Preserve existing B cards
+and use compact mapping/DOM tests for affected presentation behavior.
+
 ## Code Style
 
 - **Imports**: Enforced ordering (builtin → external → internal → parent → sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.

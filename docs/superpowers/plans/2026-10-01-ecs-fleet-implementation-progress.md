@@ -6395,3 +6395,12 @@ warnings at unchanged budgets, diff0 and49collection-only0. All handles ended.
 Full fresh SOURCEv4 freeze and independent SPEC then QUALITY remain required;
 no fresh images, installed runtime, whole C08 acceptance, OpenSpec checkboxes,
 C08 commit, activation, C09–C12 or BC advance follows from native results.
+
+
+### Current delivery checkpoint — 2026-10-06
+
+Authoritative commits now include C08 `80cedfdd`, C09 `34da88d0` and C10 `74003058`. Their local acceptance scopes are recorded in [C08](../../ecs-fleet-c08-acceptance.md), [C09](../../ecs-fleet-c09-acceptance.md) and [C10](../../ecs-fleet-c10-acceptance.md). The preceding entries are retained historical intermediate work, not the latest phase status.
+
+C10 is locally accepted: native routing/Scheduler main, four C10 cases, whole and narrow SPEC→QUALITY Ready, Root37-file source audit, strict OpenSpec/static checks. User stopped excessive whole-backend testing; its partial2756 passes/6 failures remain INTERRUPTED. Six failures closed by exact rechecks5/41.45s plus1/2.78s; blocking-I/O75 passed. No full-suite PASS or remote activation is claimed.
+
+C11 follows [the current source-based plan](2026-10-06-ecs-fleet-c11-operations.md). Genuine session-auth HTTP/PG summary-route RED404 then first main GREEN1/2.41s; actual owned task/cancel/resource observations preserved. Queued accepted work remains claimable with new admission closed, while new C receives503. Native acknowledgements prove host control behavior, not actual container execution. Never-assigned END produced a focused RED1/2.38s. UI, Local/B checks, deployment recipe and final reviews remain pending; OpenSpec11.1–11.4 are unchecked. C12 and all BC slices remain incomplete; public startup activation is still closed.

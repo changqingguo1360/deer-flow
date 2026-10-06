@@ -271,6 +271,30 @@ export interface Translations {
     };
   };
 
+  fleetTasks: {
+    title: string;
+    run: string;
+    loadFailed: string;
+    location: { queued: string; remote: string };
+    status: {
+      queued: string;
+      running: string;
+      waiting_jobs: string;
+      paused: string;
+      input_required: string;
+      unknown: string;
+      finishing: string;
+      recovery_required: string;
+      succeeded: string;
+      failed: string;
+      cancelled: string;
+      timed_out: string;
+      needsConfirmation: string;
+      stopping: string;
+      stopUnconfirmed: string;
+    };
+  };
+
   subagentBatches: {
     label: string;
     title: string;
