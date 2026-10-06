@@ -280,7 +280,7 @@ git commit -m "feat(fleet): bc03 实现 exactly-one continuation 准入"
 
 ### Task BC04: 统一结果 delivery owner 与通知互斥
 
-当前执行以[实际源码接线计划](2026-10-06-ecs-fleet-bc04-delivery.md)为准：使用原 immutable link_mode、LIMIT 前 SQL 过滤以及原服务/内部 launcher 复核；实际测试选择器为 `test_bc04_exclusive_result_delivery`。下方 `fleet_probe` 为历史示意，不是可运行 fixture，也不是执行证据。用户要求一个主干先行、至多一个集中必要边界，替代原逐边界重启矩阵。BC04最终主干12.52s/边界8.44s原生通过，独立SPEC→QUALITY Ready；源码提交后记录receipt。
+当前执行以[实际源码接线计划](2026-10-06-ecs-fleet-bc04-delivery.md)为准：使用原 immutable link_mode、LIMIT 前 SQL 过滤以及原服务/内部 launcher 复核；实际测试选择器为 `test_bc04_exclusive_result_delivery`。下方 `fleet_probe` 为历史示意，不是可运行 fixture，也不是执行证据。用户要求一个主干先行、至多一个集中必要边界，替代原逐边界重启矩阵。BC04最终主干12.52s/边界8.44s原生通过，独立SPEC→QUALITY Ready；源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42` 已核对全部7个reviewed blobs；早期RED资格限制保留，不声称原NULL断言已充分证明产品RED。
 
 **Files:**
 - Create: `backend/app/fleet/delivery.py`
@@ -292,7 +292,7 @@ git commit -m "feat(fleet): bc03 实现 exactly-one continuation 准入"
 
 **OpenSpec:** `fleet-agent-job-continuations` / `Exclusive result delivery path`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 两个真实轮询服务竞争同一结果，记录 launched run；在 delivery receipt 提交各边界重启；忙线程暂缓后收敛。
+- [x] **Step 1 — 场景搭建与失败测试。** 两个真实轮询服务竞争同一结果，记录 launched run；在 delivery receipt 提交各边界重启；忙线程暂缓后收敛。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -308,7 +308,7 @@ async def test_bc04_contract(fleet_probe):
     assert observed['detached_delivered'] == True
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_bc04_fleet_agent_job_continuations.py::test_bc04_contract -vv
@@ -316,7 +316,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc04_fleet_agent_job_continuations.p
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # Persist delivery owner before task becomes claimable: generic_notification or wait_group.
@@ -326,7 +326,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc04_fleet_agent_job_continuations.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
 .venv/bin/python -m pytest tests/fleet/test_bc04_fleet_agent_job_continuations.py::test_bc04_contract -q -o addopts= --tb=short
@@ -334,13 +334,13 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc04_fleet_agent_job_continuations.p
 
 期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc04 统一结果 delivery owner 与通知互斥"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `4.1` 至 `4.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `4.1` 至 `4.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task BC05: 共用公平调度与最小池无死锁
 

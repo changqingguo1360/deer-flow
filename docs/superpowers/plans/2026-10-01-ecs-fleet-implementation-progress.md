@@ -2,7 +2,7 @@
 
 ## 2026-10-06 — Current B/C/BC delivery state
 
-B and C01–C12 are locally accepted. BC01–BC03 are locally accepted; BC03 source `87e0d42876db67c01afc58c37a359afc28a22175` passed one native main8.30s and one concentrated boundary11.09s after the result-bounds repair, with fresh independent SPEC→QUALITY. Exact tested/current source and the sole cached-import formatting delta are documented in [BC03 acceptance](../../ecs-fleet-bc03-acceptance.md). BC04–BC10 remain required; installed C→B→C and operator activation are not claimed. The older dated sections below are historical evidence, not current completion status.
+B and C01–C12 are locally accepted. BC01–BC04 are locally accepted; BC03 source `87e0d42876db67c01afc58c37a359afc28a22175` passed one native main8.30s and one concentrated boundary11.09s after the result-bounds repair, with fresh independent SPEC→QUALITY. Exact tested/current source and the sole cached-import formatting delta are documented in [BC03 acceptance](../../ecs-fleet-bc03-acceptance.md). BC04 source `f24a88d7142e83a4a57077a1cafaa4411c067d42` passed native main12.52s/boundary8.44s with both independent reviews and matching7blobs. [BC04 acceptance](../../ecs-fleet-bc04-acceptance.md) retains exact scope and historical limits. BC05–BC10 remain required; installed C→B→C and operator activation are not claimed. The older dated sections below are historical evidence, not current completion status.
 
 ## 2026-10-06 — C09 isolated local acceptance completed
 
@@ -6423,3 +6423,6 @@ BC01 accepted: `ce92de4ab1f47eeac25e03544019bb7d619b23dd`. Main-final-01 1passed
 BC02 accepted at `c08b8014801c762c3d2a9157e90ca1462a6a35f3`: one explicit-await native main1passed6.59s, one concentrated normal-end boundary1passed9.18s, natural0/matching actual owned process/STOP/cleanup/source qualification. Fresh SPEC then QUALITY Ready; no broad suite or Dockerbuild. BC03–BC10 and installed C→B→C remain required.
 
 BC03 accepted source `87e0d42876db67c01afc58c37a359afc28a22175`: V2 native main1passed8.30s/boundary1passed11.09s, separateownedschemasdropped, globalUTF8summarybudget and original128awaitedadmissioncap qualified. Fresh SPECv2/QUALITYv2 Ready; Root17technicalcommitblobsmatched. Exactimport-onlypostqualificationdelta+3unexecutedheadexpectationedits are scoped honestly. BC04–BC10 remainrequired, no productionactivation orpush.
+
+
+BC04 accepted source `f24a88d7142e83a4a57077a1cafaa4411c067d42`: one native main1passed12.52s and one concentrated boundary1passed8.44s, natural0/owned-schemasdropped. Immutablelink delivery policy guards SQL claim, historicalclaim and internalstartup; actualsame-threadbusy/lostreply/reconstructedparticipantsreuse qualified. FreshSPEC→QUALITY Ready, all7reviewedPythonblobs matchcommit. EarlyREDNULLassertion/omittedhistoricalrowreceipt and green4SIGINT are preserved honestly; nofullproductionstartup/processcrash claim. BC05–BC10 stillrequired, nopush/activation.

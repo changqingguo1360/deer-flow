@@ -1,6 +1,6 @@
 # BC04：结果交付归属与通知互斥
 
-当前状态：最终主干 main-final-2（1 passed12.52s）与集中边界 boundary-3（1 passed8.44s）已通过，自然0、自有schema清理；7个修改Python文件与两次预执行源码map一致。独立 SPEC→QUALITY 已 Ready，BC04 本地原生验收完成；源码提交记录随后补充。BC05–BC10 仍未完成。本页描述当前接线，不代表完整生产镜像、正常 Gateway startup 或 C→B→C 发布验收已通过。
+当前状态：最终主干 main-final-2（1 passed12.52s）与集中边界 boundary-3（1 passed8.44s）已通过，自然0、自有schema清理；7个修改Python文件与两次预执行源码map一致。独立 SPEC→QUALITY 已 Ready，BC04 本地原生验收完成；源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42`。BC05–BC10 仍未完成。本页描述当前接线，不代表完整生产镜像、正常 Gateway startup 或 C→B→C 发布验收已通过。
 
 原 Fleet child 提交事务在 tracking task 可认领前写入不可变 JobLinkRow.link_mode。awaited 对应 wait_group，结果只能由原等待组 continuation 协调器交付；detached 与无 Fleet link 的普通 MCP task 使用 generic_notification。客户端 driver_data、模型参数和热切换配置不能改写交付归属。
 
@@ -12,4 +12,4 @@ ready Fleet runtime 的 register_fleet_driver 向原 McpTaskRepository 绑定宿
 
 当前主干使用原 PostgreSQL/RunManager、两个真实 McpTaskService、原 continuation coordinator、真实子 shell 执行及 accepted manifests，detached 通知调用原 Gateway launcher/start_run/run_agent。通知图是确定性 LangGraph 夹具，不能据此宣称完整 Agent 推理或生产安装链已验收。
 
-执行按[当前 Superpowers 计划](superpowers/plans/2026-10-06-ecs-fleet-bc04-delivery.md)：一个主干先通过，然后至多一个集中必要边界。历史失败及 source-map 保存于 .local/fleet-evidence/bc04；最终主干/边界和独立 SPEC→QUALITY 已通过；OpenSpec 4.1–4.4 在源码提交核对后勾选。BC10 负责最终正常部署入口和组合链路验收。
+执行按[当前 Superpowers 计划](superpowers/plans/2026-10-06-ecs-fleet-bc04-delivery.md)：一个主干先通过，然后至多一个集中必要边界。历史失败及 source-map 保存于 .local/fleet-evidence/bc04；最终主干/边界和独立 SPEC→QUALITY 已通过；OpenSpec 4.1–4.4 已在源码提交核对后据实际证据勾选，并保留历史RED限制。BC10 负责最终正常部署入口和组合链路验收。

@@ -1,8 +1,8 @@
 # BC04 本地原生验收记录
 
-BC04 已完成本地原生验收。最终主干 main-final-2 和集中边界 boundary-3 已通过；Root 已核对7个修改Python文件与两次执行前source-map一致。独立 SPEC→QUALITY 均 Ready；源码提交后核对 blobs 并更新 OpenSpec 4.1–4.4。BC05–BC10 和完整安装入口 C→B→C 尚未交付。
+BC04 已完成本地原生验收。最终主干 main-final-2 和集中边界 boundary-3 已通过；Root 已核对7个修改Python文件与两次执行前source-map一致。独立 SPEC→QUALITY 均 Ready；源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42` 的全部7个 reviewed Python blobs 已核对；OpenSpec 4.1–4.4 据实际资格和历史限制更新。BC05–BC10 和完整安装入口 C→B→C 尚未交付。
 
-范围：结果交付归属由原 immutable link_mode 决定；awaited 只交原 coordinator，detached 仍由原普通通知服务交付。原实际接线见[运行说明](ecs-fleet-bc04-runtime.md)，实施步骤见[当前计划](superpowers/plans/2026-10-06-ecs-fleet-bc04-delivery.md)。源码/文档基线分别为 87e0d428/1879a791，BC04 当前尚未提交。
+范围：结果交付归属由原 immutable link_mode 决定；awaited 只交原 coordinator，detached 仍由原普通通知服务交付。原实际接线见[运行说明](ecs-fleet-bc04-runtime.md)，实施步骤见[当前计划](superpowers/plans/2026-10-06-ecs-fleet-bc04-delivery.md)。源码/文档基线分别为 87e0d428/1879a791，BC04 源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42`。
 
 | 要求 | 当前证据 | 状态 |
 | --- | --- | --- |
@@ -30,6 +30,6 @@ BC04 已完成本地原生验收。最终主干 main-final-2 和集中边界 bou
 
 主干使用原 SQL RunManager/RunRepository、SQL thread store、普通通知租约/receipt 和真实子执行。通知图是确定性 LangGraph 夹具，checkpointer/store/event bridge 采用现有原生夹具组件。它不证明 installed production Agent 镜像、完整普通 Gateway 启动、外部模型推理或最终组合发布入口；这些仍由 BC10 实际验收。不执行全量旧测试矩阵、不因文档或格式改动重建镜像。
 
-最终资格：main-final-2 为1 passed12.52s，boundary-3 为1 passed8.44s；两者自然0、自有schema已清理。Root核对最终7个修改Python SHA与两次预执行map一致。boundary-3中的awaited历史认领为实际SQL legacy-bc04 leases，复核阻止通知启动；同线程实际阻塞run释放后恢复，丢失回复后的实际通知run ID在新repository/manager中复用，最终delivered。_agent_e2e_helpers在该boundary历史map中缺失，须以未修改基线复用单独记账，不能补称历史预执行已覆盖。独立审查已 Ready；提交 receipt 随后补充。
+最终资格：main-final-2 为1 passed12.52s，boundary-3 为1 passed8.44s；两者自然0、自有schema已清理。Root核对最终7个修改Python SHA与两次预执行map一致。boundary-3中的awaited历史认领为实际SQL legacy-bc04 leases，复核阻止通知启动；同线程实际阻塞run释放后恢复，丢失回复后的实际通知run ID在新repository/manager中复用，最终delivered。_agent_e2e_helpers在该boundary历史map中缺失，须以未修改基线复用单独记账，不能补称历史预执行已覆盖。独立审查已 Ready；源码提交 receipt：`f24a88d7142e83a4a57077a1cafaa4411c067d42`，全部7个 reviewed blobs匹配，无postqualification Python变化。
 
 冻结目录为 .local/fleet-evidence/bc04/freeze：changed-source.json记录7个修改Python SHA/Git blob与两次预执行map匹配；unchanged-helper-provenance.json记录159个原tracked helper与HEAD字节一致（不是159个新增/重跑案例）。其中 _agent_e2e_helpers 的boundary历史map缺失明确为false，main为true。static.json记录7个修改文件的Ruff check、format --check和git diff --check退出0。Root独立核对位于root-final-source-audit.json。green4 interruption.json标明自有PID SIGINT/exit2，保留原exit记录。

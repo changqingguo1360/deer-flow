@@ -10,7 +10,7 @@
 
 ---
 
-用户已授权顺序实施与现有子代理工作流；当前计划落实原 BC04，不重新询问执行方式。BC03 源码基线为 87e0d428、文档基线为 1879a791。BC04 本地原生验收与独立 SPEC→QUALITY 已完成；源码提交 receipt 随后核对，BC05–BC10 仍必需。
+用户已授权顺序实施与现有子代理工作流；当前计划落实原 BC04，不重新询问执行方式。BC03 源码基线为 87e0d428、文档基线为 1879a791。BC04 本地原生验收与独立 SPEC→QUALITY 已完成；源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42` 的7个reviewed blobs已核对，BC05–BC10 仍必需。
 
 ## 实际接线与文件责任
 
@@ -94,13 +94,13 @@ BC04_ATTEMPT=main-green-5 /Users/wenbinwang/.codex/worktrees/deerflow2/personal-
 - [x] 只对实际变更 Python 运行 Ruff check / format --check，运行 git diff --check、严格 OpenSpec validate 与 guidance 校验。无运行时变化的格式/文档不触发旧案例重跑。
 - [x] 新鲜 SPEC 审查先核对 Exclusive result delivery path 全部要求，之后新鲜 QUALITY 审查；有真实问题修复与必要重验，未解决不交给下一阶段。
 - [x] 记录本地原生范围和未覆盖的 installed production/Gateway 全启动范围；后者仍由 BC10 实际证明，不能用 fixture 证明替代。
-- [ ] 源码提交后核对 blobs，再勾选 OpenSpec 4.1–4.4、写文档 receipt；不 push、不部署、不打开 operator flags。继续 BC05。
+- [x] 源码提交后核对 blobs，再勾选 OpenSpec 4.1–4.4、写文档 receipt；不 push、不部署、不打开 operator flags。继续 BC05。
 
 ## 计划自审
 
 规格覆盖：认领前持久唯一归属→Task2；awaited 协调与 detached 通知→Task2 主干；重复/重启/忙线程收敛→Task3；实际数据库/run 证据→Task1–4；兼容普通 MCP/Local→未注入默认逻辑和最终源码复审。仅两个案例，不执行原稿的逐边界矩阵。类型关联使用真实 JobRow.tracking_task_id、JobLinkRow.job_id/link_mode 与 McpTaskRow.id，沿用原 run/notification receipt，没有新的 owner 列或迁移。
 
-最终源码资格：主干main-final-2 1passed12.52s，集中边界boundary-3 1passed8.44s，均自然0/自有schema清理。最终7个修改Python SHA/Git blobs与两次预执行map匹配，无postqualification源码改动。159个原tracked helper保留HEAD未修改继承资格（不是运行159个测试）。_agent_e2e_helpers boundary历史map缺失单独记录，不补造历史预执行证明。独立SPEC→QUALITY均Ready；源码提交随后核对。
+最终源码资格：主干main-final-2 1passed12.52s，集中边界boundary-3 1passed8.44s，均自然0/自有schema清理。最终7个修改Python SHA/Git blobs与两次预执行map匹配，无postqualification源码改动。159个原tracked helper保留HEAD未修改继承资格（不是运行159个测试）。_agent_e2e_helpers boundary历史map缺失单独记录，不补造历史预执行证明。独立SPEC→QUALITY均Ready；源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42` 已核对全部7个reviewed blobs。
 
 实际两个选择器命令（backend cwd，runner读私有carrier环境，不打印URI）：
 

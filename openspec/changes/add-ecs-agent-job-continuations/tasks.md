@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -30,12 +30,12 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 4. BC04 统一结果 delivery owner 与通知互斥
 
-当前接线按[BC04 最小执行计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc04-delivery.md)：唯一持久 link_mode 归属、认领 LIMIT 前过滤、原服务/内部 launcher 复核；一个实际主干先行，之后至多一个集中必要边界。尚未验收。
+当前接线按[BC04 最小执行计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc04-delivery.md)：唯一持久 link_mode 归属、认领 LIMIT 前过滤、原服务/内部 launcher 复核；一个实际主干先行，之后一个集中必要边界。最终main12.52s/boundary8.44s自然0/自有schema清理，7个reviewed blobs与源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42` 匹配，独立SPEC→QUALITY Ready。历史RED的NULL判据与缺SQL限制如实保留；boundary实际legacy claims提供原无策略claimquery的SQL事实。完整安装入口仍待BC10。
 
-- [ ] 4.1 写并运行 backend/tests/fleet/test_bc04_fleet_agent_job_continuations.py，确认 BC04 行为测试 RED。
-- [ ] 4.2 完成计划列出的接口、事务和部署接线；满足 `Exclusive result delivery path`。
-- [ ] 4.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 4.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 4.1 写并运行 backend/tests/fleet/test_bc04_fleet_agent_job_continuations.py，保存 BC04 失败记录及历史RED资格限制；最终集中边界实际原claim查询/legacy leases另有SQL事实，不将初始NULL断言错误说成充分产品RED。
+- [x] 4.2 完成计划列出的接口、事务和部署接线；满足 `Exclusive result delivery path`。
+- [x] 4.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 4.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 5. BC05 共用公平调度与最小池无死锁
 
