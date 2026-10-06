@@ -11,3 +11,5 @@ The original workspace publisher seals the final root/checkpoint and files after
 Wait-group readiness reads actual accepted point/request, current parent/generation, stopped attempt, released reservation and all settled child states. It is a prerequisite observation, not continuation admission authorization. BC03 still must implement exactly-one admission with original thread/budget/deadline authority; BC06–BC09 add remaining aggregate product semantics.
 
 The native main runs the real AgentRunner/run_agent/ToolNode/fenced saver in the matching owned subprocess, with real PostgreSQL, authenticated loopback publication and the original NodeDaemon inspect→STOP protocol. Host fixture model and native carrier are explicit; this is not the installed production image/bootstrap or full C→B→C. Child settlement through the original staged cancellation path proves this barrier, not actual B worker computation. The installed combination main remains BC10.
+
+Accepted source commit `c08b8014`; postcommit OpenSpec/evidence receipt `05189df0`.

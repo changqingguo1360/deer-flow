@@ -21,6 +21,8 @@ BC01 已完成本地源码/原生验收，提交 `ce92de4ab1f47eeac25e03544019bb
 
 ## 3. BC03 实现 exactly-one continuation 准入
 
+已开始[当前源码接线计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc03-continuations.md)，按用户要求先一个主干，再一个必要集中边界，不运行原矩阵。
+
 - [ ] 3.1 写并运行 backend/tests/fleet/test_bc03_fleet_agent_job_continuations.py，确认 BC03 行为测试 RED。
 - [ ] 3.2 完成计划列出的接口、事务和部署接线；满足 `Idempotent continuation after all results settle`。
 - [ ] 3.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。

@@ -19,6 +19,6 @@ The actual graph and its original resource teardown run in the matching native A
 
 Final original PIDs33635/33730 naturally exited0; main6.59s/boundary9.18s, each1passed/naturalpytest0, owned schemas dropped. Only postruntime change is two tool docstring lines explaining the public task_id domain, independently reconstructed against tested SHA and executable AST. Static source check/format/diff passed; no format-only runtime rerun.
 
-Root final static: changed16 Python Ruff check/format0; strict OpenSpec0; guidance24/0errors/6 existing soft warnings; diff0. Explicit source commit and receipt follow. Acceptance does not complete BC03–BC10 or installed combination proof.
+Root final static: changed16 Python Ruff check/format0; strict OpenSpec0; guidance24/0errors/6 existing soft warnings; diff0. Explicit source commit is `c08b8014`, receipt `05189df0`. Acceptance does not complete BC03–BC10 or installed combination proof.
 
 Accepted source commit: `c08b8014801c762c3d2a9157e90ca1462a6a35f3`. OpenSpec2.1–2.4 recorded after commit.

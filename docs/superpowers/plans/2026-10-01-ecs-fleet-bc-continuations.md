@@ -224,7 +224,7 @@ git commit -m "feat(fleet): bc02 实现 await 工具与安全让出屏障"
 
 **OpenSpec:** `fleet-agent-job-continuations` / `Idempotent continuation after all results settle`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 对 result-before-seal、seal-before-result、restart-after-admission 运行矩阵；两个 coordinator 同时争组；统计新 run/placement 和 B starts。
+- [ ] **Step 1 — 场景搭建与失败测试。** 先一个 result-before-seal 主干，含两个 coordinator 同时争组及重复请求；主干通过后用一个必要集中边界覆盖 seal-before-result/restart-after-admission。统计真实新 run/placement 和 B starts，不扩展矩阵。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 

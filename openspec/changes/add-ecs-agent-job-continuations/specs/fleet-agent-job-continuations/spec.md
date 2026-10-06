@@ -10,7 +10,7 @@ The system SHALL satisfy BC03: 只创建一个新 run；同目标新 run 可换�
 - **THEN** 只创建一个新 run；同目标新 run 可换节点，旧 run 保持终态，不重复提交子 job
 
 #### Scenario: BC03 regression evidence
-- **WHEN** 对 result-before-seal、seal-before-result、restart-after-admission 运行矩阵；两个 coordinator 同时争组；统计新 run/placement 和 B starts。
+- **WHEN** 先一个真实 result-before-seal 主干包含两个 coordinator 争组和重复请求；主干通过后一个必要集中边界覆盖 seal-before-result/restart-after-admission；统计新 run/placement 和 B starts，不扩展测试矩阵。
 - **THEN** 实际观测满足：continuation_runs_per_group = 1；old_run_reactivated = false；child_resubmissions = 0；不得用硬编码期望值代替真实状态或进程证据
 
 ### Requirement: Exclusive result delivery path
