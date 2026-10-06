@@ -57,6 +57,8 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 7. BC07 跨 run 预算、deadline 与恢复裁决
 
+当前按[实际预算与恢复计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc07-budgets-recovery.md)开始执行。持久task预算在原run/job事务准入前扣记；私有中立模型capability在真实序列化provider请求发送前预留，已花费/未知用量不回滚；原STOP与一致checkpoint/workspace仍决定恢复权限。先一个实际C→B→C主干，之后至多一个集中必要边界。当前仅完成实际接线调查与计划，新作者正在搭建主干；未执行/通过或验收BC07，7.1–7.4保持未勾选。
+
 - [ ] 7.1 写并运行 backend/tests/fleet/test_bc07_fleet_agent_job_dependencies.py，确认 BC07 行为测试 RED。
 - [ ] 7.2 完成计划列出的接口、事务和部署接线；满足 `Aggregate budgets and nonautomatic crash recovery`。
 - [ ] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
