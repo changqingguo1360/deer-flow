@@ -75,6 +75,8 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 9. BC09 交付统一任务摘要与操作入口
 
+按[当前实际接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc09-unified-summary.md)推进：原 owned task projection 增加 bounded jobs/runs/accepted refs；现有前端任务卡提供 generation/idempotency 目标取消/继续和409刷新；既有 IM final/status 使用同一安全摘要，保留 Local/B/GitHub原策略。先实际 API+DOM 主干，再唯一必要集中边界；BC10完整安装组合仍必需。
+
 - [ ] 9.1 写并运行 backend/tests/fleet/test_bc09_fleet_unified_task_experience.py，确认 BC09 行为测试 RED。
 - [ ] 9.2 完成计划列出的接口、事务和部署接线；满足 `Distinguish run completion from goal completion`。
 - [ ] 9.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
