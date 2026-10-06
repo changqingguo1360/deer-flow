@@ -86,7 +86,7 @@ Required integration cases execute with no skip. C12 evidence must name actual p
 
 - [x] Root audits every C12 release requirement against actual source/installed image/process/PG/Redis/HTTP evidence and preserved C06–C11 scopes. Missing evidence means pending work, not release approval. Actual Local/B parity and unsafe profile rejection remain requirements; do not silently shrink C to stateless-only execution.
 - [x] Changed backend Ruff check/format, diffcheck, guidance and strict OpenSpec. No frontend change is planned; do not repeat unrelated UI tests. Source change triggers only its affected proof; docs/format alone never trigger image rebuild.
-- [ ] Whole fresh SPEC→QUALITY, fixes for actual findings only, final source/evidence audit and explicit C12 slice commit. Then mark OpenSpec12.1–12.4 and document C completion. No real config activation/push/merge implied. C→B→C remains active required work; start its main only after full C release acceptance.
+- [x] Whole fresh SPEC→QUALITY, fixes for actual findings only, final source/evidence audit and explicit C12 slice commit. Then mark OpenSpec12.1–12.4 and document C completion. No real config activation/push/merge implied. C→B→C remains active required work; start its main only after full C release acceptance.
 
 ## Evidence ownership
 
@@ -164,3 +164,5 @@ pending. No broad suite or additional case was run.
 Root release evidence audit (2026-10-06): current732 packaged source members match frozen wheels;27 native participating sources match their qualified memory/Store/Redis and C11 cancellation proofs. Observed37/39/8 native PASSED lines remain native scopes within the original INTERRUPTED aggregate. Both owned C12 cases naturally passed without skips and schemas were dropped. Whole SPEC Ready and QUALITY Ready; the latter found one main log-failure cleanup issue, now source-reviewed and fixed. Original test bytes remain retained; new gate qualification permits only that main finally AST delta and rejects all other changes. Root post-review receipt verifier naturally exited0, fresh_execution=false. A final provenance SPEC supplement, static checks and the C12 slice commit remain pending. No runtime/build rerun was introduced.
 
 Final provenance SPEC supplement is Ready; Root receipt-only verifier exit0 confirms the unique qualified main cleanup delta and retained original execution hashes. Changed-six Ruff check/format, strict remote/BC OpenSpec, guidance24/0errors/6soft warnings and diffcheck pass. Final sequential QUALITY receipt and explicit source slice commit follow; C→B→C remains required.
+
+C12 accepted source slice: `8ac8c00a47864b03e84ca90c25a5921df412d3ac`. Final sequential QUALITY Ready; current reviewed7 technical blobs match commit. OpenSpec12.1–12.4 checked after commit. C delivery is locally complete, C→B→C starts next; real activation/push/merge not performed. Historical progress entries above retain their original pending/failure state at each attempt.

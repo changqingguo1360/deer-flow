@@ -1,6 +1,6 @@
 # C12 production Agent runtime
 
-C12 is in progress. The isolated production-image main and concentrated fault case passed; prior-receipt gate verification passed; reviews and acceptance commit remain pending. C→B→C has not started. No real operator configuration was enabled and no production ECS deployment is claimed.
+C12 is locally accepted at `8ac8c00a47864b03e84ca90c25a5921df412d3ac`. The isolated production-image main and concentrated fault case passed; prior-receipt gate verification, independent reviews and source acceptance are complete. C→B→C has not started. No real operator configuration was enabled and no production ECS deployment is claimed.
 
 ## Normal startup
 

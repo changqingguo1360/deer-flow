@@ -864,3 +864,5 @@ and original B261 executed v8 retain their original scope; image-dependent15
 and current-source managerinstall1 reran on v9. Exact identities and original
 failed intermediate reports are in implementation progress. C08-C12/BC and
 remote activation remain pending. Slice commit ID is recorded after committing.
+
+C12 locally accepted at `8ac8c00a47864b03e84ca90c25a5921df412d3ac`; normal production main and concentrated fault passed, independent reviews/audits complete. Full C01–C12 implementation is complete locally. See [C12 acceptance](../../ecs-fleet-c12-acceptance.md). C→B→C remains required and unimplemented; real operator configuration stays unchanged.

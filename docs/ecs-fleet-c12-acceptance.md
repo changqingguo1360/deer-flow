@@ -1,6 +1,6 @@
 # C12 acceptance status
 
-C12 is not yet accepted. The production-image main and the single concentrated fault case passed on 2026-10-06; whole SPEC→QUALITY and Root evidence audit are Ready; the final provenance supplement and static checks also passed; the acceptance source commit remains pending. The thin gate verified prior receipts; its future execution mode was not run in this slice. Full C and C→B→C are incomplete. This report records isolated local evidence and does not authorize production activation.
+C12 is locally accepted at source commit `8ac8c00a47864b03e84ca90c25a5921df412d3ac`. The production-image main and single concentrated fault case passed on 2026-10-06, then whole SPEC→QUALITY, final provenance review, Root source/evidence audit and static checks completed. The thin gate verified prior receipts; its future execution mode was not run in this slice. C01–C12 local implementation is complete; C→B→C remains incomplete. No production activation or ECS deployment is claimed.
 
 ## Current requirement coverage
 
@@ -14,7 +14,7 @@ C12 is not yet accepted. The production-image main and the single concentrated f
 | Persistent memory and Store fencing | Candidate reuse audits match unchanged source to observed C10 native PASSED cases | 27 participating source inputs currently matched across qualified native proofs; main performs no such writes |
 | Redis outage, revoke/late write, restart | fault-attempt-05 actual case and observations | Proven for two owned runs; final review pending |
 | Required cases have no skips; fresh release report | Thin gate prior-receipt verification exit0; fresh_execution=false | Recorded prior cases have no skips; future execution mode not run |
-| Documentation/static checks/reviews/commit | C12 slice | Pending |
+| Documentation/static checks/reviews/commit | C12 source commit and final review/static receipts | Locally accepted |
 
 ## Main evidence
 
@@ -159,3 +159,5 @@ The first whole SPEC review identified a missing frozen-manifest binding in prio
 ## Quality review cleanup correction
 
 Whole QUALITY is Ready after one P2 correction: main finally now submits log collection to the existing aggregate cleanup helper, so discovery/log errors cannot skip STOP, execution/writer settlement or container removal. Original executed test bytes and hashes remain in the prior records; the reviewed cleanup was not rerun through the runtime. Gate qualification binds both hashes and compares the complete module AST after excluding only the main cleanup finally. Every other source change still rejects reuse. Root receipt-only verification naturally exited0 (`root-gate-post-review-verification-v1.json`, fresh_execution=false). The report does not attribute the reviewed test hash to the earlier main/fault executions.
+
+Accepted source commit: `8ac8c00a47864b03e84ca90c25a5921df412d3ac`; all seven reviewed technical files match their committed blobs. This documentation receipt completes OpenSpec12.1–12.4 after the actual source commit. C→B→C BC01–BC10 remain required; no push, merge or real configuration activation occurred.

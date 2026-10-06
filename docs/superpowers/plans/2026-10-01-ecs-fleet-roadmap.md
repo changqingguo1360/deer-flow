@@ -1,6 +1,6 @@
 # ECS Fleet B → C → B/C 实施总览
 
-2026-10-06: B and C01–C11 have isolated local acceptance. C11 is committed at `f9fb8d3a`; C12 and C→B→C remain pending. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md), [C10 acceptance](../../../docs/ecs-fleet-c10-acceptance.md) and [C11 plan](2026-10-06-ecs-fleet-c11-operations.md). Earlier planning and broad-test notes are historical; current verification follows the user’s main-first, directly affected scope.
+2026-10-06: B and C01–C12 have isolated local acceptance. C12 source is committed at `8ac8c00a`; C→B→C remains required and pending. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and [C12 acceptance](../../../docs/ecs-fleet-c12-acceptance.md). Current verification follows the user’s main-first, minimal directly affected scope; historical broad runs keep their original status.
 
 | 顺序 | OpenSpec change | Superpowers 计划 | 完成门槛 |
 |---|---|---|---|

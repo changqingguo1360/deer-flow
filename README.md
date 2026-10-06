@@ -1643,8 +1643,8 @@ C11 owned task summaries, admission draining, never-assigned stream closure,
 Local execution and focused UI checks have passed; whole SPEC/QUALITY and local acceptance
 are complete. See
 [C11 current contracts](docs/ecs-fleet-c11-runtime.md).
-C12 has passed its isolated normal-startup, production-image main and concentrated
-fault case; final release reviews and acceptance remain pending. See [C12 runtime boundaries](docs/ecs-fleet-c12-runtime.md).
+C12 is locally accepted: normal startup, the production-image main and one concentrated
+fault case passed, with independent reviews and a verified source commit. See [C12 runtime boundaries](docs/ecs-fleet-c12-runtime.md).
 All Fleet flags default to disabled; no real operator configuration was activated.
 C→B→C continuations remain pending. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and

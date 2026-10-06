@@ -1,8 +1,9 @@
 # ECS Fleet deployment
 
 B durable jobs share the Fleet control plane with the later C remote Agent runner.
-C01–C11 are locally accepted, including task visibility and admission drain. Public C activation
-remains closed until C12; C→B→C continuations remain pending. All feature flags default to false. The local B runtime, worker/Compose matrix and full regression are accepted; see
+C01–C12 are locally accepted, including normal startup, the original production image,
+task visibility and admission drain. Real operator activation was not performed;
+C→B→C continuations remain pending. All feature flags default to false. The local B runtime, worker/Compose matrix and full regression are accepted; see
 [B acceptance](../ecs-fleet-b-acceptance.md) for counts and scope.
 
 ## Components and identities
@@ -208,7 +209,7 @@ unknown execution, replays durable stopped proof and never starts the job again.
 
 The test matrix includes installed Gateway startup and full local Compose daemon acceptance.
 Session-admin node management and final full regression are included in local B acceptance. The delivery roadmap and implementation evidence
-remain authoritative for B completion; C and continuations are still pending.
+remain authoritative for B completion. C is locally accepted; continuations remain pending.
 
 
 ## Session administrator node management
@@ -255,9 +256,8 @@ before taking it away; a terminal run or accepted cancellation does not prove it
 container stopped or its reservations were released. Globally unload Fleet only
 after accepted B and C work is accounted for. C12 replaces the obsolete unconditional
 startup rejection with configuration and actual readiness checks. Its isolated
-production-image main and concentrated fault case passed; final release reviews
-and acceptance remain pending.
-Keep real operator activation closed until that gate is accepted.
+production-image main and concentrated fault case passed, with final release reviews
+and local source acceptance complete. Operator activation remains a separate action.
 
 ## Offline production Agent image recipe
 
@@ -297,7 +297,7 @@ offline hash-locked installation and pip check passed. The resulting production
 image passed the isolated normal-Gateway/stock-Node main, including the original
 model adapter/tool loop, artifact download, durable tail, STOP/release and Local
 parity. The single concentrated fault case also passed, covering Redis recovery,
-revocation and stock journal restart STOP. Final release reviews remain pending.
+revocation and stock journal restart STOP. Final release reviews and local source acceptance are complete.
 See [C12 runtime inputs and limits](../ecs-fleet-c12-runtime.md) and
 [acceptance status](../ecs-fleet-c12-acceptance.md). Native C11 and prior C09 evidence
 retain their own original scope. No real ECS deployment or operator activation

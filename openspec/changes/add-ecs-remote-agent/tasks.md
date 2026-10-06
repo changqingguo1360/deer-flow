@@ -93,12 +93,12 @@ C10 本地验收（2026-10-06）：[验收报告](../../../docs/ecs-fleet-c10-ac
 
 ## 12. C12 C 故障验收门槛
 
-按[实际生产主干计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-c12-release.md)实施：原production recipe冻结制品/离线build、正常Gateway startup/lifespan、stockNode/Runner、公有准入/SSE/产物主干先通过，再验证直接故障邻居。旧fixture镜像不替代新recipe证明；不执行旧示例全套命令。12.1–12.4仍未勾选。
+按[实际生产主干计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-c12-release.md)实施：原production recipe冻结制品/离线build、正常Gateway startup/lifespan、stockNode/Runner、公有准入/SSE/产物主干先通过，再验证直接故障邻居。旧fixture镜像不替代新recipe证明；不执行旧示例全套命令。12.1–12.4已在实际source commit后勾选。
 
-- [ ] 12.1 写并运行 backend/tests/fleet/test_c12_remote_agent_operations.py，确认 C12 行为测试 RED。
-- [ ] 12.2 完成计划列出的接口、事务和部署接线；满足 `C release gate covers all remote mutation paths`。
-- [ ] 12.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 12.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 12.1 写并运行 backend/tests/fleet/test_c12_remote_agent_operations.py，确认 C12 行为测试 RED。
+- [x] 12.2 完成计划列出的接口、事务和部署接线；满足 `C release gate covers all remote mutation paths`。
+- [x] 12.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 12.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 
 ## C01 actual evidence — 2026-10-02
@@ -252,3 +252,5 @@ not fresh main6/B12/native24 execution. Source14/runtime4 retain original main
 proof IDs; sparse override and final Root receipt accompany the single C08 commit.
 
 C11 本地验收提交：`f9fb8d3ada2751555310ac126e605754a012d310`。真实 HTTP/PG 主干、从未分配 END、关闭 C 后原始 Local 和有限 UI 验证通过；whole SPEC→QUALITY Ready、Root20文件哈希一致。新增3后端+2前端用例，无整套重跑。原邻接批次1failed/9passed及删除的镜像源码断言失败原样保留；实际生产 recipe build/runtime 属于 C12。见 [C11 验收](../../../docs/ecs-fleet-c11-acceptance.md)。C12、C→B→C 和公有准入仍未完成。
+
+C12 本地验收提交：`8ac8c00a47864b03e84ca90c25a5921df412d3ac`。正常Gateway/原production recipe/image主干1passed17.56s，随后集中故障1passed40.21s，无skip；whole SPEC→QUALITY及最终来源补充Ready，Root核验冻结11制品、installed/current732成员、27 native输入、实际STOP/released及Local产物一致。清理-only修正源码经限定AST资格核验，不冒充新runtime执行；gate receipt fresh_execution=false，历史失败/INTERRUPTED原样保留。C01–C12已完成本地实现验收，未启用真实配置、未部署ECS；C→B→C继续按序实施。见 [C12验收](../../../docs/ecs-fleet-c12-acceptance.md)。
