@@ -33,16 +33,13 @@
 
 ## Test execution and evidence
 
-所有命令在目标 worktree 执行；backend 命令在 `backend/` 中：
+按用户后续要求，先跑通每个 slice 的一个实际主干，再验证少量直接受影响的关键边界。这里不要求整套 backend/Fleet 重跑；已有证据按参与源码和输入匹配复用，实际失败或源码变动才触发定向重验。所有命令在目标 worktree 执行；backend 命令在 `backend/` 中，选择当前任务的明确 node ID：
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not integration and not live'
-PYTHONPATH=. uv run pytest tests/fleet -q -m integration
-make format
-make lint
-make test
-make test-blocking-io
+.venv/bin/python -m pytest tests/fleet/<current_test_file>.py::<main_case> -q -o addopts= --tb=short
 ```
+
+上述占位命令是执行模板，不是现有可执行测试名或通过证据。实现时从真实测试文件选择 node ID；先主干 RED→GREEN，再最少必要邻接检查。静态检查只覆盖改动文件；格式/文档变动不触发镜像重建。BC 开始实施仍以前置 C12 验收完成为准。
 
 集成测试采用既有 `TEST_POSTGRES_URI` 环境变量，不在命令或文档中保存真实 URI；Redis 用 `TEST_REDIS_URL`，真实容器测试开关 `FLEET_TEST_CONTAINERS=1`，仅指向本地测试环境。对缺少环境的单测可 skip，但 release gate 必须显式预检并失败，不能把全部 skipped 当 PASS。使用随机 schema、临时容器名与独立 NAS fixture，finally 中清理；不得连接真实业务 ECS 或删除真实 NAS 数据。
 
@@ -134,16 +131,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py::test_bc01_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc01 建立依赖与等待组持久模型"
@@ -199,16 +195,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc02_fleet_agent_job_dependencies.py
 
 不能抛普通异常假装 success；不能把 LangGraph interrupt 未完成 tool call 直接标 success。所有剩余 awaited jobs 自动组成等待组，不允许父 task 提前 succeeded。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc02_fleet_agent_job_dependencies.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc02_fleet_agent_job_dependencies.py::test_bc02_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc02 实现 await 工具与安全让出屏障"
@@ -262,16 +257,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc03_fleet_agent_job_continuations.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc03_fleet_agent_job_continuations.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc03_fleet_agent_job_continuations.py::test_bc03_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc03 实现 exactly-one continuation 准入"
@@ -325,16 +319,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc04_fleet_agent_job_continuations.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc04_fleet_agent_job_continuations.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc04_fleet_agent_job_continuations.py::test_bc04_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc04 统一结果 delivery owner 与通知互斥"
@@ -387,16 +380,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc05_fleet_agent_job_continuations.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc05_fleet_agent_job_continuations.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc05_fleet_agent_job_continuations.py::test_bc05_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc05 共用公平调度与最小池无死锁"
@@ -451,16 +443,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc06_fleet_agent_job_dependencies.py
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc06_fleet_agent_job_dependencies.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc06_fleet_agent_job_dependencies.py::test_bc06_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc06 取消、用户输入和 generation 竞态"
@@ -514,16 +505,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc07_fleet_agent_job_dependencies.py
 
 模型调用前强制累计 token 上限，不能仅结束后统计；接受的未用预留可释放，已花费额度不可回滚。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc07_fleet_agent_job_dependencies.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc07_fleet_agent_job_dependencies.py::test_bc07_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc07 跨 run 预算、deadline 与恢复裁决"
@@ -577,16 +567,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc08_fleet_agent_job_continuations.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc08_fleet_agent_job_continuations.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc08_fleet_agent_job_continuations.py::test_bc08_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc08 Scheduler 目标阻塞与命名子任务"
@@ -645,16 +634,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc09_fleet_unified_task_experience.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc09_fleet_unified_task_experience.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc09_fleet_unified_task_experience.py::test_bc09_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc09 交付统一任务摘要与操作入口"
@@ -711,16 +699,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc10_fleet_unified_task_experience.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 重跑该测试文件，确认观察到的副作用和数据库结果符合断言；同时执行该阶段已有测试，不从 expected 值构造实际结果。
+- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc10_fleet_unified_task_experience.py -vv
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not live'
+.venv/bin/python -m pytest tests/fleet/test_bc10_fleet_unified_task_experience.py::test_bc10_contract -q -o addopts= --tb=short
 ```
 
-期望：新行为与已有 Fleet 回归 PASS；集成环境缺失必须记录，release gate 不得通过。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
+期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 运行 `make format`、`make lint`；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc10 组合端到端和运维交付验收"
@@ -732,7 +719,7 @@ git commit -m "feat(fleet): bc10 组合端到端和运维交付验收"
 
 - [ ] 所有本阶段 OpenSpec SHALL 均有测试证据；上一阶段回归继续通过。
 - [ ] PostgreSQL 并发与实际容器/NAS 故障测试非跳过通过；C/组合还需要 Redis 与完整 runner。
-- [ ] `make test`、`make test-blocking-io`、`make lint` 通过；前端变更完成 check。
+- [ ] 实际组合主干通过，少量必要故障邻接与改动文件静态检查通过；前端变更完成 check。无需机械重跑完整 backend/Fleet 套件。
 - [ ] 禁用新 admission 后已有执行仍能对账；无孤儿容器或悄悄释放的 quarantine。
 - [ ] 在测试报告中明确环境限制；未通过门槛不得执行后继阶段的上线操作。
 

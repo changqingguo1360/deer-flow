@@ -42,9 +42,6 @@ def validate_fleet_plugin_configuration(plugins, *, host_config=None):
             if host_config is None:
                 raise RuntimeError("Remote Agent requires actual host persistence configuration")
             validate_remote_agent_host_configuration(host_config)
-            # C01 persists foundations only. Do not silently admit a remote
-            # request to the local runner before all fencing is implemented.
-            raise RuntimeError("Remote Agent runner and fenced persistence are not available")
 
 
 def validate_remote_agent_shared_storage(config):
@@ -77,3 +74,34 @@ def validate_remote_agent_host_configuration(config):
     validate_remote_agent_shared_storage(config)
     if config.run_events.backend != "db" or not config.run_ownership.heartbeat_enabled:
         raise RuntimeError("Remote Agent requires database run events and ownership heartbeat")
+
+
+def validate_remote_agent_runtime(app, session_factory):
+    """Admit C only after the normal startup has installed its participants."""
+    runtime = fleet_runtime(app)
+    if runtime is None or not runtime.config.enabled or not runtime.config.agents_enabled:
+        return
+    from app.fleet.events import FleetGatewayBridge
+    from app.fleet.execution import BoundFleetRunBackend
+    from app.fleet.ownership import FleetRunOwnership
+    from deerflow.runtime.events.store.db import DbRunEventStore
+
+    manager = getattr(app.state, "run_manager", None)
+    heartbeat = getattr(manager, "_heartbeat_task", None)
+    if (
+        not runtime.ready
+        or session_factory is None
+        or runtime.session_factory is not session_factory
+        or not isinstance(getattr(app.state, "fleet_ownership", None), FleetRunOwnership)
+        or not isinstance(getattr(app.state, "bound_run_execution_backend", None), BoundFleetRunBackend)
+        or not isinstance(getattr(app.state, "stream_bridge", None), FleetGatewayBridge)
+        or not isinstance(getattr(app.state, "run_event_store", None), DbRunEventStore)
+        or getattr(app.state, "checkpointer", None) is None
+        or getattr(app.state, "store", None) is None
+        or any(getattr(app.state, name, None) is None for name in ("fleet_workspaces", "fleet_workspace_files", "fleet_scheduler_tickets"))
+        or manager is None
+        or not manager.heartbeat_enabled
+        or heartbeat is None
+        or heartbeat.done()
+    ):
+        raise RuntimeError("Remote Agent requires ready Fleet participants, shared SQL persistence and an active ownership heartbeat")

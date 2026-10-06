@@ -28,16 +28,13 @@
 
 ## Test execution and evidence
 
-所有命令在目标 worktree 执行；backend 命令在 `backend/` 中：
+按用户后续要求，先跑通每个 slice 的一个实际主干，再验证少量直接受影响的关键边界。这里不要求整套 backend/Fleet 重跑；已有证据按参与源码和输入匹配复用，实际失败或源码变动才触发定向重验。所有命令在目标 worktree 执行；backend 命令在 `backend/` 中，选择当前任务的明确 node ID：
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet -q -m 'not integration and not live'
-PYTHONPATH=. uv run pytest tests/fleet -q -m integration
-make format
-make lint
-make test
-make test-blocking-io
+.venv/bin/python -m pytest tests/fleet/<current_test_file>.py::<main_case> -q -o addopts= --tb=short
 ```
+
+上述占位命令是执行模板，不是现有可执行测试名或通过证据。实现时从真实测试文件选择 node ID；先主干 RED→GREEN，再最少必要邻接检查。静态检查只覆盖改动文件；格式/文档变动不触发镜像重建。BC 开始实施仍以前置 C12 验收完成为准。
 
 集成测试采用既有 `TEST_POSTGRES_URI` 环境变量，不在命令或文档中保存真实 URI；Redis 用 `TEST_REDIS_URL`，真实容器测试开关 `FLEET_TEST_CONTAINERS=1`，仅指向本地测试环境。对缺少环境的单测可 skip，但 release gate 必须显式预检并失败，不能把全部 skipped 当 PASS。使用随机 schema、临时容器名与独立 NAS fixture，finally 中清理；不得连接真实业务 ECS 或删除真实 NAS 数据。
 

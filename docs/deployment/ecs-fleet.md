@@ -253,8 +253,11 @@ queries, cancellation, renewal, STOP and reconciliation remain available. Closin
 `jobs_enabled` separately does not prevent accepted C from claiming. Drain a node
 before taking it away; a terminal run or accepted cancellation does not prove its
 container stopped or its reservations were released. Globally unload Fleet only
-after accepted B and C work is accounted for. The Gateway startup activation guard
-still rejects enabling C until the C12 release gate is accepted.
+after accepted B and C work is accounted for. C12 replaces the obsolete unconditional
+startup rejection with configuration and actual readiness checks. Its isolated
+production-image main and concentrated fault case passed; final release reviews
+and acceptance remain pending.
+Keep real operator activation closed until that gate is accepted.
 
 ## Offline production Agent image recipe
 
@@ -264,8 +267,9 @@ BuildKit context containing `SHA256SUMS`, `requirements.lock`, `wheelhouse/`,
 `model-bindings.json`, `runtime-bundle.json`, `workspace-contracts.json` and `skills/`.
 Hash every supplied immutable artifact and pin every Python requirement with hashes.
 The offline wheelhouse must include `deer-flow`, `deerflow-harness`,
-`deerflow-extension-api`, `deerflow-ecs-fleet` and the approved model provider's full
-closure. Supply exactly one installed `deerflow.fleet.agent_environment` entry point
+`deerflow-extension-api` and `deerflow-ecs-fleet`. Audit the approved model provider's
+full dependency closure against the pinned base inventory plus supplied wheels;
+base-installed dependencies do not require duplicate wheels. Supply exactly one installed `deerflow.fleet.agent_environment` entry point
 named `gateway`. These are operator-approved nonsecret assets; credentials and real
 private runtime configuration do not belong in the context or image layers.
 
@@ -273,7 +277,7 @@ From the repository root, with an already available digest-pinned Linux Python >
 base and prepared local artifacts:
 
 ```bash
-docker buildx build --load --network=none \
+docker buildx build --load --network=none --pull=false \
   --build-arg AGENT_BASE=python@sha256:<approved-base-digest> \
   --build-context agent_artifacts=/absolute/frozen-agent-artifacts \
   --file docker/fleet/agent.Dockerfile \
@@ -288,8 +292,13 @@ Fleet supplies each attempt's original frozen launch contract and private creden
 through its existing execution protocol; do not run this image with daemon credentials
 or the Docker socket mounted inside it.
 
-This recipe has not yet passed a production-image build/runtime gate. Native C11
-HTTP/PostgreSQL checks prove host protocol and visibility only. C12 must build these
-actual artifacts, verify installed compatibility and launch/stop the real Runner
-before opening public C activation. Prior C09 container evidence retains its original
-image and scope; it is not evidence that this new recipe was executed.
+C12 executed this original recipe with frozen artifacts and an audited pinned base;
+offline hash-locked installation and pip check passed. The resulting production
+image passed the isolated normal-Gateway/stock-Node main, including the original
+model adapter/tool loop, artifact download, durable tail, STOP/release and Local
+parity. The single concentrated fault case also passed, covering Redis recovery,
+revocation and stock journal restart STOP. Final release reviews remain pending.
+See [C12 runtime inputs and limits](../ecs-fleet-c12-runtime.md) and
+[acceptance status](../ecs-fleet-c12-acceptance.md). Native C11 and prior C09 evidence
+retain their own original scope. No real ECS deployment or operator activation
+is claimed by this local main.

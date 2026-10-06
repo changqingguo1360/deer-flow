@@ -757,6 +757,8 @@ git commit -m "feat(fleet): c11 C 任务摘要、部署和本地回归"
 
 ### Task C12: C 故障验收门槛
 
+实际源码/制品审计后按[详细C12生产主干计划](2026-10-06-ecs-fleet-c12-release.md)执行。该计划取代下方`fleet_probe`示例与全量命令；先新production recipe和正常startup真实主干，再必要故障邻居。C12仍未完成。
+
 **Files:**
 - Create: `backend/tests/fleet/test_c_acceptance.py`
 - Modify: `docs/deployment/ecs-fleet.md`

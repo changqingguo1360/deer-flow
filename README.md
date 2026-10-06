@@ -1643,8 +1643,9 @@ C11 owned task summaries, admission draining, never-assigned stream closure,
 Local execution and focused UI checks have passed; whole SPEC/QUALITY and local acceptance
 are complete. See
 [C11 current contracts](docs/ecs-fleet-c11-runtime.md).
-Gateway still rejects agents_enabled until C11-C12 recovery,
-cancellation and routing slices pass. Remote Agent runs are not available
-yet. All Fleet flags default to disabled. See the
+C12 has passed its isolated normal-startup, production-image main and concentrated
+fault case; final release reviews and acceptance remain pending. See [C12 runtime boundaries](docs/ecs-fleet-c12-runtime.md).
+All Fleet flags default to disabled; no real operator configuration was activated.
+C→B→C continuations remain pending. See the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).

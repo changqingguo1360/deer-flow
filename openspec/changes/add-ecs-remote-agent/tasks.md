@@ -93,6 +93,8 @@ C10 本地验收（2026-10-06）：[验收报告](../../../docs/ecs-fleet-c10-ac
 
 ## 12. C12 C 故障验收门槛
 
+按[实际生产主干计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-c12-release.md)实施：原production recipe冻结制品/离线build、正常Gateway startup/lifespan、stockNode/Runner、公有准入/SSE/产物主干先通过，再验证直接故障邻居。旧fixture镜像不替代新recipe证明；不执行旧示例全套命令。12.1–12.4仍未勾选。
+
 - [ ] 12.1 写并运行 backend/tests/fleet/test_c12_remote_agent_operations.py，确认 C12 行为测试 RED。
 - [ ] 12.2 完成计划列出的接口、事务和部署接线；满足 `C release gate covers all remote mutation paths`。
 - [ ] 12.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。

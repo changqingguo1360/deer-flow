@@ -602,6 +602,9 @@ async def langgraph_runtime(app: FastAPI, startup_config: AppConfig) -> AsyncGen
         await app.state.run_manager.start_heartbeat()
 
         try:
+            from app.fleet.runtime import validate_remote_agent_runtime
+
+            validate_remote_agent_runtime(app, sf)
             yield
         finally:
             # Drain in-flight run tasks BEFORE the AsyncExitStack tears down the
