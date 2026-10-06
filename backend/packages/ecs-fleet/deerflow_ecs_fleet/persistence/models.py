@@ -66,6 +66,7 @@ class JobRow(FleetBase):
         timestamp("created_at"),
         timestamp("updated_at"),
         UniqueConstraint("user_id", "idempotency_key", name="uq_fleet_jobs_submission"),
+        UniqueConstraint("id", "user_id", "thread_id", "source_run_id", name="uq_fleet_job_parent"),
         UniqueConstraint("user_id", "tracking_task_id", name="uq_fleet_jobs_tracking"),
         CheckConstraint("state IN ('staged','queued','claimed','running','succeeded','failed','cancelled','unknown','quarantined')", name="ck_fleet_jobs_state"),
         Index("uq_fleet_jobs_active_group", "user_id", "dedupe_group", unique=True, postgresql_where=text("dedupe_group IS NOT NULL AND " + JOB_ACTIVE)),
@@ -276,6 +277,7 @@ class LaunchSpecRow(FleetBase):
         timestamp("created_at"),
         ForeignKeyConstraint(["agent_task_id", "user_id", "thread_id"], ["fleet_agent_tasks.id", "fleet_agent_tasks.user_id", "fleet_agent_tasks.thread_id"], name="fk_fleet_launch_spec_owner"),
         UniqueConstraint("id", "run_id", "agent_task_id", "generation", "user_id", "thread_id", name="uq_fleet_launch_spec_identity"),
+        UniqueConstraint("run_id", "agent_task_id", "generation", "user_id", "thread_id", name="uq_fleet_launch_parent"),
         CheckConstraint("generation > 0", name="ck_fleet_launch_spec_generation"),
         CheckConstraint("payload_digest ~ '^sha256:[a-f0-9]{64}$'", name="ck_fleet_launch_spec_digest"),
     )
@@ -567,4 +569,53 @@ class WorkspaceProcessRow(FleetBase):
             name="ck_fleet_workspace_process_parent",
         ),
         Index("ix_fleet_workspace_process_owner", "attempt_id", "state"),
+    )
+
+
+class JobLinkRow(FleetBase):
+    __table__ = Table(
+        "fleet_job_links",
+        metadata,
+        Column("job_id", String(64), primary_key=True),
+        Column("agent_task_id", String(64), nullable=False),
+        Column("generation", Integer, nullable=False),
+        Column("parent_run_id", String(64), nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("link_mode", String(16), nullable=False),
+        timestamp("created_at"),
+        UniqueConstraint("agent_task_id", "generation", "job_id"),
+        ForeignKeyConstraint(
+            ["parent_run_id", "agent_task_id", "generation", "user_id", "thread_id"],
+            ["fleet_launch_specs.run_id", "fleet_launch_specs.agent_task_id", "fleet_launch_specs.generation", "fleet_launch_specs.user_id", "fleet_launch_specs.thread_id"],
+        ),
+        ForeignKeyConstraint(["job_id", "user_id", "thread_id", "parent_run_id"], ["fleet_jobs.id", "fleet_jobs.user_id", "fleet_jobs.thread_id", "fleet_jobs.source_run_id"]),
+        CheckConstraint("generation > 0 AND link_mode IN ('awaited','detached')"),
+    )
+
+
+class WaitGroupRow(FleetBase):
+    __table__ = Table(
+        "fleet_wait_groups",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("continuation_key", String(128), nullable=False, unique=True),
+        Column("agent_task_id", String(64), nullable=False),
+        Column("generation", Integer, nullable=False),
+        Column("parent_run_id", String(64), nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("job_ids", json_type, nullable=False),
+        Column("policy", String(24), nullable=False, server_default="all_settled"),
+        Column("state", String(24), nullable=False, server_default="sealed"),
+        Column("checkpoint_id", String(64)),
+        Column("workspace_point_id", String(64)),
+        Column("delivery_owner", String(128)),
+        timestamp("created_at"),
+        ForeignKeyConstraint(
+            ["parent_run_id", "agent_task_id", "generation", "user_id", "thread_id"],
+            ["fleet_launch_specs.run_id", "fleet_launch_specs.agent_task_id", "fleet_launch_specs.generation", "fleet_launch_specs.user_id", "fleet_launch_specs.thread_id"],
+        ),
+        CheckConstraint("generation > 0 AND policy='all_settled'"),
+        CheckConstraint("jsonb_typeof(job_ids)='array' AND jsonb_array_length(job_ids)>0"),
     )

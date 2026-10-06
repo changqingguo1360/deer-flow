@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-所有勾选项是未来实施，不因规划/校验成功而勾选。
+BC01 已按[源码审计计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc01-dependencies.md)开始，当前所有完成项仍未勾选；不因规划/校验成功而勾选。
 
 ## 1. BC01 建立依赖与等待组持久模型
 

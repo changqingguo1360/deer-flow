@@ -84,3 +84,7 @@ injection through the original MCP args schema; optional/postponed annotations o
 an unannotated sync bridge can lose original run/user association. Runtime stays
 absent from the model schema. Test the loaded tool pipeline, not only a standalone
 coroutine wrapper; existing RunnableConfig injection and Local calls remain valid.
+
+### Private Fleet child submissions (BC01 source/native verified)
+
+`fleet_job_submitter_scope` binds the same private McpTaskService and its host-bound Fleet driver to the original remote mutation context. Missing/wrong context fails closed; remote calls never fall back to the Gateway global Fleet carrier. Profile names and scheduled slots come from approved operator configuration, and scope exit resets the carrier. `submit_fleet_job` exposes detached/awaited mode; awaited requires enabled continuations and authorized parent ownership. Same-transaction child links and sealed groups are owned by Fleet repositories with the host-injected capability. Native loaded ToolNode/PG evidence does not prove installed yielding or continuation; BC02–BC10 remain pending. See [BC01 boundary](../../../../../docs/ecs-fleet-bc01-runtime.md).

@@ -10,8 +10,8 @@ The system SHALL satisfy BC01: 只接受当前授权归属；sealed group 不能
 - **THEN** 只接受当前授权归属；sealed group 不能增删；每组有稳定 continuation key
 
 #### Scenario: BC01 regression evidence
-- **WHEN** 两个 task/用户创建子 job；交叉 await 拒绝；重复 seal 返回原组；模拟旧 generation 提交，查看未新增记录。
-- **THEN** 实际观测满足：cross_task_link_status = 403；sealed_group_changed = false；group_count_for_key = 1；不得用硬编码期望值代替真实状态或进程证据
+- **WHEN** 两个真实 task/用户经原身份创建子 job；私有 capability-bound seal 试图加入其他归属的 job；重复/并发 seal；旧 generation 提交及写入后失权。
+- **THEN** 实际观测满足：cross_task_rejection_type = "PermissionError"；cross_task_group_count = 0；sealed_group_changed = false；group_count_for_key = 1；旧 generation/写入后失权留下的持久行计数不变。此私有入口不声明 HTTP 状态码；不得用硬编码期望值代替真实异常、SQL 行或进程证据
 
 ### Requirement: Durable cooperative yield releases execution resources
 

@@ -13,7 +13,7 @@
 **前置：** add-ecs-remote-agent 验收通过，B/C 独立执行均可用。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-agent-job-continuations/proposal.md)、[tasks](../../../openspec/changes/add-ecs-agent-job-continuations/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** 尚未执行；所有测试输出均为期望，不是已经运行的结果。
+**计划状态：** BC01 当前按[源码审计后的详细计划](2026-10-06-ecs-fleet-bc01-dependencies.md)开始实施；后继BC02–BC10未实施。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -87,7 +87,7 @@ class FleetProbe:
 ### Task BC01: 建立依赖与等待组持久模型
 
 **Files:**
-- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/migrations/versions/f0004_continuations.py`
+- Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/migrations/versions/f0011_continuations.py`
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/job_links.py`
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/wait_groups.py`
 - Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/persistence/models.py`
@@ -108,7 +108,8 @@ import pytest
 @pytest.mark.asyncio
 async def test_bc01_contract(fleet_probe):
     observed = await fleet_probe.exercise("BC01")
-    assert observed['cross_task_link_status'] == 403
+    assert observed['cross_task_rejection_type'] == "PermissionError"
+    assert observed['cross_task_group_count'] == 0
     assert observed['sealed_group_changed'] == False
     assert observed['group_count_for_key'] == 1
 ```
@@ -126,7 +127,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py
 ```python
 # link ownership = task_id + generation + server-bound parent run + job_id.
 # wait_groups stores sealed job IDs, all-settled policy, checkpoint/manifest and delivery owner.
-# f0004 includes unique continuation_key and task/generation/job link constraint.
+# f0011 includes unique continuation_key and task/generation/job link constraint.
 ```
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。

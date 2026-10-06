@@ -397,4 +397,4 @@ C08 local acceptance (0018): [contracts](../docs/ecs-fleet-c08-runtime.md).
 C09 STOP/cancellation: [contracts](../docs/ecs-fleet-c09-runtime.md).
 C10 routing/queued admission uses original UoW callbacks and shared reservations:
 [C10](../docs/ecs-fleet-c10-runtime.md); [C11 summaries/drain](../docs/ecs-fleet-c11-runtime.md).
-C12 release/continuations remain pending; all Fleet flags default disabled.
+C12 and BC01 are locally accepted; BC02 is next. Fleet flags default disabled.

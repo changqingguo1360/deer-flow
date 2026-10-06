@@ -522,3 +522,9 @@ must scope rejection/acceptance assertions to the exact current candidate and re
 prior immutable partial provenance. Diagnostic main-path builds and passing existing
 cases precede the deferred full regression/review when the user requests that order;
 they do not by themselves establish whole C08 acceptance.
+
+## BC01 child dependency foundation
+
+The f0011 migration stores immutable historical child owner links and sealed wait-group membership. Host BoundJobParent injects the original execution authority into FleetJobService/WaitGroups; parent user/thread/run/task/generation never come from model arguments. Use original task-first capability locks and sorted child jobs, then validate again after real SQL flush on the same transaction. Historical links reference immutable launch identity, allowing later generation changes. Membership/policy/key/owner cannot mutate; later proof/state transitions remain available for BC02/BC03.
+
+The private Runner registers the bound Fleet driver and scoped submission carrier from approved operator plugin configuration. It does not start Gateway reconcilers or migrations. The native loaded ToolNode/PG main is verified; full installed yield/continuation is still pending. Preserve Local detached B when no remote context is active, while rejecting an unbound remote caller. See [BC01 runtime](ecs-fleet-bc01-runtime.md) and [acceptance](ecs-fleet-bc01-acceptance.md) for actual current scope.

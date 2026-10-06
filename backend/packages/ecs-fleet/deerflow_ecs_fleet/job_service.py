@@ -16,10 +16,11 @@ from .protocol import JobSpec
 
 
 class FleetJobService:
-    def __init__(self, session_factory, config, *, tracking_reader):
+    def __init__(self, session_factory, config, *, tracking_reader, parent_capability=None):
         self.sf = session_factory
         self.config = config
         self.tracking_reader = tracking_reader
+        self.parent_capability = parent_capability
 
     @staticmethod
     def summary(job):
@@ -43,8 +44,29 @@ class FleetJobService:
             raise ValueError("Unknown job profile")
         if spec.execution_timeout_seconds > profile.execution_timeout_seconds or spec.queue_timeout_seconds > self.config.queue_timeout_seconds:
             raise ValueError("Job exceeds operator time budget")
+        if spec.link_mode == "awaited" and self.parent_capability is None:
+            raise PermissionError("Awaited jobs require original server-bound parent authority")
+        if self.parent_capability is None:
+            from deerflow.runtime.execution.mutation_context import current_remote_mutation_context, reject_remote_operation
+
+            reject_remote_operation(current_remote_mutation_context())
         payload = spec.model_dump()
         async with self.sf.begin() as session:
+
+            async def validate_parent():
+                if self.parent_capability is not None:
+                    await self.parent_capability.validate(session, user_id=user_id, thread_id=thread_id, source_run_id=source_run_id)
+
+            async def finish(job):
+                if self.parent_capability is not None:
+                    from .persistence.job_links import JobLinks
+
+                    await JobLinks().attach(session, owner=self.parent_capability.owner, job=job, link_mode=spec.link_mode)
+                await session.flush()
+                await validate_parent()
+                return self.summary(job)
+
+            await validate_parent()
             # All invocations share one identity namespace, whether they create
             # work or reuse it, and whether the request has a scheduled group.
             invocation_lock = int.from_bytes(hashlib.sha256(("fleet-invocation\0" + user_id + "\0" + idempotency_key).encode()).digest()[:8], "big", signed=True)
@@ -56,7 +78,7 @@ class FleetJobService:
                 canonical = await session.get(JobRow, receipt.job_id, with_for_update=True)
                 if canonical is None or canonical.user_id != user_id or canonical.thread_id != thread_id:
                     raise ValueError("Submission receipt has an invalid job binding")
-                result = self.summary(canonical)
+                result = await finish(canonical)
                 if canonical.idempotency_key != idempotency_key:
                     result["reused_existing"] = True
                 return result
@@ -74,7 +96,7 @@ class FleetJobService:
                 if original.thread_id != thread_id or original.source_run_id != source_run_id or original.spec != payload or original.dedupe_group != dedupe_group:
                     raise ValueError("Submission key belongs to different input")
                 record_invocation(original.id)
-                return self.summary(original)
+                return await finish(original)
             if dedupe_group is not None:
                 active = (
                     await session.execute(
@@ -91,7 +113,7 @@ class FleetJobService:
                     if active.thread_id != thread_id:
                         raise ValueError("Scheduled job slot belongs to another thread")
                     record_invocation(active.id)
-                    return {**self.summary(active), "reused_existing": True}
+                    return {**await finish(active), "reused_existing": True}
             await resolve_inputs(session, user_id=user_id, thread_id=thread_id, spec=spec, max_bytes=self.config.max_input_bytes)
             now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
             values = dict(
@@ -114,7 +136,7 @@ class FleetJobService:
             if job.thread_id != thread_id or job.source_run_id != source_run_id or job.spec != payload or job.dedupe_group != dedupe_group:
                 raise ValueError("Submission key belongs to different input")
             record_invocation(job.id)
-            return self.summary(job)
+            return await finish(job)
 
     async def get(self, job_id: str, *, user_id: str, thread_id: str) -> dict:
         async with self.sf() as session:

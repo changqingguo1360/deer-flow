@@ -34,3 +34,9 @@
 - 具体文件与 TDD 步骤见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
 - Postgres、NAS、worker 容器和现有 DeerFlow runtime 受影响；默认 feature flags 关闭，已有 local 路径保持兼容。
 - 仅规划已完成，任务清单全部未实施；不得 archive 或写 IMPLEMENTED 标记。
+
+## BC01 implementation discovery — 2026-10-06
+
+The original regression template used cross_task_link_status=403, but the designed wait-group seal is a private, capability-bound runner transaction rather than a public HTTP endpoint. Current native boundary verification observes actual PermissionError/OwnershipRejected and unchanged persisted rows. It does not claim an HTTP403 response or manufacture a test adapter. The semantic requirement remains rejection of foreign user/task/run/generation; the SPEC review must assess the transport-specific evidence assumption before BC01 acceptance. Tool presentation and cooperative yield remain BC02 requirements.
+
+The BC01 implementation is complete at source level and the independent SPEC review confirmed the ownership/sealed-membership semantics. The regression scenario is now aligned to the actual private production boundary: PermissionError, zero foreign-group insertion and unchanged SQL counts after stale/revoked writes. This corrects the earlier HTTP transport assumption while retaining cross-user/task/run/generation rejection; it does not remove any user-facing requirement or introduce a public seal API. No additional runtime case was required.

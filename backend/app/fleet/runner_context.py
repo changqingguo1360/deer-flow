@@ -603,6 +603,9 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         validate_mcp_task_runtime_configuration(mcp_tasks_config=private.mcp_tasks, extensions_config=private.extensions, repository_available=True)
         drivers = McpTaskDriverRegistry()
         drivers.register(ORDINARY_MCP_TASK_DRIVER, OrdinaryMcpTaskDriver(McpTaskToolCaller(private.extensions)))
+        from app.fleet.job_tracking import bind_private_fleet_driver
+
+        private_fleet_config = bind_private_fleet_driver(sf, drivers, mutation_capability, private.plugins)
         private_submitter = McpTaskService(
             repository=mcp_repository, drivers=drivers, poll_interval_seconds=private.mcp_tasks.poll_interval_seconds, lease_seconds=private.mcp_tasks.lease_seconds, max_concurrent_polls=private.mcp_tasks.max_concurrent_polls
         )
@@ -621,6 +624,11 @@ async def build_agent_environment(*, bootstrap, spec, grant):
                 scoped.enter_context(model_credential_scope(resolver))
                 scoped.enter_context(extensions_config_scope(private.extensions))
                 scoped.enter_context(mcp_task_submitter_scope(private_submitter, private.extensions))
+                if private_fleet_config is not None:
+                    from deerflow.mcp.tasks.fleet_runtime import fleet_job_submitter_scope
+
+                    names = tuple(sorted(name for name, profile in private_fleet_config.profiles.items() if profile.kind == "job"))
+                    scoped.enter_context(fleet_job_submitter_scope(private_submitter, profile_names=names, scheduled_job_slots=private_fleet_config.scheduled_job_slots))
                 scoped.enter_context(agent_definition_store_scope(*definitions))
                 if private_memory is not None:
                     scoped.enter_context(memory_manager_scope(private_memory))

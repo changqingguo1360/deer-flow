@@ -1,6 +1,6 @@
 """Submit detached computation using server identities and approved profiles."""
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from langchain.tools import tool
 
@@ -17,13 +17,14 @@ async def submit_fleet_job(
     task_name: Annotated[str, "A short name for this background computation."],
     profile: Annotated[str, "An operator-approved job profile name."],
     argv: Annotated[list[str], "Program and arguments inside the isolated job container."],
+    link_mode: Annotated[Literal["detached", "awaited"], "Detached background work or an owned dependency for this remote Agent task."] = "detached",
     job_slot: Annotated[str | None, "Operator-approved named scheduled job slot; required for scheduled runs."] = None,
     input_manifests: Annotated[list[str] | None, "Immutable input or accepted result version IDs owned by this chat."] = None,
     code_artifact_id: Annotated[str | None, "Optional immutable code version ID; mounted read-only under /inputs/<id>."] = None,
     execution_timeout_seconds: Annotated[int, "Execution limit within the profile's authorized budget."] = 1800,
     queue_timeout_seconds: Annotated[int, "Maximum durable queue wait within the operator budget."] = 1800,
 ) -> dict[str, Any]:
-    """Submit a durable detached Fleet job and return a background task ID.
+    """Submit a durable Fleet job and return a background task ID.
 
     The Gateway tracks completion after this Agent run ends. Only declared input
     versions are mounted read-only; write results to /output. Use the chat's
@@ -62,7 +63,7 @@ async def submit_fleet_job(
                 "code_artifact_id": code_artifact_id,
                 "execution_timeout_seconds": execution_timeout_seconds,
                 "queue_timeout_seconds": queue_timeout_seconds,
-                "link_mode": "detached",
+                "link_mode": link_mode,
             },
             driver_data=driver_data,
         ),

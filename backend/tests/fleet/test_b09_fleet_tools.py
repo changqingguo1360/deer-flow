@@ -26,7 +26,7 @@ def test_model_schema_has_no_execution_identity_or_privileged_profile_fields():
     module, bridge = modules()
     fields = module.submit_fleet_job.tool_call_schema.model_json_schema()["properties"]
     assert {"task_name", "profile", "argv", "input_manifests", "code_artifact_id"} <= set(fields)
-    assert not ({"runtime", "user_id", "thread_id", "run_id", "node_id", "token", "image", "env", "network", "link_mode", "idempotency_key"} & set(fields))
+    assert not ({"runtime", "user_id", "thread_id", "run_id", "node_id", "token", "image", "env", "network", "idempotency_key"} & set(fields))
     bridge.set_fleet_job_submitter(None)
     assert not bridge.is_fleet_job_runtime_available()
     with pytest.raises(RuntimeError):
