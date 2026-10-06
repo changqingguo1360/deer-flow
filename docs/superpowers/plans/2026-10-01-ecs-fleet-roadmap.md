@@ -1,6 +1,6 @@
 # ECS Fleet B → C → B/C 实施总览
 
-2026-10-07: B and C01–C12 have isolated local acceptance. C12 source is committed at `8ac8c00a`; BC01–BC04 have native local acceptance (BC03 `87e0d428`, BC04 `f24a88d7`); BC05 is locally accepted at `c153ad19` with an installed one-slot C→B→C main and one native boundary; BC06 is locally accepted at `8abe7af9` with its original waiting main and one concentrated generation boundary. BC07 is locally accepted at `097b789a` after three executed C runs, cross-run budget refusal and independent SPEC→QUALITY; BC08–BC10 and final combined entrypoint qualification remain required. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and [C12 acceptance](../../../docs/ecs-fleet-c12-acceptance.md). Current verification follows the user’s main-first, minimal directly affected scope; historical broad runs keep their original status.
+2026-10-07: B and C01–C12 have isolated local acceptance. C12 source is committed at `8ac8c00a`; BC01–BC04 have native local acceptance (BC03 `87e0d428`, BC04 `f24a88d7`); BC05 is locally accepted at `c153ad19` with an installed one-slot C→B→C main and one native boundary; BC06 is locally accepted at `8abe7af9` with its original waiting main and one concentrated generation boundary. BC07 is locally accepted at `097b789a` after three executed C runs, cross-run budget refusal and independent SPEC→QUALITY; BC08 is locally accepted at `d08f7763` after corrected native boundary and independent SPEC→QUALITY; BC09–BC10 and final combined entrypoint qualification remain required. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and [C12 acceptance](../../../docs/ecs-fleet-c12-acceptance.md). Current verification follows the user’s main-first, minimal directly affected scope; historical broad runs keep their original status.
 
 | 顺序 | OpenSpec change | Superpowers 计划 | 完成门槛 |
 |---|---|---|---|
@@ -97,4 +97,4 @@ CLI status 的 artifact complete 仅表示 proposal/specs/design/tasks 文件齐
 
 执行入口是 B 计划 B01。遇到真实节点/NAS/凭据未配置时先完成本地隔离测试，不擅自配置或部署生产 ECS。
 
-B and C tasks are checked from recorded local acceptance; BC01–BC07 are accepted. BC08–BC10 remain incomplete. Artifact completeness alone remains insufficient, and each acceptance retains its documented runtime scope.
+B and C tasks are checked from recorded local acceptance; BC01–BC08 are accepted. BC09–BC10 remain incomplete. Artifact completeness alone remains insufficient, and each acceptance retains its documented runtime scope.

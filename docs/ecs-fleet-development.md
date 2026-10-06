@@ -604,3 +604,13 @@ Owned summaries expose frozen limits, counters and blocked reasons. The native
 main and concentrated boundary passed with actual SDK HTTP and original
 processes/SQL/STOP. Three actual C runs and cross-run token/job refusal were verified; independent SPEC→QUALITY are Ready, source `097b789a` matches22 reviewed blobs. Full private bootstrap and
 installed combined wiring remain BC10. See [current evidence](ecs-fleet-bc07-runtime.md).
+
+## BC08 scheduled goal lifecycle (locally accepted)
+
+Original ticket consumption now associates each scheduled remote goal with an immutable occurrence/owner/initial-run/task/generation receipt. Subsequent occurrences of that schedule retain the original queue, coalescing, age and timeout while waiting; the blocker applies before Local or remote admission and before execution/fairness charge. Existing named-slot dedupe is reused.
+
+The original accepted terminal pair plus physical STOP/release, verified neverassigned cancellation, or the original completed authenticated cancellation of a stopped waiting goal records resolution in its existing transaction. The latter references the original operation and accepted source; no new STOP or final publication is fabricated. Execution writers never acquire schedule locks. Trusted reconciliation locks parent/occurrence in deterministic order and uses actionable bounded scans plus rotating historical-proof retry. First terminal goal boundaries exclude later human results.
+
+Neutral optional pending/outcome hooks preserve original metadata/capability/parent-last-run/occurrence identity. The initial core occurrence can succeed and free execution budget while the once parent remains running. Original completion writers recompute policy under their locks, and single/multi recovery consults the same receipt. Both host and private runner use these original hooks.
+
+Main1passed9.54s carries unchanged participating Fleet semantics; the corrected sole boundary1passed13.61s naturally exited0 with owned-schema cleanup and real HTTP/SQL/native process records. Its actual Local worker completes before launch bookkeeping without ownership loss, and original bookkeeping preserves the completed parent. Host aggregate fencing uses the original persisted Fleet execution backend; private capability validation and locked Fleet policy rebasing remain strict. Root matched all14 final-source-02 fingerprints and actual-path Ruff/format/Python3.12 compile receipts. Fresh independent SPEC and QUALITY are Ready; all14 reviewed blobs match source `d08f7763`. Historical/cross-generation/failure/neverassigned paths retain source-only qualification. No fresh installed/bootstrap/ECS claim; BC09–10 remain required. See [current runtime evidence](ecs-fleet-bc08-runtime.md).

@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08 已本地验收（源码 `d08f7763`）；BC09–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -66,12 +66,12 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 8. BC08 Scheduler 目标阻塞与命名子任务
 
-按[当前接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc08-scheduled-goals.md)推进：复用原 ticket/placement/AgentTask 关联，在原认证 STOP 或严格未分配取消事务记录不可重开的目标完成凭据；排队/公平候选只读阻塞条件。保留原 occurrence 完成身份，once 父任务等待真实聚合完成；重启恢复复用中立可选回调。现有命名 slot 去重键复用。先一个真实到期 schedule→C→B→C→下一 queued occurrence 主干，GREEN 后仅一个重启/队列超时/once 集中必要边界；尚未修改 BC08 源码或运行测试。
+已按[当前接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc08-scheduled-goals.md)完成本地验收，源码 `d08f776375cd70776d0d0feda6a820a7eca65755` 的14个 reviewed Python blobs一致。原主干9.54s保留未改主干/Fleet路径资格；唯一集中边界在 Local 快速完成兼容性修复后1passed13.61s、自然0/两自有schema清理。Fresh SPEC→QUALITY Ready；支持 schedule-wide queued/age/zero-charge、once真实目标完成与重启、Local完成早于记账、原队列超时及认证waiting取消。历史/跨generation/failure/neverassigned路径仅源码审查；完整安装组合仍待BC10。详见[验收记录](../../../docs/ecs-fleet-bc08-acceptance.md)。
 
-- [ ] 8.1 写并运行 backend/tests/fleet/test_bc08_fleet_agent_job_continuations.py，确认 BC08 行为测试 RED。
-- [ ] 8.2 完成计划列出的接口、事务和部署接线；满足 `Scheduled aggregate tasks preserve durable queue semantics`。
-- [ ] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 8.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 8.1 写并运行 backend/tests/fleet/test_bc08_fleet_agent_job_continuations.py，确认 BC08 行为测试 RED。
+- [x] 8.2 完成计划列出的接口、事务和部署接线；满足 `Scheduled aggregate tasks preserve durable queue semantics`。
+- [x] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 8.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 9. BC09 交付统一任务摘要与操作入口
 

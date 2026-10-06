@@ -1,3 +1,7 @@
+## 2026-10-07 — BC08 locally accepted
+
+BC08 source `d08f776375cd70776d0d0feda6a820a7eca65755` matches14 reviewed committed Python blobs. Main9.54s carries unchanged original main/Fleet semantics; corrected sole boundary13.61s naturally exited0 with both owned schemas dropped, including actual Local completion before bookkeeping without ownership loss and completed parent preserved through original bookkeeping. Actual-path Ruff check/format and Python3.12 compile passed; fresh independent SPEC→QUALITY Ready. [Acceptance](../../ecs-fleet-bc08-acceptance.md) records native/source-only qualifications and historical failures. B, C01–C12 and BC01–BC08 retain local acceptance; BC09–BC10 and final installed combined gate remain required. Older sections below are historical.
+
 ## 2026-10-07 — BC06 locally accepted
 
 BC06 source `8abe7af9f9b4683f055ba577ee9b0b6cac686a45` matches23 reviewed Python blobs. Actual native main1passed11.96s and the sole corrected boundary1passed33.00s exited naturally0; eight owned schemas dropped. Independent SPEC and corrected QUALITY Ready. Initial nonwaiting human handoffs reject without mutation; waiting generation, exact STOP, awaited/detached and source receipt contracts are qualified at their recorded native scopes. [Acceptance](../../ecs-fleet-bc06-acceptance.md) preserves historical failures and limitations. BC07–BC10 and final installed combined entrypoint remain required. Older status sections below are historical.

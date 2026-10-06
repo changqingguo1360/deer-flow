@@ -397,4 +397,4 @@ C08 local acceptance (0018): [contracts](../docs/ecs-fleet-c08-runtime.md).
 C09 STOP/cancellation: [contracts](../docs/ecs-fleet-c09-runtime.md).
 C10 routing/queued admission uses original UoW callbacks and shared reservations:
 [C10](../docs/ecs-fleet-c10-runtime.md); [C11 summaries/drain](../docs/ecs-fleet-c11-runtime.md).
-C12/BC01–06 accepted. [BC07](../docs/ecs-fleet-bc07-runtime.md): gates passed; BC07–10 pending. Flags off.
+C12/BC01–08 accepted. [BC08](../docs/ecs-fleet-bc08-acceptance.md): native scope. BC09–10 required. Flags off.
