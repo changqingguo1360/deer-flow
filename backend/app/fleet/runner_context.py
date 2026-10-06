@@ -468,7 +468,12 @@ def validate_model_bindings(private, spec, bindings):
     if not isinstance(bindings, dict) or not bindings:
         raise ValueError("Approved model bindings required")
     for name, binding in bindings.items():
-        if not isinstance(binding, dict) or set(binding) != {"provider_use", "target_model", "version"} or not all(isinstance(value, str) and value for value in binding.values()):
+        if (
+            not isinstance(binding, dict)
+            or set(binding) != {"provider_use", "target_model", "version", "budget_contract"}
+            or not all(isinstance(binding.get(key), str) and binding[key] for key in ("provider_use", "target_model", "version"))
+            or not isinstance(binding.get("budget_contract"), dict)
+        ):
             raise ValueError("Invalid approved model binding")
         model = next((item for item in private.models if item.name == name), None)
         if model is not None and any(set(model.model_dump().get(branch) or {}) & {"model", "use"} for branch in ("when_thinking_enabled", "when_thinking_disabled")):
@@ -534,6 +539,13 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             raise ValueError("Model authentication requires its declared launch secret reference")
         return values
 
+    from deerflow.models.budgeted_provider import validate_contract
+
+    contracts = {}
+    for name, binding in bindings.items():
+        contract = binding["budget_contract"]
+        validate_contract(contract, provider_use=binding["provider_use"], target_model=binding["target_model"], version=binding["version"])
+        contracts[name] = contract
     compatibility = installed_compatibility()
     if (spec.runtime_digest, spec.skill_snapshot, spec.plugin_snapshot) != (compatibility.runtime_digest, compatibility.skill_snapshot, compatibility.plugin_snapshot):
         raise ValueError("Installed Agent runtime is incompatible")
@@ -615,6 +627,11 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             from deerflow.runtime.execution.yield_control import CooperativeYield
 
             cooperative_yield = CooperativeYield(BoundFleetYield(sf, drivers.get("fleet").jobs.parent_capability))
+        from deerflow.models.call_budget import call_budget_scope
+
+        from .model_budgets import FleetModelBudgetCapability
+
+        model_budget = FleetModelBudgetCapability(sf, bootstrap.identity, spec, contracts=contracts)
         private_tools = None
         private_memory = None
         from deerflow.persistence.agent_definition_context import agent_definition_store_scope
@@ -624,6 +641,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             # Enter after the original mutation scope and before Runner creates
             # its executor so graph construction and tool Tasks inherit both.
             with ExitStack() as scoped:
+                scoped.enter_context(call_budget_scope(model_budget))
                 if private_fleet_config is not None:
                     from deerflow.mcp.tasks.fleet_runtime import fleet_job_submitter_scope
 

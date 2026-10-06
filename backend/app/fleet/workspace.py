@@ -244,7 +244,13 @@ class FleetWorkspacePublisher:
         key = hashlib.sha256(canonical([snapshot.config["configurable"]["checkpoint_id"], status, record.error, record.stop_reason])).hexdigest()
         controlled = record.abort_event.is_set() and record.abort_action in {"interrupt", "rollback"}
         human_input = self.controller.awaiting_human_input(snapshot) if not controlled else False
-        paused = controlled or status == "interrupted" and bool(snapshot.next or any(task.interrupts for task in snapshot.tasks) or human_input)
+        from deerflow_ecs_fleet.persistence.models import TaskBudgetRow
+
+        async with self.sf() as session:
+            budget = await session.get(TaskBudgetRow, self.capability.context.agent_task_id)
+        budget_pause = budget is not None and budget.blocked_reason is not None
+        waiting = waiting and not budget_pause
+        paused = budget_pause or controlled or status == "interrupted" and bool(snapshot.next or any(task.interrupts for task in snapshot.tasks) or human_input)
         requires_input = paused and not controlled and (human_input or any(task.interrupts for task in snapshot.tasks))
         identity = self.boundary(
             snapshot.config,

@@ -185,7 +185,22 @@ async def test_owned_allowlist_optional_runtime_and_real_local_execution(c10_env
         admitted = await client.post("/api/threads/thread-c10-http/runs", json={"input": {"messages": [{"role": "user", "content": "owned summary"}]}, "execution": {"preference": "remote", "profile": "remote"}})
         assert admitted.status_code == 200
         summary = (await client.get("/api/threads/thread-c10-http/agent-tasks")).json()[0]
-        assert set(summary) == {"task_id", "state", "current_run_id", "generation", "run_status", "profile", "location", "cancel_requested", "recovery_required", "stop_state", "resources_held"}
+        assert set(summary) == {
+            "task_id",
+            "state",
+            "current_run_id",
+            "generation",
+            "run_status",
+            "profile",
+            "location",
+            "cancel_requested",
+            "recovery_required",
+            "stop_state",
+            "resources_held",
+            "budget",
+            "blocked_reason",
+            "execution_uncertain",
+        }
         await app.state.thread_store.create("thread-c11-empty", user_id=user.id)
         assert (await client.get("/api/threads/thread-c11-empty/agent-tasks/" + summary["task_id"])).status_code == 404
         outsider_id = uuid4()

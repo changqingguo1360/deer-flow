@@ -133,6 +133,12 @@ class FleetJobService:
                 staged_deadline=now + timedelta(seconds=self.config.staged_timeout_seconds),
                 queue_deadline=now + timedelta(seconds=spec.queue_timeout_seconds),
             )
+            if self.parent_capability is not None:
+                from .persistence.models import AgentTaskRow
+                from .task_budgets import charge
+
+                task = await session.get(AgentTaskRow, self.parent_capability.owner.agent_task_id)
+                await charge(session, task=task, kind="job", logical_id=values["id"], config=self.config)
             # Concurrent identical submissions serialize on the unique index;
             # the winner's immutable tracking identity is always returned.
             await session.execute(insert(JobRow).values(**values).on_conflict_do_nothing(index_elements=["user_id", "idempotency_key"]))

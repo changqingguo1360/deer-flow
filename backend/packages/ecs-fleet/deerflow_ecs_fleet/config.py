@@ -80,6 +80,9 @@ class FleetConfig(BaseModel):
     profiles: dict[str, ExecutionProfile] = Field(default_factory=dict)
     scheduled_job_slots: dict[str, str] = Field(default_factory=dict)
     agent_bindings: dict[str, AgentRoutingBinding] = Field(default_factory=dict)
+    task_run_limit: int = Field(default=16, gt=0, le=2**31 - 1)
+    task_job_limit: int = Field(default=128, gt=0, le=2**31 - 1)
+    task_token_limit: int = Field(default=1_000_000, gt=0, le=2**63 - 1)
     ticket_seconds: int = Field(default=60, ge=1, le=120)
     scheduling_mode: Literal["reserved", "serial"] = "reserved"
     reserved_job_profile: str | None = None

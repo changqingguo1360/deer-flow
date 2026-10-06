@@ -325,4 +325,6 @@ def create_chat_model(name: str | None = None, thinking_enabled: bool = False, *
             existing_callbacks = model_instance.callbacks or []
             model_instance.callbacks = [*existing_callbacks, *callbacks]
             logger.debug(f"Tracing attached to model '{name}' with providers={len(callbacks)}")
-    return model_instance
+    from deerflow.models.budgeted_provider import guard_model
+
+    return guard_model(model_instance, model_name=name, provider_use=model_config.use)

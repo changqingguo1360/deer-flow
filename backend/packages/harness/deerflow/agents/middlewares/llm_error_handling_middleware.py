@@ -23,6 +23,7 @@ from langchain_core.messages import AIMessage
 from langgraph.errors import GraphBubbleUp
 
 from deerflow.config.app_config import AppConfig
+from deerflow.models.call_budget import is_private_call_denial
 from deerflow.utils.custom_events import aemit_custom_event, emit_custom_event
 
 logger = logging.getLogger(__name__)
@@ -798,6 +799,9 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                 self._release_half_open_probe()
                 raise
             except Exception as exc:
+                if is_private_call_denial(exc):
+                    self._release_half_open_probe()
+                    raise
                 retriable, reason = self._classify_error(exc)
                 max_attempts = self._max_attempts_for(exc, reason)
                 if retriable and attempt < max_attempts:
@@ -857,6 +861,9 @@ class LLMErrorHandlingMiddleware(AgentMiddleware[AgentState]):
                 self._release_half_open_probe()
                 raise
             except Exception as exc:
+                if is_private_call_denial(exc):
+                    self._release_half_open_probe()
+                    raise
                 retriable, reason = self._classify_error(exc)
                 max_attempts = self._max_attempts_for(exc, reason)
                 if retriable and attempt < max_attempts:

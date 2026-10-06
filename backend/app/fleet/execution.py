@@ -245,6 +245,7 @@ class FleetRunAdmission:
     async def insert(self, session, admitted_run):
         if admitted_run["user_id"] != self.parameters.user_id or admitted_run["thread_id"] != self.parameters.thread_id:
             raise ValueError("Run admission owner conflicts with launch identity")
+        source_generation = self.task.generation
         if self.resume_point is not None:
             # Same admission TX retains the original task/run/ledger locks.
             # Human input is not a B continuation and does not spend its budget.
@@ -255,6 +256,12 @@ class FleetRunAdmission:
             self.task.state = "queued"
         elif self.task.current_run_id is not None:
             raise ConflictError("Agent task already has a current run")
+        from deerflow_ecs_fleet.task_budgets import TaskBudgetExceeded, charge
+
+        try:
+            await charge(session, task=self.task, kind="run", logical_id=admitted_run["run_id"], config=self.backend.config, source_generation=source_generation)
+        except TaskBudgetExceeded as error:
+            raise ConflictError(str(error)) from error
         spec = self.spec_for(run_id=admitted_run["run_id"], agent_task_id=self.task.id, generation=self.task.generation, execution_deadline=self.task.deadline)
         now = (await session.execute(text("SELECT clock_timestamp()"))).scalar_one()
         await RunPlacements().create(session, spec=spec, queue_deadline=min(spec.execution_deadline, now + timedelta(seconds=self.backend.config.queue_timeout_seconds)))

@@ -1,6 +1,6 @@
 """Shared identities and budgets for job and Agent execution attempts."""
 
-from sqlalchemy import JSON, BigInteger, CheckConstraint, Column, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, PrimaryKeyConstraint, String, Table, Text, UniqueConstraint, text
+from sqlalchemy import JSON, BigInteger, Boolean, CheckConstraint, Column, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, PrimaryKeyConstraint, String, Table, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from .base import FleetBase
@@ -659,4 +659,83 @@ class TaskOperationReceiptRow(FleetBase):
         timestamp("created_at"),
         UniqueConstraint("agent_task_id", "operation", "idempotency_key", name="uq_fleet_task_operation_key"),
         CheckConstraint("source_generation > 0 AND target_generation >= source_generation", name="ck_fleet_task_operation_generation"),
+    )
+
+
+class TaskBudgetRow(FleetBase):
+    __table__ = Table(
+        "fleet_task_budgets",
+        metadata,
+        Column("agent_task_id", String(64), ForeignKey("fleet_agent_tasks.id"), primary_key=True),
+        Column("run_limit", BigInteger, nullable=False),
+        Column("job_limit", BigInteger, nullable=False),
+        Column("token_limit", BigInteger, nullable=False),
+        Column("admitted_runs", BigInteger, nullable=False, server_default="0"),
+        Column("submitted_jobs", BigInteger, nullable=False, server_default="0"),
+        Column("spent_tokens", BigInteger, nullable=False, server_default="0"),
+        Column("reserved_tokens", BigInteger, nullable=False, server_default="0"),
+        Column("legacy_usage_unknown", Boolean, nullable=False, server_default="false"),
+        Column("blocked_reason", String(128)),
+        timestamp("created_at"),
+        CheckConstraint(
+            "run_limit >= 0 AND job_limit >= 0 AND token_limit >= 0 AND admitted_runs >= 0 AND submitted_jobs >= 0 "
+            "AND spent_tokens >= 0 AND reserved_tokens >= 0 AND admitted_runs <= run_limit AND submitted_jobs <= job_limit "
+            "AND spent_tokens + reserved_tokens <= token_limit",
+            name="ck_fleet_task_budget_limits",
+        ),
+    )
+
+
+class TaskBudgetChargeRow(FleetBase):
+    __table__ = Table(
+        "fleet_task_budget_charges",
+        metadata,
+        Column("agent_task_id", String(64), ForeignKey("fleet_task_budgets.agent_task_id"), primary_key=True),
+        Column("kind", String(8), primary_key=True),
+        Column("logical_id", String(64), primary_key=True),
+        Column("generation", Integer, nullable=False),
+        timestamp("created_at"),
+        CheckConstraint("kind IN ('run','job') AND generation > 0", name="ck_fleet_task_budget_charge"),
+    )
+
+
+class ModelReservationRow(FleetBase):
+    __table__ = Table(
+        "fleet_model_reservations",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("agent_task_id", String(64), ForeignKey("fleet_task_budgets.agent_task_id"), nullable=False),
+        Column("generation", Integer, nullable=False),
+        Column("run_id", String(64), nullable=False),
+        Column("attempt_id", String(64), ForeignKey("fleet_attempts.id"), nullable=False),
+        Column("node_id", String(64), nullable=False),
+        Column("node_session_id", String(64), nullable=False),
+        Column("token_stamp", String(64), nullable=False),
+        Column("provider_contract", json_type, nullable=False),
+        Column("request_digest", String(64), nullable=False),
+        Column("input_bound", BigInteger, nullable=False),
+        Column("output_bound", BigInteger, nullable=False),
+        Column("reserved_tokens", BigInteger, nullable=False),
+        Column("state", String(16), nullable=False),
+        Column("measured_usage", json_type),
+        Column("unknown_reason", String(128)),
+        timestamp("created_at"),
+        CheckConstraint("state IN ('reserved','settled','unknown') AND generation > 0 AND input_bound > 0 AND output_bound > 0 AND reserved_tokens = input_bound + output_bound", name="ck_fleet_model_reservation"),
+        Index("ix_fleet_model_reservations_task", "agent_task_id", "state"),
+    )
+
+
+class TaskBudgetDecisionRow(FleetBase):
+    __table__ = Table(
+        "fleet_task_budget_decisions",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("agent_task_id", String(64), ForeignKey("fleet_task_budgets.agent_task_id"), nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("generation", Integer, nullable=False),
+        Column("source_run_id", String(64)),
+        Column("request_digest", String(64)),
+        Column("reason", String(128), nullable=False),
+        timestamp("created_at"),
     )

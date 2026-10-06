@@ -954,6 +954,8 @@ def preflight_remote_memory(config):
     """Resolve support before from_config, warm-up or constructor effects."""
     from deerflow.runtime.execution.mutation_context import OwnershipRejected
 
+    if config.backend_config.get("model") or config.backend_config.get("host_llm") or config.backend_config.get("llm"):
+        raise OwnershipRejected("Explicit remote memory models require an approved model budget adapter")
     cls = _resolve_manager_class(config.manager_class)
     if cls.remote_mutation_mode not in {"stateless", "transactional"}:
         raise OwnershipRejected("Configured memory backend does not support remote fenced mutations")

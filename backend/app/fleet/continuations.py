@@ -184,6 +184,12 @@ class FleetContinuationAdmission(FleetRunAdmission):
         await self.validate_continuation(session, self.task)
         if (admitted_run["user_id"], admitted_run["thread_id"]) != (self.group.user_id, self.group.thread_id):
             raise ConflictError("Continuation run owner conflicts")
+        from deerflow_ecs_fleet.task_budgets import TaskBudgetExceeded, charge
+
+        try:
+            await charge(session, task=self.task, kind="run", logical_id=admitted_run["run_id"], config=self.backend.config)
+        except TaskBudgetExceeded as error:
+            raise ConflictError(str(error)) from error
         await AgentTasks().consume_continuation(session, task=self.task, group=self.group, run_id=admitted_run["run_id"])
         spec = self.spec_for(run_id=admitted_run["run_id"], agent_task_id=self.task.id, generation=self.task.generation, execution_deadline=self.source_spec.execution_deadline)
         now = await session.scalar(text("SELECT clock_timestamp()"))
@@ -271,6 +277,12 @@ def install_fleet_continuations(app, session_factory, runtime):
         if coordinator is None:
             coordinator = app.state.fleet_continuations = FleetContinuations(session_factory, runtime.config, manager)
         coordinator.config = runtime.config
+        from app.fleet.task_recovery import FleetTaskRecovery
+
+        recovery = getattr(app.state, "fleet_task_recovery", None)
+        if recovery is None:
+            recovery = app.state.fleet_task_recovery = FleetTaskRecovery(session_factory)
+        await recovery.scan()
         async with session_factory() as session:
             query = select(WaitGroupRow.id, WaitGroupRow.created_at).where(WaitGroupRow.state == "waiting_jobs")
             if cursor is not None:

@@ -1,6 +1,7 @@
 """Bounded owner-scoped projection; private Fleet records never cross HTTP."""
 
-from deerflow_ecs_fleet.persistence.models import AgentTaskRow, AttemptRow, ReservationRow, RunPlacementRow, SchedulerTicketRow
+from deerflow_ecs_fleet.persistence.agent_tasks import AgentTasks
+from deerflow_ecs_fleet.persistence.models import AgentTaskRow, AttemptRow, ReservationRow, RunPlacementRow, SchedulerTicketRow, TaskBudgetRow
 from sqlalchemy import and_, exists, or_, select
 
 from deerflow.persistence.run.model import RunRow
@@ -45,10 +46,12 @@ class FleetTaskSummaries:
                 attempt.id.label("attempt_id"),
                 held.label("resources_held"),
                 historical.label("historical"),
+                TaskBudgetRow,
             )
             .join(placement, and_(placement.run_id == task.current_run_id, placement.agent_task_id == task.id, placement.generation == task.generation, placement.user_id == task.user_id, placement.thread_id == task.thread_id))
             .join(run, and_(run.run_id == placement.run_id, run.user_id == task.user_id, run.thread_id == task.thread_id))
             .outerjoin(attempt, and_(attempt.id == placement.active_attempt_id, attempt.kind == "agent", attempt.run_id == run.run_id))
+            .outerjoin(TaskBudgetRow, TaskBudgetRow.agent_task_id == task.id)
             .where(task.user_id == user_id, task.thread_id == thread_id)
         )
         if task_id is not None:
@@ -66,7 +69,11 @@ class FleetTaskSummaries:
         # still held by this original run (including scheduler-ticket capacity).
         if row["resources_held"] and (row["state"] in TERMINAL_TASKS or row["run_status"] in {"success", "error", "interrupted", "timeout"}):
             stop = "unconfirmed"
+        budget = row.get("TaskBudgetRow")
+        budget_projection = AgentTasks.public_budget(budget, state=row["state"])
         return {
+            **budget_projection,
+            "execution_uncertain": budget_projection["execution_uncertain"] or row["placement_state"] in {"unknown", "recovery_required"} or (not never_assigned and row["attempt_id"] is None),
             "task_id": row["id"],
             "state": row["state"],
             "current_run_id": row["current_run_id"],
@@ -75,7 +82,11 @@ class FleetTaskSummaries:
             "profile": row["profile"],
             "location": "queued" if never_assigned else "remote",
             "cancel_requested": row["task_cancel"] is not None or row["run_cancel"] is not None,
-            "recovery_required": row["state"] in {"unknown", "recovery_required"} or row["placement_state"] in {"unknown", "recovery_required"} or (not never_assigned and row["attempt_id"] is None),
+            "recovery_required": budget is None
+            or budget.legacy_usage_unknown
+            or row["state"] in {"unknown", "recovery_required"}
+            or row["placement_state"] in {"unknown", "recovery_required"}
+            or (not never_assigned and row["attempt_id"] is None),
             "stop_state": stop,
             "resources_held": bool(row["resources_held"]),
         }

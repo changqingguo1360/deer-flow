@@ -244,7 +244,12 @@ class FleetHumanRunAdmission(FleetRunAdmission):
         if (admitted_run["user_id"], admitted_run["thread_id"]) != (self.task.user_id, self.task.thread_id):
             raise ConflictError("Human admission owner conflicts")
         from deerflow_ecs_fleet.persistence.placements import RunPlacements
+        from deerflow_ecs_fleet.task_budgets import TaskBudgetExceeded, charge
 
+        try:
+            await charge(session, task=self.task, kind="run", logical_id=admitted_run["run_id"], config=self.backend.config, source_generation=self.expected_generation)
+        except TaskBudgetExceeded as error:
+            raise ConflictError(str(error)) from error
         spec = self.spec_for(run_id=admitted_run["run_id"], agent_task_id=self.task.id, generation=self.task.generation, execution_deadline=self.task.deadline)
         now = await session.scalar(text("SELECT clock_timestamp()"))
         self.task.state = "queued"
