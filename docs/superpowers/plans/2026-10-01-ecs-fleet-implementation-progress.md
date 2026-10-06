@@ -6415,3 +6415,5 @@ C12 accepted source commit `8ac8c00a47864b03e84ca90c25a5921df412d3ac`; all7 revi
 BC01 main RED observed after C acceptance: actual original submission chain created jobs but zero owned links (required2), natural1/1failed3.12s, owned UUID schema dropped. Root inspected original log/receipt. Current-source audited plan selects f0011 after actual migration head and host-injected original mutation authority; BC01 implementation ongoing, BC02–BC10 required/pending. No fault neighbor or image build yet.
 
 BC01 accepted: `ce92de4ab1f47eeac25e03544019bb7d619b23dd`. Main-final-01 1passed2.73s; boundary-final-01 1passed2.04s; natural0, matching maps, owned schemas dropped. Fresh SPEC then QUALITY Ready. BC02–BC10 remain required; installed C→B→C not yet demonstrated.
+
+BC02 accepted at `c08b8014801c762c3d2a9157e90ca1462a6a35f3`: one explicit-await native main1passed6.59s, one concentrated normal-end boundary1passed9.18s, natural0/matching actual owned process/STOP/cleanup/source qualification. Fresh SPEC then QUALITY Ready; no broad suite or Dockerbuild. BC03–BC10 and installed C→B→C remain required.
