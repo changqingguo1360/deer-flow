@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -39,10 +39,12 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 5. BC05 共用公平调度与最小池无死锁
 
-- [ ] 5.1 写并运行 backend/tests/fleet/test_bc05_fleet_agent_job_continuations.py，确认 BC05 行为测试 RED。
-- [ ] 5.2 完成计划列出的接口、事务和部署接线；满足 `Fair shared scheduling and bounded child wait`。
-- [ ] 5.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 5.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+按[当前实际接线计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc05-shared-scheduling.md)推进：显式reserved/serial、持久类别轮转、实际current-session mixed worker、一槽installed C→B→C主干先行；之后至多一个集中必要边界。源码已实现并冻结；installed主干main-green-8（1passed38.76s）和唯一native边界boundary-2（1passed4.89s）自然退出0，自有schema已清理；独立SPEC已Ready。独立QUALITY已Ready；源码 `c153ad1951fcf1f8edaa5f5a4a0483d9228c3346` 的22个reviewed blobs一致，BC05本地验收完成。原main完整prefix与后来追加boundary分别保留资格，不重复成功测试。
+
+- [x] 5.1 写并运行 backend/tests/fleet/test_bc05_fleet_agent_job_continuations.py，确认 BC05 行为测试 RED。
+- [x] 5.2 完成计划列出的接口、事务和部署接线；满足 `Fair shared scheduling and bounded child wait`。
+- [x] 5.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 5.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 6. BC06 取消、用户输入和 generation 竞态
 

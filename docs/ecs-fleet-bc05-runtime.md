@@ -1,6 +1,6 @@
-# BC05 shared scheduling runtime (in development)
+# BC05 shared scheduling runtime (locally accepted)
 
-BC05 is being implemented against BC04 source `f24a88d7142e83a4a57077a1cafaa4411c067d42` and receipt `529819da84d31df4ede2caf971d3e5463a5fffaf`. It has not passed local acceptance. BC06–BC10 remain required; operator activation and ECS deployment are outside the current authorization.
+BC05 was implemented against BC04 source `f24a88d7142e83a4a57077a1cafaa4411c067d42` and receipt `529819da84d31df4ede2caf971d3e5463a5fffaf`. It is locally accepted at source `c153ad1951fcf1f8edaa5f5a4a0483d9228c3346` after the installed main, concentrated native boundary and independent SPEC→QUALITY reviews. BC06–BC10 remain required; operator activation and ECS deployment are outside the current authorization.
 
 The current [implementation plan](superpowers/plans/2026-10-06-ecs-fleet-bc05-shared-scheduling.md) requires one installed C→B→C main first, then one concentrated necessary boundary. Initial main RED reached the original authenticated node claim route: `kind=mixed` returned 422. That failure proves the missing mixed claim interface, not an executed container sequence. Preliminary image builds do not establish installed acceptance. The first installed GREEN attempt exited 1 after 10.25 seconds at compatibility preflight: the newly declared Fleet plugin did not match the reused empty-plugin workspace contract. No C/B claim or container spine ran; correcting this approved asset does not relax the original validator.
 
@@ -26,4 +26,4 @@ The independent original control observer retries only a `TimeoutError` from its
 
 ## Evidence limits
 
-The installed main and concentrated native boundary passed at their recorded scopes; final runtime image/source alignment and changed-file static checks passed. Independent SPEC returned SpecReady. QUALITY and the final source/documentation receipt remain pending; BC05 is not yet accepted. See the [qualification record](ecs-fleet-bc05-acceptance.md) for actual evidence and its limits. BC10 still owns the final combined delivery gate; BC05 evidence must report the exact startup, container, SQL, STOP, workspace and cleanup scope that actually ran.
+The installed main and concentrated native boundary passed at their recorded scopes; final runtime image/source alignment and changed-file static checks passed. Independent SPEC returned SpecReady. Independent QUALITY returned QualityReady; all 22 reviewed blobs match the accepted source commit. BC05 local acceptance retains the scope limits below. See the [qualification record](ecs-fleet-bc05-acceptance.md) for actual evidence and its limits. BC10 still owns the final combined delivery gate; BC05 evidence must report the exact startup, container, SQL, STOP, workspace and cleanup scope that actually ran.

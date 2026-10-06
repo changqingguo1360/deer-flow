@@ -344,6 +344,8 @@ git commit -m "feat(fleet): bc04 统一结果 delivery owner 与通知互斥"
 
 ### Task BC05: 共用公平调度与最小池无死锁
 
+当前执行以[实际源码接线计划](2026-10-06-ecs-fleet-bc05-shared-scheduling.md)为准：显式reserved/serial、标准Bprofile、持久类别轮转与session能力、原stock mixed daemon和实际一槽installed主干。下方fleet_probe/node ID为历史示意，不是执行fixture/证据；最多一个主干和一个集中必要边界。BC05尚未完成。
+
 **Files:**
 - Create: `backend/packages/ecs-fleet/deerflow_ecs_fleet/admission_policy.py`
 - Modify: `backend/packages/ecs-fleet/deerflow_ecs_fleet/scheduler.py`

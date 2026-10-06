@@ -10,7 +10,7 @@
 
 ---
 
-基线：BC04 source f24a88d7142e83a4a57077a1cafaa4411c067d42，receipt 529819da84d31df4ede2caf971d3e5463a5fffaf，工作区 clean。BC05 实现中，尚未验收。BC06–BC10 仍必需。用户已授权顺序执行与既有子代理工作流；无需再询问执行方式。
+基线：BC04 source f24a88d7142e83a4a57077a1cafaa4411c067d42，receipt 529819da84d31df4ede2caf971d3e5463a5fffaf，工作区 clean。BC05已本地验收，源码 `c153ad1951fcf1f8edaa5f5a4a0483d9228c3346`，22 reviewed blobs一致。BC06–BC10 仍必需。用户已授权顺序执行与既有子代理工作流；无需再询问执行方式。
 
 ## 配置与持久接口
 
@@ -94,15 +94,15 @@ build-8 实际自然0，镜像 `sha256:b25bba66da679ba1b6c4cf742bfca08977b0f9b81
 
 ## Task 2: 原路径实现与一个主干 GREEN
 
-- [ ] 实现上述逐文件接口，在原 execution/scheduled-parent locks 之后锁 singleton，再锁共同排序的 Node；不得 node→singleton、singleton→scheduled parent 或相反 queue FOR UPDATE。
-- [ ] eligible 读取使用实际版本/allowlist/session capabilities/resources/deadlines/cancellation/core ownership；只在成功新 reservation 同事务推进 turn，回滚不能消耗 turn。已有 ticket 已 charge 的后续 claim 保留原 fence，无第二次 advance。
+- [x] 实现上述逐文件接口，在原 execution/scheduled-parent locks 之后锁 singleton，再锁共同排序的 Node；不得 node→singleton、singleton→scheduled parent 或相反 queue FOR UPDATE。
+- [x] eligible 读取使用实际版本/allowlist/session capabilities/resources/deadlines/cancellation/core ownership；只在成功新 reservation 同事务推进 turn，回滚不能消耗 turn。已有 ticket 已 charge 的后续 claim 保留原 fence，无第二次 advance。
 - [x] 当前安装源、真实 HTTP node claims 和 actual one-slot container sequence 达到主干 GREEN：main-green-8 自然0/1passed38.76s，三个实际容器exit0/STOP/released、原continuation结果引用回流，schema/container清理。
 - [x] 持续 B/C eligible 到达的轮转/FIFO/资源账本观测集中到Task3唯一必要boundary；成功main不因新增独立boundary函数而机械重跑。区分已执行容器spine与后续native调度SQL范围。
 - [x] 主干通过前不执行边界、不新增矩阵、不运行 B/C/Fleet 全套。无实际源码/失败/未解决资格问题，不重复成功案例。
 
 ## Task 3: 一个集中必要边界
 
-- [ ] 主干通过后，仅一个 `test_bc05_shared_turn_and_reserved_capacity`：并发/重建 policy 原持久 turn 收敛、held ticket 不重复 charge/advance、同类别 eligible FIFO、不兼容 head 不饿死、reserved 真实节点及跨节点碎片不能伪造配额、active B 合法使用其配额时 C 不饥饿、serial unknown 不释放容量，以及此次实际组合修复所需的控制read timeout重试/真实撤权不吞。主干若已记录自然retry，复用正向证据，边界只补hard rejection。复用同一真实 repositories/locks，不创建影子模拟执行器。
+- [x] 主干通过后，仅一个 `test_bc05_shared_turn_and_reserved_capacity`：并发/重建 policy 原持久 turn 收敛、held ticket 不重复 charge/advance、同类别 eligible FIFO、不兼容 head 不饿死、reserved 真实节点及跨节点碎片不能伪造配额、active B 合法使用其配额时 C 不饥饿、serial unknown 不释放容量，以及此次实际组合修复所需的控制read timeout重试/真实撤权不吞。主干若已记录自然retry，复用正向证据，边界只补hard rejection。复用同一真实 repositories/locks，不创建影子模拟执行器。
 - [x] 静态/格式在最终资格前完成。每个 attempt 独立 source-map/SQL/cleanup；只因实际修复再执行同一选择器，不增加独立案例。
 
 ```bash
@@ -113,12 +113,14 @@ build-8 实际自然0，镜像 `sha256:b25bba66da679ba1b6c4cf742bfca08977b0f9b81
 
 ## Task 4: 冻结与交付
 
-- [ ] 最终所有变更源码与实际 installed wheel/image、主干/边界预执行 maps 对齐；未修改继承证据按原范围复用，历史 map缺失不得回填。migration-head 断言维护不称其旧案例已执行。
-- [ ] Ruff check/format --check只对变更 Python；git diff --check、严格 OpenSpec、guidance 检查。没有源码变化不重跑或重建。
-- [ ] 独立 SPEC，然后 QUALITY（SPEC已Ready；新建QUALITY代理多次返回thread limit，改由未参与BC05实现/SPEC的旧审计代理接收独立新任务，如实记录代理复用）；真实问题修复后只做必要重新资格，不在未解决审查时进入 BC06。
-- [ ] 记录当前能力/精确限制；BC05 actual installed spine不能替代 BC10 normal production startup/full combined gate、完整 crash qualification。默认关闭 flags，无 operator activation/ECS部署。
-- [ ] 源码提交并核对 blobs 后勾选 OpenSpec5.1–5.4，提交文档 receipt；继续 BC06。不得 push/merge/publish。
+- [x] 最终所有变更源码与实际 installed wheel/image、主干/边界预执行 maps 对齐；未修改继承证据按原范围复用，历史 map缺失不得回填。migration-head 断言维护不称其旧案例已执行。
+- [x] Ruff check/format --check只对变更 Python；git diff --check、严格 OpenSpec、guidance 检查。没有源码变化不重跑或重建。
+- [x] 独立 SPEC，然后 QUALITY（SPEC已Ready；新建QUALITY代理多次返回thread limit，改由未参与BC05实现/SPEC的旧审计代理接收独立新任务，如实记录代理复用）；真实问题修复后只做必要重新资格，不在未解决审查时进入 BC06。
+- [x] 记录当前能力/精确限制；BC05 actual installed spine不能替代 BC10 normal production startup/full combined gate、完整 crash qualification。默认关闭 flags，无 operator activation/ECS部署。
+- [x] 源码提交并核对 blobs 后勾选 OpenSpec5.1–5.4，提交文档 receipt；继续 BC06。不得 push/merge/publish。
 
 ## 计划自审
 
 Fair shared scheduling：commonpolicy接 B/C/ticket，持久turn与eligibleFIFO见Task2；serial实际单槽无等待死锁见Task1–2；reserved标准profile/单个真实节点见配置和Task3；physicalSTOP/unknown账本见原接口与Task3；兼容性见feature gate/sessioncapability/原daemon与ticket处理；实际安装源码与证据见Task1/4。原 fleet_probe 是历史示意，不是执行 fixture。未实现接口不作为已完成事实。
+
+本地验收结论：SPEC与QUALITY均Ready，质量审查未发现可行动问题。QUALITY代理因新建thread limit复用未参与BC05实现/SPEC的旧审计代理，本记录不称新鲜代理。原计划所有边界结论以实际acceptance范围为准：控制反向只证明inactive SQL authority拒绝，不称真实revocation/物理STOP；CLI/fullentrypoint及BC06–10仍待完成。

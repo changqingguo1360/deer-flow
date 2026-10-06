@@ -1,6 +1,6 @@
 # ECS Fleet B → C → B/C 实施总览
 
-2026-10-06: B and C01–C12 have isolated local acceptance. C12 source is committed at `8ac8c00a`; BC01–BC04 have native local acceptance (BC03 `87e0d428`, BC04 `f24a88d7`); BC05–BC10 and installed C→B→C remain required and pending. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and [C12 acceptance](../../../docs/ecs-fleet-c12-acceptance.md). Current verification follows the user’s main-first, minimal directly affected scope; historical broad runs keep their original status.
+2026-10-07: B and C01–C12 have isolated local acceptance. C12 source is committed at `8ac8c00a`; BC01–BC04 have native local acceptance (BC03 `87e0d428`, BC04 `f24a88d7`); BC05 is locally accepted at `c153ad19` with an installed one-slot C→B→C main and one native boundary; BC06–BC10 and final combined entrypoint qualification remain required and pending. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and [C12 acceptance](../../../docs/ecs-fleet-c12-acceptance.md). Current verification follows the user’s main-first, minimal directly affected scope; historical broad runs keep their original status.
 
 | 顺序 | OpenSpec change | Superpowers 计划 | 完成门槛 |
 |---|---|---|---|
