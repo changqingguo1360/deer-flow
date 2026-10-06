@@ -164,3 +164,9 @@ enqueue/actual-Task completion revisions, then repeat after service stop. Only
 then call memory close. Local/Gateway best-effort shutdown is unchanged. Verify
 real configured native queue/SQL barriers, positive completion, round-trip enqueue
 and isolated deadline exit with independent PG rollback/connection/lock checks.
+
+BC07 candidate: private memory construction rejects explicit alternate model/LLM
+settings before effects. Default factory models consult the opaque task budget at
+every request; directly cached DeerMem models reject private calls unless supported.
+Trusted queue/thread dispatch must preserve execution ContextVars. Native budget
+main passed; memory/installed budget wiring remains within subsequent qualification.

@@ -30,3 +30,18 @@ and operator version before execution; thinking settings cannot change that targ
 That version denotes the approved binding, not immutable vendor weights.
 Remote activation remains closed while later ownership fences are under
 development. See [Fleet contracts](../../../../../openspec/ecs-fleet-contracts.md).
+
+### Private task model budget (BC07 candidate)
+
+The factory retains the original model and guards its SDK clients at every call.
+`call_budget_scope` supplies an opaque host capability; harness code imports no Fleet.
+Only certified text/tool chat-completions requests may reserve before HTTP, with
+serialized input bounds, enforced output cap and SDK retries/redirects disabled.
+Complete measured usage settles after stream close; missing/invalid/error usage
+retains the full reservation. Cached/copied clients consult current authority.
+Private pretransport refusals carry the exact current opaque capability identity;
+the original sync/async model-error middleware rethrows them without provider
+retry or fallback replies. Real provider errors keep their original handling.
+Unsupported private providers and opaque streams reject before transport; Local
+requests outside the scope delegate normally. Native main and boundary passed;
+final source freeze, independent review and installed wiring remain pending.

@@ -571,3 +571,36 @@ Trusted user run admission reuses the owned task at a new generation through the
 Explicit continuation uses a stable owned operation/source receipt, current accepted checkpoint/workspace and bounded old result references without child resubmission. Consecutive unassigned user operations require their frozen LaunchSpec and exact predecessor receipt chain (bounded at64); historical source-point generation is separate from current task generation. Existing paused Command and automatic continuation source rules remain intact. IM human authority uses a worker-local signed ingress claim; generic internal tokens/metadata cannot grant it. Cross-worker/restart claim continuity and provider-ID-less redelivery stability are not qualified.
 
 main-green-05 passed native original-handler/installed-ownership composition, including actual explicit resumed execution; this does not qualify normal Gateway startup, installed image or ECS. Correction quality-green-01 passed the same concentrated boundary (33.00s), including initial nonwaiting rejection with no durable mutation. SPEC and corrected QUALITY returned Ready; source `8abe7af9` matches23 reviewed Python blobs. BC07–10 are required. See [current scope](ecs-fleet-bc06-runtime.md).
+
+## BC07 durable task budgets (locally accepted)
+
+The private f0016 migration owns frozen task limits and immutable admission/model
+receipts. Initial admission freezes run/job/token limits; later configurations,
+continuations, cancellation and generations cannot reset them. Original run UoW
+and parent-fenced job submission charge new logical work before commit; original
+dedupe/reuse returns without another charge. CPU/memory reservations remain separate.
+
+The host binds an opaque model budget after original mutation scope and before
+executor construction. Certified final SDK JSON is bounded before transport and
+reserves input plus enforced completion/reasoning allowance. Settlement releases
+only unused allowance after valid measured usage and completed stream close.
+Missing/invalid/error/lost-authority usage keeps the full charge and blocks future
+model calls and admission. New calls use the original cancellation fence; trusted
+cancellation title work has only its existing narrow authority. Immutable denial
+identity records the original owner/generation/source, without changing a later
+generation. Legacy historical tokens get zero new allowance.
+
+The SDK preserves original private pretransport exceptions; an exact current
+opaque capability marker makes the original sync/async error middleware rethrow
+them rather than retry or return a fallback reply. Local and real provider errors
+keep their original handling. Durable blocked usage prevents successful or
+waiting-jobs task publication even when a valid model reply reaches graph END.
+Only original accepted checkpoint/workspace plus matching STOP can publish pause.
+
+The original continuation scan adjudicates deadline/crash/neutral-operation
+recovery. Accepted source pairs and matching physical STOP remain required; no
+scanner releases uncertain capacity or clears a neutral mutation failure fence.
+Owned summaries expose frozen limits, counters and blocked reasons. The native
+main and concentrated boundary passed with actual SDK HTTP and original
+processes/SQL/STOP. Three actual C runs and cross-run token/job refusal were verified; independent SPEC→QUALITY are Ready, source `097b789a` matches22 reviewed blobs. Full private bootstrap and
+installed combined wiring remain BC10. See [current evidence](ecs-fleet-bc07-runtime.md).

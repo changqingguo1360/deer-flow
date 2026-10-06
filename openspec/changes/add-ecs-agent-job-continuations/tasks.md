@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -57,12 +57,12 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 7. BC07 跨 run 预算、deadline 与恢复裁决
 
-当前按[实际预算与恢复计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc07-budgets-recovery.md)开始执行。持久task预算在原run/job事务准入前扣记；私有中立模型capability在真实序列化provider请求发送前预留，已花费/未知用量不回滚；原STOP与一致checkpoint/workspace仍决定恢复权限。先一个实际C→B→C主干，之后至多一个集中必要边界。当前仅完成实际接线调查与计划，新作者正在搭建主干；未执行/通过或验收BC07，7.1–7.4保持未勾选。
+已按[实际预算与恢复计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc07-budgets-recovery.md)完成本地验收，源码 `097b789a` 的22个 reviewed Python blobs一致。主干 main-cumulative-03 三次真实 C / 两批 B 自然0/12.06s；token/job 跨 run 部分边界自然0/9.54s，历史 boundary05 恢复范围在未改源码上保留。独立 SPEC→QUALITY Ready；完整安装组合仍待 BC10，见[验收记录](../../../docs/ecs-fleet-bc07-acceptance.md)。
 
-- [ ] 7.1 写并运行 backend/tests/fleet/test_bc07_fleet_agent_job_dependencies.py，确认 BC07 行为测试 RED。
-- [ ] 7.2 完成计划列出的接口、事务和部署接线；满足 `Aggregate budgets and nonautomatic crash recovery`。
-- [ ] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 7.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 7.1 写并运行 backend/tests/fleet/test_bc07_fleet_agent_job_dependencies.py，main-red-02实际同task第四次恢复HTTP200证明累计run上限缺口；自然1/10.07s，自有schema已清理。此RED不代表token/job拒绝或恢复边界均已验证。
+- [x] 7.2 完成计划列出的接口、事务和部署接线；满足 `Aggregate budgets and nonautomatic crash recovery`。
+- [x] 7.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 7.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 8. BC08 Scheduler 目标阻塞与命名子任务
 
