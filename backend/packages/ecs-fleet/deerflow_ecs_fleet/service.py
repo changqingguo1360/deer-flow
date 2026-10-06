@@ -37,8 +37,11 @@ class FleetService:
         self.inputs = None
         self.recovery = None
         self.management = None
+        self._continuation_tasks = []
+        self._continuation_stop = asyncio.Event()
 
     async def start(self, deps) -> None:
+        self._continuation_stop = asyncio.Event()
         self.ready = False
         if deps.session_factory is None:
             raise ValueError("Fleet requires a Postgres session factory")
@@ -95,7 +98,28 @@ class FleetService:
         self.reconciler.start()
         return FleetTaskDriver(self.jobs)
 
+    def bind_continuations(self, scan):
+        """Host injection owns admission; service owns restartable scan lifecycle."""
+
+        async def run():
+            import logging
+
+            while not self._continuation_stop.is_set():
+                try:
+                    await scan()
+                except Exception:
+                    logging.getLogger(__name__).exception("Fleet continuation scan failed")
+                try:
+                    await asyncio.wait_for(self._continuation_stop.wait(), timeout=1)
+                except TimeoutError:
+                    pass
+
+        self._continuation_tasks.append(asyncio.create_task(run(), name="fleet-continuations"))
+
     async def stop(self) -> None:
+        self._continuation_stop.set()
+        await asyncio.gather(*self._continuation_tasks)
+        self._continuation_tasks.clear()
         self.ready = False
         if self.reconciler is not None:
             await self.reconciler.stop()

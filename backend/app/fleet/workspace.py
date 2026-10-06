@@ -840,17 +840,33 @@ class FleetWorkspaceTerminalParticipant:
         await self.capability._guard.validate(_SessionCursor(session), thread_id=identity.thread_id, operation="workspace.accept")
 
     async def _is_stopped_resume_source(self, session, previous):
-        """Only the exact frozen prior paused pair can precede this generation."""
-        from deerflow_ecs_fleet.persistence.models import AttemptRow, ReservationRow, RunPlacementRow, WorkspaceRequestRow
+        """Exact stopped paused or dispatched yield source, never arbitrary END."""
+        from deerflow_ecs_fleet.persistence.models import AttemptRow, ReservationRow, RunPlacementRow, WaitGroupRow, WorkspaceRequestRow
         from deerflow_ecs_fleet.persistence.placements import RunPlacements
         from sqlalchemy import text
 
         from deerflow.persistence.run.model import RunRow
 
         spec = self.capability._guard._spec
-        if previous is None or previous.id != spec.source_workspace_point_id or previous.kind != "paused" or previous.checkpoint_id != spec.source_workspace_checkpoint_id:
+        if previous is None or previous.id != spec.source_workspace_point_id or previous.checkpoint_id != spec.source_workspace_checkpoint_id:
             return False
-        if (previous.agent_task_id, previous.user_id, previous.thread_id, previous.generation) != (spec.agent_task_id, spec.user_id, spec.thread_id, spec.generation - 1):
+        expected_generation = spec.generation - 1
+        if previous.kind == "final" and previous.desired_task_status == "waiting_jobs":
+            group = await session.scalar(select(WaitGroupRow).where(WaitGroupRow.continuation_run_id == spec.run_id))
+            if (
+                group is None
+                or group.state != "dispatched"
+                or group.dispatched_at is None
+                or (group.agent_task_id, group.generation, group.parent_run_id, group.user_id, group.thread_id, group.workspace_point_id, group.checkpoint_id)
+                != (spec.agent_task_id, spec.generation, previous.run_id, spec.user_id, spec.thread_id, previous.id, previous.checkpoint_id)
+                or previous.desired_core_status != "success"
+                or previous.desired_placement_status != "succeeded"
+            ):
+                return False
+            expected_generation = spec.generation
+        elif previous.kind != "paused":
+            return False
+        if (previous.agent_task_id, previous.user_id, previous.thread_id, previous.generation) != (spec.agent_task_id, spec.user_id, spec.thread_id, expected_generation):
             return False
         placement = await session.get(RunPlacementRow, previous.run_id)
         attempt = await session.get(AttemptRow, previous.attempt_id)

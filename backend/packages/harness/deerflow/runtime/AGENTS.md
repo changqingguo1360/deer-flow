@@ -379,3 +379,14 @@ goal evaluation. Neither unfinished interrupts nor ordinary failures become
 success. The original terminal participant pairs checkpoint/files and desired
 waiting outcome; physical STOP remains the host's release barrier. Local None
 preserves its lifecycle. See [BC02 boundary](../../../../../docs/ecs-fleet-bc02-runtime.md).
+
+### BC03 continuation admission lock entry
+
+RunRepository accepts a trusted host before-thread admission guard alongside the
+existing participant hook. Ordinary run, rejected admission and checkpoint
+operations enter that guard before the core thread/binding locks. Scheduled
+participants retain their occurrence-first hook; host goal/task locks follow it.
+Continuation admission still uses the original UoW, immutable reuse validation
+and store_only result. Harness must not import app or the optional Fleet package.
+The host owns wait-group receipts, original stopped-source proof and untrusted
+result framing. See [BC03 boundary](../../../../../docs/ecs-fleet-bc03-runtime.md).

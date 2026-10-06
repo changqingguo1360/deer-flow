@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01 已完成本地源码/原生验收，提交 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`；BC02–BC10 仍未完成。主干与必要边界各1项自然通过，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 正在实施，BC04–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 

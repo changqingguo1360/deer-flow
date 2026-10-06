@@ -4,7 +4,7 @@ import json
 from datetime import timedelta
 from uuid import uuid4
 
-from deerflow_ecs_fleet.launch_spec import Snapshot, build_launch_spec
+from deerflow_ecs_fleet.launch_spec import Snapshot, build_launch_spec, thaw
 from deerflow_ecs_fleet.persistence.agent_tasks import AgentTasks
 from deerflow_ecs_fleet.persistence.models import AGENT_TASK_ACTIVE, AgentTaskRow
 from deerflow_ecs_fleet.persistence.placements import RunPlacements
@@ -34,6 +34,7 @@ def encode_graph_input(value):
 
 
 def decode_graph_input(value):
+    value = thaw(value)
     if value.get("format") != INPUT_FORMAT or value.get("kind") not in {"command", "state"}:
         raise ValueError("Unsupported normalized Agent input format")
     if value["kind"] == "command":
@@ -99,6 +100,9 @@ class FleetRunAdmission:
             "workspace_manifest_ref": backend.workspace_manifest_ref,
             "secret_refs": backend.secret_refs,
         }
+
+    async def before_thread_lock(self, session):
+        await fleet_before_thread_guard(session, user_id=self.parameters.user_id, thread_id=self.parameters.thread_id)
 
     async def guard_thread(self, session, **kwargs):
         await fleet_thread_admission_guard(session, participant=self, **{name: value for name, value in kwargs.items() if name != "participant"})
@@ -267,6 +271,15 @@ class FleetRunAdmission:
             raise ValueError("Run idempotency execution inputs conflict")
 
 
+async def fleet_before_thread_guard(session, *, user_id, thread_id):
+    """Goal advisory -> task precedes every core thread/binding lock."""
+    if session.get_bind().dialect.name != "postgresql":
+        return
+    key = json.dumps([user_id, thread_id])
+    await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || '|fleet-agent-goal|' || :key,0))"), {"key": key})
+    await session.scalars(select(AgentTaskRow).where(AgentTaskRow.user_id == user_id, AgentTaskRow.thread_id == thread_id).order_by(AgentTaskRow.created_at, AgentTaskRow.id).with_for_update())
+
+
 async def fleet_thread_admission_guard(session, *, user_id, thread_id, backend, requested_backend, operation, participant=None):
     """No lease/core-status shortcut releases an unfinished remote task."""
     if backend != "fleet":
@@ -276,7 +289,10 @@ async def fleet_thread_admission_guard(session, *, user_id, thread_id, backend, 
     if active:
         if operation != "run" or requested_backend != "fleet" or not isinstance(participant, FleetRunAdmission) or len(active) != 1:
             raise ConflictError("Thread has unfinished remote execution or recovery")
-        await participant.validate_paused_resume(session, active[0])
+        if getattr(participant, "continuation_group_id", None) is not None:
+            await participant.validate_continuation(session, active[0])
+        else:
+            await participant.validate_paused_resume(session, active[0])
     if operation == "artifact_write":
         raise ConflictError("Accepted remote workspace is immutable")
     if requested_backend != "fleet" and operation == "run":

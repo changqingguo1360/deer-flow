@@ -355,9 +355,13 @@ def install_fleet_ownership(app, session_factory):
     runtime = fleet_runtime(app)
     if runtime is None or not runtime.ready or session_factory is None:
         return
-    from .execution import BoundFleetRunBackend, fleet_thread_admission_guard
+    from .execution import BoundFleetRunBackend, fleet_before_thread_guard, fleet_thread_admission_guard
 
+    app.state.run_store.set_before_thread_admission_guard(fleet_before_thread_guard)
     app.state.run_store.set_thread_admission_guard(fleet_thread_admission_guard)
+    from .continuations import install_fleet_continuations
+
+    install_fleet_continuations(app, session_factory, runtime)
     app.state.bound_run_execution_backend = BoundFleetRunBackend(session_factory, runtime.config)
     app.state.fleet_ownership = FleetRunOwnership(session_factory, runtime.config)
     app.state.fleet_routing_config = runtime.config

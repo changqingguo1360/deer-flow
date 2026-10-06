@@ -114,6 +114,10 @@ class FleetJobService:
                         raise ValueError("Scheduled job slot belongs to another thread")
                     record_invocation(active.id)
                     return {**await finish(active), "reused_existing": True}
+            if spec.link_mode == "awaited":
+                from .persistence.job_links import JobLinks
+
+                await JobLinks().check_capacity(session, owner=self.parent_capability.owner)
             await resolve_inputs(session, user_id=user_id, thread_id=thread_id, spec=spec, max_bytes=self.config.max_input_bytes)
             now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
             values = dict(

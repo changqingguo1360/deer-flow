@@ -13,7 +13,7 @@
 **前置：** add-ecs-remote-agent 验收通过，B/C 独立执行均可用。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-agent-job-continuations/proposal.md)、[tasks](../../../openspec/changes/add-ecs-agent-job-continuations/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** BC01 原生基础已验收，源码提交 `ce92de4a`、记录 `62784b46`；BC02 已按[当前源码接线计划](2026-10-06-ecs-fleet-bc02-yield.md)验收，源码提交 `c08b8014`；BC03–BC10未实施。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
+**计划状态：** BC01 原生基础已验收，源码提交 `ce92de4a`、记录 `62784b46`；BC02 已按[当前源码接线计划](2026-10-06-ecs-fleet-bc02-yield.md)验收，源码提交 `c08b8014`；BC03 已完成原生验证与独立复审（源码提交待记录）；BC04–BC10未实施。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -224,7 +224,9 @@ git commit -m "feat(fleet): bc02 实现 await 工具与安全让出屏障"
 
 **OpenSpec:** `fleet-agent-job-continuations` / `Idempotent continuation after all results settle`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 先一个 result-before-seal 主干，含两个 coordinator 同时争组及重复请求；主干通过后用一个必要集中边界覆盖 seal-before-result/restart-after-admission。统计真实新 run/placement 和 B starts，不扩展矩阵。
+实际节点为 `test_bc03_before_seal_two_coordinators_admit_exactly_one` 和 `test_bc03_after_seal_restart_receipt_and_new_runner_source`；原 fleet_probe 片段仅保留为历史示意，不是执行证据。V2 主干1passed8.30s、同一集中边界1passed11.09s；自然0/自有schema清理，修复摘要bounds后 fresh SPEC→QUALITY Ready。实际路径包含 ownership/service、原workspace源接受、neutral SQL prethreadguard及 f0013 receipt migration；见[当前计划](2026-10-06-ecs-fleet-bc03-continuations.md)与[验收](../../ecs-fleet-bc03-acceptance.md)。
+
+- [x] **Step 1 — 场景搭建与失败测试。** 先一个 result-before-seal 主干，含两个 coordinator 同时争组及重复请求；主干通过后用一个必要集中边界覆盖 seal-before-result/restart-after-admission。统计真实新 run/placement 和 B starts，不扩展矩阵。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -240,15 +242,15 @@ async def test_bc03_contract(fleet_probe):
     assert observed['child_resubmissions'] == 0
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
-PYTHONPATH=. uv run pytest tests/fleet/test_bc03_fleet_agent_job_continuations.py::test_bc03_contract -vv
+PYTHONPATH=. uv run pytest tests/fleet/test_bc03_fleet_agent_job_continuations.py::test_bc03_before_seal_two_coordinators_admit_exactly_one -vv
 ```
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # Lock task -> group -> thread/run; compare generation, state, deadline, budgets.
@@ -258,10 +260,10 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc03_fleet_agent_job_continuations.p
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
-.venv/bin/python -m pytest tests/fleet/test_bc03_fleet_agent_job_continuations.py::test_bc03_contract -q -o addopts= --tb=short
+.venv/bin/python -m pytest tests/fleet/test_bc03_fleet_agent_job_continuations.py::test_bc03_before_seal_two_coordinators_admit_exactly_one -q -o addopts= --tb=short
 ```
 
 期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。

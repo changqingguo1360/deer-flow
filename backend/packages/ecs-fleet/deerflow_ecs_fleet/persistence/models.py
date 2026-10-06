@@ -611,6 +611,8 @@ class WaitGroupRow(FleetBase):
         Column("checkpoint_id", String(64)),
         Column("workspace_point_id", String(64)),
         Column("delivery_owner", String(128)),
+        Column("continuation_run_id", String(64), ForeignKey("fleet_run_placements.run_id"), unique=True),
+        timestamp("dispatched_at", nullable=True),
         timestamp("created_at"),
         ForeignKeyConstraint(
             ["parent_run_id", "agent_task_id", "generation", "user_id", "thread_id"],

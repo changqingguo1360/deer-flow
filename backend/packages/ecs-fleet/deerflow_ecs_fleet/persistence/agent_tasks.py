@@ -46,6 +46,22 @@ class AgentTasks:
             raise LookupError("Agent task not found")
         return task
 
+    async def consume_continuation(self, session, *, task, group, run_id):
+        """Caller holds original task/group fence on the run admission TX."""
+        if (
+            task.state != "waiting_jobs"
+            or task.current_run_id != group.parent_run_id
+            or task.generation != group.generation
+            or task.wait_group_id != group.id
+            or group.state != "waiting_jobs"
+            or group.continuation_run_id is not None
+            or task.continuation_budget <= 0
+        ):
+            raise ValueError("Original continuation admission changed")
+        task.continuation_budget -= 1
+        task.state = "queued"
+        task.wait_group_id = None
+
     async def public_summary(self, session, *, task_id, user_id, thread_id):
         task = await self.owned(session, task_id=task_id, user_id=user_id, thread_id=thread_id)
         return {

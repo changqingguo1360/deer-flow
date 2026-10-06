@@ -42,10 +42,22 @@ class RunRepository(RunStore):
         self._terminal_participant = terminal_participant
         self._local_recovery_predicate = None
         self._thread_admission_guard = None
+        self._before_thread_admission_guard = None
 
     def set_thread_admission_guard(self, guard):
         """Trusted application participant; invoked on the original admission TX."""
         self._thread_admission_guard = guard
+
+    def set_before_thread_admission_guard(self, guard):
+        """Host lock entry shared by run and checkpoint admission operations."""
+        self._before_thread_admission_guard = guard
+
+    async def _before_thread_admission(self, session, *, user_id, thread_id, participant=None):
+        callback = getattr(participant, "before_thread_lock", None)
+        if callback is not None:
+            await callback(session)
+        if self._before_thread_admission_guard is not None:
+            await self._before_thread_admission_guard(session, user_id=user_id, thread_id=thread_id)
 
     async def _persisted_thread_backend(self, session, *, user_id, thread_id):
         """Follow existing owner-scoped server branch lineage parent first."""
@@ -102,6 +114,8 @@ class RunRepository(RunStore):
         return next(iter(labels), None), lineage
 
     async def _guard_thread_admission(self, session, *, user_id, thread_id, backend, operation, participant):
+        if self._before_thread_admission_guard is not None:
+            await self._before_thread_admission_guard(session, user_id=user_id, thread_id=thread_id)
         from deerflow.runtime.runs.manager import ConflictError
 
         if session.get_bind().dialect.name == "postgresql":
@@ -942,9 +956,7 @@ class RunRepository(RunStore):
 
         try:
             async with RunAdmissionUnitOfWork(self._sf).transaction() as session:
-                before_thread_lock = getattr(participant, "before_thread_lock", None)
-                if before_thread_lock is not None:
-                    await before_thread_lock(session)
+                await self._before_thread_admission(session, user_id=resolved_user_id, thread_id=thread_id, participant=participant)
                 if session.get_bind().dialect.name == "postgresql":
                     await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || '|thread-execution|' || :key,0))"), {"key": json.dumps([resolved_user_id, thread_id])})
                 if participant is not None and idempotency_key is not None:
@@ -1017,9 +1029,7 @@ class RunRepository(RunStore):
             # A concurrent process may have committed the same idempotency key.
             if idempotency_key is not None:
                 async with RunAdmissionUnitOfWork(self._sf).transaction() as session:
-                    before_thread_lock = getattr(participant, "before_thread_lock", None)
-                    if before_thread_lock is not None:
-                        await before_thread_lock(session)
+                    await self._before_thread_admission(session, user_id=resolved_user_id, thread_id=thread_id, participant=participant)
                     if session.get_bind().dialect.name == "postgresql":
                         await session.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || '|thread-execution|' || :key,0))"), {"key": json.dumps([resolved_user_id, thread_id])})
                     existing = (await session.execute(select(RunRow).where(RunRow.idempotency_key == idempotency_key))).scalar_one_or_none()
