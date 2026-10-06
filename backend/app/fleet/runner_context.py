@@ -790,10 +790,15 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         async def no_new_admission(**kwargs):
             raise RuntimeError("Agent runner cannot admit another scheduled run")
 
+        from .scheduled_agent_tasks import FleetScheduledAgentTasks
+
+        scheduled_aggregate = FleetScheduledAgentTasks(sf, private_fleet_config) if private_fleet_config is not None else None
         scheduled = ScheduledTaskService(
             task_repo=ScheduledTaskRepository(sf, run_repository=repository, mutation_capability=mutation_capability),
             task_run_repo=ScheduledTaskRunRepository(sf, run_repository=repository, mutation_capability=mutation_capability),
             launch_run=no_new_admission,
+            aggregate_completion_pending=scheduled_aggregate.suppress_parent_completion if scheduled_aggregate is not None else None,
+            aggregate_completion_outcome=scheduled_aggregate.completion_outcome if scheduled_aggregate is not None else None,
             poll_interval_seconds=private.scheduler.poll_interval_seconds,
             lease_seconds=private.scheduler.lease_seconds,
             max_concurrent_runs=private.scheduler.max_concurrent_runs,

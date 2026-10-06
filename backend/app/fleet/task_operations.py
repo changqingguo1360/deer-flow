@@ -137,6 +137,20 @@ async def cancel_owned_task(ownership, *, user_id, thread_id, task_id, expected_
         task.state, task.cancel_requested_at = "cancelled", now
         receipt.target_generation, receipt.state = task.generation, "completed"
         await session.flush()
+        if parent is not None:
+            from .scheduled_agent_tasks import FleetScheduledAgentTasks
+
+            await FleetScheduledAgentTasks(ownership.sf, ownership.config).resolve_cancelled(
+                session,
+                task=task,
+                run=run,
+                placement=placement,
+                attempt=parent,
+                point=point,
+                reservation=reservation,
+                operation=receipt,
+                now=now,
+            )
         return dict(task_id=task_id, generation=task.generation, state=task.state, operation_id=receipt.id)
 
 

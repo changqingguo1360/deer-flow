@@ -139,7 +139,7 @@ async def accepted_final(session, *, task, run, placement, attempt):
     return await accepted_source_identity(session, point=point, run=run, placement=placement, attempt=attempt)
 
 
-async def accepted_source_identity(session, *, point, run, placement, attempt):
+async def accepted_source_identity(session, *, point, run, placement, attempt, require_latest_checkpoint=True):
     """Immutable original proof; callers must separately authorize current lineage."""
     from sqlalchemy import text
 
@@ -167,7 +167,13 @@ async def accepted_source_identity(session, *, point, run, placement, attempt):
 
     if point.launch_spec_digest != LaunchSpec.model_validate(attempt.launch_spec["launch_spec"]).payload_digest():
         return None
-    root = (await session.execute(text("SELECT checkpoint_id,metadata FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1"), {"thread": run.thread_id})).mappings().first()
+    if require_latest_checkpoint:
+        checkpoint_query = text("SELECT checkpoint_id,metadata FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' ORDER BY checkpoint_id DESC LIMIT 1")
+    else:
+        # Historical receipt recovery reads the original accepted checkpoint;
+        # a later human run must not invalidate or replace this old proof.
+        checkpoint_query = text("SELECT checkpoint_id,metadata FROM checkpoints WHERE thread_id=:thread AND checkpoint_ns='' AND checkpoint_id=:checkpoint")
+    root = (await session.execute(checkpoint_query, {"thread": run.thread_id, "checkpoint": point.checkpoint_id})).mappings().first()
     if root is None or root["checkpoint_id"] != point.checkpoint_id or root["metadata"].get("deerflow_execution_run_id") != run.run_id:
         return None
     request = await session.get(WorkspaceRequestRow, point.request_id)

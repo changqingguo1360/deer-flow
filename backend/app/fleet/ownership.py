@@ -326,6 +326,9 @@ class FleetRunOwnership:
             attempt.state = "unknown"
         await release_stopped(session, attempt)
         await session.flush()
+        from .scheduled_agent_tasks import FleetScheduledAgentTasks
+
+        await FleetScheduledAgentTasks(self.sf, self.config).resolve_stopped(session, task=task, run=run, placement=placement, attempt=attempt, point=point, reservation=reservation, now=now)
         from app.fleet.events import FleetStreamSeals
 
         await FleetStreamSeals(self.sf).recover_locked(session, run=run, placement=placement, attempt=attempt, reservation=reservation)

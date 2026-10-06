@@ -739,3 +739,43 @@ class TaskBudgetDecisionRow(FleetBase):
         Column("reason", String(128), nullable=False),
         timestamp("created_at"),
     )
+
+
+class ScheduledAgentTaskRow(FleetBase):
+    __table__ = Table(
+        "fleet_scheduled_agent_tasks",
+        metadata,
+        Column("occurrence_id", String(64), primary_key=True),
+        Column("scheduled_task_id", String(64), nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("original_run_id", String(64), nullable=False),
+        Column("agent_task_id", String(64), ForeignKey("fleet_agent_tasks.id"), nullable=False),
+        Column("source_generation", Integer, nullable=False),
+        Column("state", String(16), nullable=False, server_default="pending"),
+        Column("resolution_kind", String(16)),
+        Column("resolved_run_id", String(64)),
+        Column("resolved_generation", Integer),
+        Column("resolved_attempt_id", String(64), ForeignKey("fleet_attempts.id")),
+        Column("resolved_node_session_id", String(64)),
+        Column("resolved_workspace_point_id", String(64), ForeignKey("fleet_workspace_points.id")),
+        Column("resolved_operation_id", String(64), ForeignKey("fleet_task_operation_receipts.id")),
+        Column("resolved_status", String(24)),
+        Column("resolved_error", Text),
+        timestamp("resolved_at", nullable=True),
+        timestamp("created_at"),
+        UniqueConstraint("original_run_id", name="uq_fleet_scheduled_agent_original_run"),
+        CheckConstraint("source_generation > 0 AND state IN ('pending','resolved')", name="ck_fleet_scheduled_agent_identity"),
+        CheckConstraint(
+            "(state='pending' AND resolution_kind IS NULL AND resolved_run_id IS NULL AND resolved_generation IS NULL "
+            "AND resolved_attempt_id IS NULL AND resolved_node_session_id IS NULL AND resolved_workspace_point_id IS NULL "
+            "AND resolved_operation_id IS NULL AND resolved_status IS NULL AND resolved_error IS NULL AND resolved_at IS NULL) OR "
+            "(state='resolved' AND resolution_kind IS NOT NULL AND resolved_run_id IS NOT NULL AND resolved_generation IS NOT NULL AND resolved_generation >= source_generation "
+            "AND resolved_status IS NOT NULL AND resolved_status IN ('succeeded','failed','cancelled','timed_out') AND resolved_at IS NOT NULL AND "
+            "((resolution_kind='stopped' AND resolved_operation_id IS NULL AND resolved_attempt_id IS NOT NULL AND resolved_node_session_id IS NOT NULL AND resolved_workspace_point_id IS NOT NULL) OR "
+            "(resolution_kind='cancelled' AND resolved_status='cancelled' AND resolved_operation_id IS NOT NULL AND resolved_attempt_id IS NOT NULL AND resolved_node_session_id IS NOT NULL AND resolved_workspace_point_id IS NOT NULL) OR "
+            "(resolution_kind='unassigned' AND resolved_operation_id IS NULL AND resolved_status='cancelled' AND resolved_attempt_id IS NULL AND resolved_node_session_id IS NULL AND resolved_workspace_point_id IS NULL)))",
+            name="ck_fleet_scheduled_agent_resolution",
+        ),
+        Index("ix_fleet_scheduled_agent_pending", "scheduled_task_id", "state", "occurrence_id"),
+    )

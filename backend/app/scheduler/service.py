@@ -38,8 +38,18 @@ class ScheduledTaskService:
         multi_instance: bool = False,
         run_lease_grace_seconds: int = 10,
         execution_admission=None,
+        aggregate_completion_pending=None,
+        aggregate_completion_outcome=None,
     ) -> None:
         self._execution_admission = execution_admission
+        aggregate = getattr(execution_admission, "scheduled_agent_tasks", None)
+        pending = aggregate_completion_pending or (aggregate.suppress_parent_completion if aggregate is not None else None)
+        outcome = aggregate_completion_outcome or (aggregate.completion_outcome if aggregate is not None else None)
+        for repository in (task_repo, task_run_repo):
+            if pending is not None:
+                repository.aggregate_completion_pending = pending
+            if outcome is not None:
+                repository.aggregate_completion_outcome = outcome
         if execution_admission is not None:
             task_repo.execution_retirement = execution_admission.retire_waiting
             task_run_repo.execution_retirement = execution_admission.retire_waiting
@@ -543,7 +553,14 @@ class ScheduledTaskService:
             return
 
         updates: dict[str, Any] = {"last_error": error}
-        if task["schedule_type"] == "once":
+        pending, outcome = (
+            await self._task_repo.completion_policy(task_id, occurrence_id=task_run_id, run_id=record.run_id)
+            if getattr(self._task_repo, "aggregate_completion_pending", None) is not None or getattr(self._task_repo, "aggregate_completion_outcome", None) is not None
+            else (False, None)
+        )
+        if task["schedule_type"] == "once" and outcome is not None:
+            updates = outcome
+        elif task["schedule_type"] == "once" and not pending:
             # The single occurrence is consumed either way (the run did launch,
             # so re-arming risks duplicate side effects), but an interrupt ends
             # as "cancelled", not "failed".
@@ -553,7 +570,18 @@ class ScheduledTaskService:
                 updates["status"] = "cancelled"
             else:
                 updates["status"] = "failed"
-        await self._task_repo.update(task_id, user_id=user_id, updates=updates, **({"completion_run_id": record.run_id, "completion_occurrence_id": task_run_id} if getattr(self._task_repo, "_mutation_capability", None) is not None else {}))
+        await self._task_repo.update(
+            task_id,
+            user_id=user_id,
+            updates=updates,
+            **(
+                {"completion_run_id": record.run_id, "completion_occurrence_id": task_run_id}
+                if getattr(self._task_repo, "_mutation_capability", None) is not None
+                or getattr(self._task_repo, "aggregate_completion_pending", None) is not None
+                or getattr(self._task_repo, "aggregate_completion_outcome", None) is not None
+                else {}
+            ),
+        )
 
     async def start(self) -> None:
         if self._task is not None:

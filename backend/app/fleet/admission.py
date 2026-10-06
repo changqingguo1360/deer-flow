@@ -88,7 +88,12 @@ async def agent_candidates(session, window, *, occurrence_id=None):
             query = query.where(ScheduledTaskRunRow.id == occurrence_id)
         rows = (await session.execute(query)).all()
         executing = await session.scalar(select(func.count()).select_from(ScheduledTaskRunRow).where(ScheduledTaskRunRow.status.in_(["launching", "running"])))
+        from .scheduled_agent_tasks import FleetScheduledAgentTasks
+
+        aggregate = FleetScheduledAgentTasks(None, cfg)
         for occurrence, task in rows:
+            if await aggregate.blocks(session, schedule_id=task.id, exclude_occurrence_id=occurrence.id):
+                continue
             if task.status not in {"enabled", "dispatching", "paused"} or task.status == "paused" and occurrence.trigger != "manual":
                 continue
             if occurrence.created_at + timedelta(seconds=scheduler.queue_timeout_seconds) <= window.now or occurrence.status == "queued" and executing >= scheduler.max_concurrent_runs:

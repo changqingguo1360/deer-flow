@@ -61,8 +61,12 @@ class ScheduledTaskRunRepository:
         *,
         run_repository: RunRepository | None = None,
         mutation_capability=None,
+        aggregate_completion_pending=None,
+        aggregate_completion_outcome=None,
     ) -> None:
         self.execution_retirement = None
+        self.aggregate_completion_pending = aggregate_completion_pending
+        self.aggregate_completion_outcome = aggregate_completion_outcome
         self._sf = session_factory
         self._mutation_capability = mutation_capability
         self._run_repository = run_repository or RunRepository(session_factory)
@@ -100,8 +104,9 @@ class ScheduledTaskRunRepository:
         if row.started_at is None:
             row.started_at = candidate.created_at
 
-    @staticmethod
-    def _associate_task_with_run(
+    async def _associate_task_with_run(
+        self,
+        session: AsyncSession,
         task: ScheduledTaskRow | None,
         row: ScheduledTaskRunRow,
         candidate: RunRow,
@@ -125,7 +130,13 @@ class ScheduledTaskRunRepository:
         task.lease_owner = None
         task.lease_expires_at = None
         if task.schedule_type == "once":
-            if candidate.status == "success":
+            from deerflow.persistence.scheduled_completion import aggregate_parent_outcome
+
+            if self.aggregate_completion_pending is not None and await self.aggregate_completion_pending(session, task_id=task.id, occurrence_id=row.id, run_id=candidate.run_id):
+                task.status, task.last_error = "running", None
+            elif (outcome := await aggregate_parent_outcome(self.aggregate_completion_outcome, session, task_id=task.id, occurrence_id=row.id, run_id=candidate.run_id)) is not None:
+                task.status, task.last_error = outcome["status"], outcome["last_error"]
+            elif candidate.status == "success":
                 task.status = "completed"
                 task.last_error = None
             elif candidate.status in {"error", "timeout"}:
@@ -604,7 +615,7 @@ class ScheduledTaskRunRepository:
                     row.status = "queued"
                 else:
                     self._associate_scheduled_run(row, candidate)
-                    self._associate_task_with_run(task, row, candidate)
+                    await self._associate_task_with_run(session, task, row, candidate)
                     if candidate.status in {"pending", "running"}:
                         row.status = "running"
                         row.error = None
@@ -642,7 +653,9 @@ class ScheduledTaskRunRepository:
                 await session.begin()
                 from deerflow.persistence.scheduled_completion import lock_completion
 
-                bound = await lock_completion(session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id)
+                bound = await lock_completion(
+                    session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id, aggregate_completion_outcome=self.aggregate_completion_outcome
+                )
                 _, row, expected_status, expected_error = bound
                 if status != expected_status or error != expected_error or finished_at is None or started_at is not None or protect_terminal or expected_lease_owner is not None:
                     raise OwnershipRejected("Scheduled completion fields rejected")
@@ -683,7 +696,9 @@ class ScheduledTaskRunRepository:
                 row.finished_at = finished_at
             if self._mutation_capability is not None:
                 await session.flush()
-                await lock_completion(session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id)
+                await lock_completion(
+                    session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id, aggregate_completion_outcome=self.aggregate_completion_outcome
+                )
             await session.commit()
             return True
 
@@ -733,7 +748,7 @@ class ScheduledTaskRunRepository:
                 candidate = await self._find_underlying_run(session, row, task)
                 if candidate is not None and candidate.status in {"pending", "running"} and (candidate.kwargs_json or {}).get("execution_backend") == "fleet":
                     self._associate_scheduled_run(row, candidate)
-                    self._associate_task_with_run(task, row, candidate)
+                    await self._associate_task_with_run(session, task, row, candidate)
                     row.status = "running"
                     continue
                 if row.status == "launching" and candidate is None:
@@ -741,7 +756,7 @@ class ScheduledTaskRunRepository:
                 else:
                     if candidate is not None:
                         self._associate_scheduled_run(row, candidate)
-                        self._associate_task_with_run(task, row, candidate)
+                        await self._associate_task_with_run(session, task, row, candidate)
                     if candidate is not None and candidate.status == "success":
                         row.status = "success"
                         row.error = None
@@ -865,7 +880,7 @@ class ScheduledTaskRunRepository:
                 row.lease_expires_at = None
                 stale += 1
             for task, row, candidate in associations:
-                self._associate_task_with_run(task, row, candidate)
+                await self._associate_task_with_run(session, task, row, candidate)
             await session.commit()
             return stale
 

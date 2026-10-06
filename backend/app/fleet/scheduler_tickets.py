@@ -17,10 +17,16 @@ from deerflow.runtime.runs.manager import ConflictError
 class FleetSchedulerTickets:
     def __init__(self, session_factory, config):
         self.sf, self.config = session_factory, config
+        from .scheduled_agent_tasks import FleetScheduledAgentTasks
+
+        self.scheduled_agent_tasks = FleetScheduledAgentTasks(session_factory, config)
 
     async def reserve(self, session, *, task, occurrence, lease_owner, lease_expires_at):
         from .routing import approved_binding
 
+        self.scheduled_agent_tasks.config = self.config
+        if await self.scheduled_agent_tasks.blocks(session, schedule_id=task.id, exclude_occurrence_id=occurrence.id):
+            return False
         binding = approved_binding(self.config, task.execution, task.user_id)
         if binding is None:
             return None
@@ -139,6 +145,7 @@ class FleetSchedulerTickets:
         ticket.state, ticket.run_id, ticket.consumed_at = "consumed", admitted["run_id"], now
         placement.node_id = node.id
         occurrence.run_id = admitted["run_id"]
+        await self.scheduled_agent_tasks.associate(session, task=await session.get(ScheduledTaskRow, occurrence.task_id), occurrence=occurrence, admitted=admitted, agent_task_id=placement.agent_task_id)
         await session.flush()
 
     async def original_workspace(self, ticket_id, parameters):
@@ -203,6 +210,7 @@ class FleetSchedulerTickets:
         run.status, run.error, run.updated_at = "interrupted", error, now
         agent.state, agent.updated_at = "cancelled", now
         placement.state, placement.updated_at = "cancelled", now
+        await self.scheduled_agent_tasks.resolve_unassigned(session, task=agent, run=run, placement=placement, now=now)
         await session.flush()
 
     async def cancel_unassigned(self, session, *, run_id, action):
@@ -252,11 +260,14 @@ class FleetSchedulerTickets:
             run.status, run.error, run.updated_at = "interrupted", "Cancelled before assignment", now
             agent.state, agent.updated_at = "cancelled", now
             placement.state, placement.updated_at = "cancelled", now
+            await self.scheduled_agent_tasks.resolve_unassigned(session, task=agent, run=run, placement=placement, now=now)
         run.cancel_action, run.cancel_requested_at = action, now
         await session.flush()
         return CancelOutcome.cancelled
 
     async def reconcile(self):
+        self.scheduled_agent_tasks.config = self.config
+        await self.scheduled_agent_tasks.reconcile_once()
         async with self.sf() as session:
             keys = (
                 await session.execute(

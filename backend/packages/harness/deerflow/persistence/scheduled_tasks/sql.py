@@ -60,8 +60,12 @@ class ScheduledTaskRepository:
         *,
         run_repository: RunRepository | None = None,
         mutation_capability=None,
+        aggregate_completion_pending=None,
+        aggregate_completion_outcome=None,
     ) -> None:
         self.execution_retirement = None
+        self.aggregate_completion_pending = aggregate_completion_pending
+        self.aggregate_completion_outcome = aggregate_completion_outcome
         self._sf = session_factory
         self._mutation_capability = mutation_capability
         self._run_repository = run_repository or RunRepository(session_factory)
@@ -252,6 +256,17 @@ class ScheduledTaskRepository:
             await session.commit()
             return "deleted"
 
+    async def completion_policy(self, task_id, *, occurrence_id, run_id, session=None):
+        if session is None:
+            async with self._sf() as current:
+                return await self.completion_policy(task_id, occurrence_id=occurrence_id, run_id=run_id, session=current)
+        from deerflow.persistence.scheduled_completion import aggregate_parent_outcome
+
+        identity = dict(task_id=task_id, occurrence_id=occurrence_id, run_id=run_id)
+        pending = self.aggregate_completion_pending is not None and await self.aggregate_completion_pending(session, **identity)
+        outcome = await aggregate_parent_outcome(self.aggregate_completion_outcome, session, **identity)
+        return pending, outcome
+
     async def update(
         self,
         task_id: str,
@@ -263,18 +278,46 @@ class ScheduledTaskRepository:
         completion_occurrence_id: str | None = None,
     ) -> dict[str, Any] | None:
         async with self._sf() as session:
-            if self._mutation_capability is not None:
-                await session.begin()
+            aggregate_completion = (self.aggregate_completion_pending is not None or self.aggregate_completion_outcome is not None) and completion_run_id is not None and completion_occurrence_id is not None
+            if aggregate_completion and self._mutation_capability is None:
+                # Hooks are installed on the shared host repositories, including
+                # Local runs that may finish before launch bookkeeping. Only
+                # the original persisted Fleet core participates in the trusted
+                # aggregate association fence; request metadata is not proof.
+                core = await session.get(RunRow, completion_run_id)
+                aggregate_completion = core is not None and (core.kwargs_json or {}).get("execution_backend") == "fleet"
+            if self._mutation_capability is not None or aggregate_completion:
+                if not session.in_transaction():
+                    await session.begin()
                 from deerflow.persistence.scheduled_completion import lock_completion
 
                 row, occurrence, status, error = await lock_completion(
-                    session, self._mutation_capability, operation="scheduler.task.complete", task_id=task_id, occurrence_id=completion_occurrence_id, run_id=completion_run_id, user_id=user_id
+                    session,
+                    self._mutation_capability,
+                    operation="scheduler.task.complete",
+                    task_id=task_id,
+                    occurrence_id=completion_occurrence_id,
+                    run_id=completion_run_id,
+                    user_id=user_id,
+                    aggregate_completion_outcome=self.aggregate_completion_outcome,
+                    trusted=aggregate_completion,
                 )
-                expected = {"last_error": error}
+                core_expected = {"last_error": error}
                 if row.schedule_type == "once":
-                    expected["status"] = {"success": "completed", "interrupted": "cancelled", "failed": "failed"}[status]
-                if require_mutable or updates != expected or occurrence.status != status:
+                    core_expected["status"] = {"success": "completed", "interrupted": "cancelled", "failed": "failed"}[status]
+                pending, outcome = await self.completion_policy(task_id, occurrence_id=completion_occurrence_id, run_id=completion_run_id, session=session)
+                expected = {"last_error": error}
+                if row.schedule_type == "once" and outcome is not None:
+                    expected = outcome
+                elif row.schedule_type == "once" and not pending:
+                    expected = core_expected
+                valid_updates = updates in (core_expected, {"last_error": error}, expected) if aggregate_completion else updates == expected
+                if require_mutable or occurrence.status != status or not valid_updates:
                     raise OwnershipRejected("Scheduled parent completion fields rejected")
+                # STOP can resolve between the service read and this writer.
+                # Rebase only genuine original completion fields under the
+                # original parent/occurrence locks to immutable authority.
+                updates = expected
             row = await self._lock_task(session, task_id) if require_mutable else await session.get(ScheduledTaskRow, task_id)
             if row is None or row.user_id != user_id:
                 return None
@@ -299,7 +342,16 @@ class ScheduledTaskRepository:
             row.updated_at = datetime.now(UTC)
             if self._mutation_capability is not None:
                 await session.flush()
-                await lock_completion(session, self._mutation_capability, operation="scheduler.task.complete", task_id=task_id, occurrence_id=completion_occurrence_id, run_id=completion_run_id, user_id=user_id)
+                await lock_completion(
+                    session,
+                    self._mutation_capability,
+                    operation="scheduler.task.complete",
+                    task_id=task_id,
+                    occurrence_id=completion_occurrence_id,
+                    run_id=completion_run_id,
+                    user_id=user_id,
+                    aggregate_completion_outcome=self.aggregate_completion_outcome,
+                )
             await session.commit()
             await session.refresh(row)
             return self._row_to_dict(row)
@@ -536,6 +588,16 @@ class ScheduledTaskRepository:
             cancelled = 0
             for row in rows:
                 task_run = await session.scalar(select(ScheduledTaskRunRow).where(ScheduledTaskRunRow.task_id == row.id, ScheduledTaskRunRow.status.in_(("queued", "launching", "running"))).limit(1))
+                if (self.aggregate_completion_pending is not None or self.aggregate_completion_outcome is not None) and row.last_run_id is not None:
+                    occurrence_id = await session.scalar(select(ScheduledTaskRunRow.id).where(ScheduledTaskRunRow.task_id == row.id, ScheduledTaskRunRow.run_id == row.last_run_id).limit(1))
+                    if occurrence_id is not None:
+                        pending, outcome = await self.completion_policy(row.id, occurrence_id=occurrence_id, run_id=row.last_run_id, session=session)
+                        if outcome is not None:
+                            row.status, row.last_error = outcome["status"], outcome["last_error"]
+                            row.updated_at = datetime.now(UTC)
+                            continue
+                        if pending:
+                            continue
                 candidate = await self._find_underlying_run(session, task_run, row)
                 if candidate is not None and candidate.status in {"pending", "running"} and (candidate.kwargs_json or {}).get("execution_backend") == "fleet":
                     continue
@@ -580,6 +642,16 @@ class ScheduledTaskRepository:
                     .limit(1)
                 )
                 task_run = run_result.scalars().first()
+                if (self.aggregate_completion_pending is not None or self.aggregate_completion_outcome is not None) and task.last_run_id is not None:
+                    occurrence_id = await session.scalar(select(ScheduledTaskRunRow.id).where(ScheduledTaskRunRow.task_id == task.id, ScheduledTaskRunRow.run_id == task.last_run_id).limit(1))
+                    if occurrence_id is not None:
+                        pending, outcome = await self.completion_policy(task.id, occurrence_id=occurrence_id, run_id=task.last_run_id, session=session)
+                        if outcome is not None:
+                            task.status, task.last_error = outcome["status"], outcome["last_error"]
+                            task.updated_at = datetime.now(UTC)
+                            continue
+                        if pending:
+                            continue
                 candidate = await self._find_underlying_run(session, task_run, task)
                 if candidate is not None and candidate.status in {"pending", "running"}:
                     if (candidate.kwargs_json or {}).get("execution_backend") == "fleet":
