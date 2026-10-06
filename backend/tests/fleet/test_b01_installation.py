@@ -112,7 +112,7 @@ async def migrate_installed_artifact():
             async with fleet.session_factory() as session:
                 assert (await session.execute(text('SELECT current_schema()'))).scalar_one() == os.environ['FLEET_INSTALL_TEST_SCHEMA']
                 migration_head = (await session.execute(text('SELECT version_num FROM fleet_alembic_version'))).scalar_one()
-                assert migration_head == 'f0013_continuation_receipt'
+                assert migration_head == 'f0014_shared_scheduling'
                 assert (await session.execute(text("SELECT to_regclass('mcp_tasks')"))).scalar_one() == 'mcp_tasks'
                 if cycle == 0:
                     await session.execute(text("INSERT INTO fleet_nodes (id,name,cpu_millis,memory_mib) VALUES ('installed-node','installed-node',1000,512)"))
@@ -128,7 +128,7 @@ print(json.dumps({'distribution': m.version('deerflow-ecs-fleet'), 'path': str(p
     assert result.returncode == 0, result.stderr
     evidence = json.loads(result.stdout.splitlines()[-1])
     assert evidence["distribution"] == "0.1.0"
-    assert evidence["migration"] == "f0013_continuation_receipt"
+    assert evidence["migration"] == "f0014_shared_scheduling"
     assert evidence["restart"] is True
     # Remove only this test's installed package. Required missing-package boot
     # must fail through the real loader; the managed source snapshot must not

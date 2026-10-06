@@ -64,12 +64,24 @@ class _FleetExecutionGuard:
 
         identity, spec = self._identity, self._spec
 
-        def reject():
+        stage = "identity"
+
+        def reject(predicate=None):
+            import logging
+            import traceback
+
+            frames = [
+                (frame.name, frame.lineno)
+                for frame in traceback.extract_stack()
+                if frame.name in {"validate", "validate_async", "validate_cursor", "validate_mutation", "_capture_rollback_point", "aget_tuple", "aput", "observe", "read", "run_agent"}
+            ]
+            logging.getLogger(__name__).warning("Fleet fence rejected: operation=%s stage=%s predicate=%s frames=%s", operation, stage, predicate, frames)
             raise OwnershipRejected("Checkpoint ownership fence rejected execution")
 
         if thread_id != spec.thread_id or (identity.agent_task_id, identity.generation) != (spec.agent_task_id, spec.generation):
             reject()
         # Lock in the shared admission/renewal order on this exact psycopg TX.
+        stage = "required_rows"
         rows = []
         for statement, value in (
             ("SELECT * FROM fleet_agent_tasks WHERE id=%s FOR UPDATE", spec.agent_task_id),
@@ -90,6 +102,7 @@ class _FleetExecutionGuard:
         if operation in {"memory.write", "extension.write"}:
             domain = "deerflow:memory:" + spec.user_id if operation == "memory.write" else "deerflow:extension"
             await cursor.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s,0))", (domain,))
+        stage = "terminal_boundary"
         finishing = task["state"] == placement["state"] == "finishing"
         if finishing:
             if not allow_terminal or operation not in {"control.observe", "workspace.accept", "workspace.node.idle", "workspace.process.settle", *_TERMINAL}:
@@ -137,45 +150,49 @@ class _FleetExecutionGuard:
         owner = (spec.user_id, spec.thread_id)
         if any((row["user_id"], row["thread_id"]) != owner for row in (task, run, placement)):
             reject()
-        if (
-            task["current_run_id"] != spec.run_id
-            or task["generation"] != spec.generation
-            or (task["state"] not in {"queued", "running"} and not finishing)
-            or placement["agent_task_id"] != spec.agent_task_id
-            or placement["generation"] != spec.generation
-            or placement["active_attempt_id"] != identity.attempt_id
-            or placement["node_id"] != identity.node_id
-            or (placement["state"] not in {"claimed", "running"} and not finishing)
-            or run["owner_worker_id"] != identity.owner_worker_id
-            or (run["status"] not in {"pending", "running"} and not (allow_terminal and run["status"] in {"success", "error", "interrupted", "timeout"}))
-            or (run["kwargs_json"] or {}).get("execution_backend") != "fleet"
-            or node["session_id"] != identity.node_session_id
-            or attempt["kind"] != "agent"
-            or attempt["run_id"] != spec.run_id
-            or attempt["node_id"] != identity.node_id
-            or attempt["node_session_id"] != identity.node_session_id
-            or not hmac.compare_digest(attempt["token_hash"], identity.token_stamp)
-            or attempt["state"] not in {"starting", "running"}
-            or attempt["stopped_at"] is not None
-            or attempt["start_authorized_at"] is None
-            or attempt["process_ref"] != "fleet-" + identity.attempt_id
-            or (attempt["launch_spec"] or {}).get("launch_spec") != spec.canonical_payload()
-            or reservation["node_id"] != identity.node_id
-            or reservation["state"] not in {"reserved", "active"}
-            or reservation["released_at"] is not None
-            or reservation["agent_units"] != 1
-            or reservation["cpu_millis"] <= 0
-            or reservation["memory_mib"] <= 0
-            or run["lease_expires_at"] is None
-            or attempt["lease_expires_at"] != run["lease_expires_at"]
-            or run["lease_expires_at"] <= now
-            or task["deadline"] <= now
-            or attempt["execution_deadline"] is None
-            or attempt["execution_deadline"] <= now
-            or spec.execution_deadline <= now
-        ):
-            reject()
+        stage = "active_fence"
+        checks = (
+            ("active_01", lambda: task["current_run_id"] != spec.run_id),
+            ("active_02", lambda: task["generation"] != spec.generation),
+            ("active_03", lambda: task["state"] not in {"queued", "running"} and (not finishing)),
+            ("active_04", lambda: placement["agent_task_id"] != spec.agent_task_id),
+            ("active_05", lambda: placement["generation"] != spec.generation),
+            ("active_06", lambda: placement["active_attempt_id"] != identity.attempt_id),
+            ("active_07", lambda: placement["node_id"] != identity.node_id),
+            ("active_08", lambda: placement["state"] not in {"claimed", "running"} and (not finishing)),
+            ("active_09", lambda: run["owner_worker_id"] != identity.owner_worker_id),
+            ("active_10", lambda: run["status"] not in {"pending", "running"} and (not (allow_terminal and run["status"] in {"success", "error", "interrupted", "timeout"}))),
+            ("active_11", lambda: (run["kwargs_json"] or {}).get("execution_backend") != "fleet"),
+            ("active_12", lambda: node["session_id"] != identity.node_session_id),
+            ("active_13", lambda: attempt["kind"] != "agent"),
+            ("active_14", lambda: attempt["run_id"] != spec.run_id),
+            ("active_15", lambda: attempt["node_id"] != identity.node_id),
+            ("active_16", lambda: attempt["node_session_id"] != identity.node_session_id),
+            ("active_17", lambda: not hmac.compare_digest(attempt["token_hash"], identity.token_stamp)),
+            ("active_18", lambda: attempt["state"] not in {"starting", "running"}),
+            ("active_19", lambda: attempt["stopped_at"] is not None),
+            ("active_20", lambda: attempt["start_authorized_at"] is None),
+            ("active_21", lambda: attempt["process_ref"] != "fleet-" + identity.attempt_id),
+            ("active_22", lambda: (attempt["launch_spec"] or {}).get("launch_spec") != spec.canonical_payload()),
+            ("active_23", lambda: reservation["node_id"] != identity.node_id),
+            ("active_24", lambda: reservation["state"] not in {"reserved", "active"}),
+            ("active_25", lambda: reservation["released_at"] is not None),
+            ("active_26", lambda: reservation["agent_units"] != 1),
+            ("active_27", lambda: reservation["cpu_millis"] <= 0),
+            ("active_28", lambda: reservation["memory_mib"] <= 0),
+            ("active_29", lambda: run["lease_expires_at"] is None),
+            ("active_30", lambda: attempt["lease_expires_at"] != run["lease_expires_at"]),
+            ("active_31", lambda: run["lease_expires_at"] <= now),
+            ("active_32", lambda: task["deadline"] <= now),
+            ("active_33", lambda: attempt["execution_deadline"] is None),
+            ("active_34", lambda: attempt["execution_deadline"] <= now),
+            ("active_35", lambda: spec.execution_deadline <= now),
+        )
+        for predicate, failed in checks:
+            if failed():
+                reject(predicate)
 
+        stage = "cancellation"
         if task["cancel_requested_at"] is not None:
             reject()
         if run["cancel_action"] is not None:

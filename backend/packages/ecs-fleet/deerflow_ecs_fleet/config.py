@@ -81,6 +81,8 @@ class FleetConfig(BaseModel):
     scheduled_job_slots: dict[str, str] = Field(default_factory=dict)
     agent_bindings: dict[str, AgentRoutingBinding] = Field(default_factory=dict)
     ticket_seconds: int = Field(default=60, ge=1, le=120)
+    scheduling_mode: Literal["reserved", "serial"] = "reserved"
+    reserved_job_profile: str | None = None
 
     @field_validator("profiles")
     @classmethod
@@ -113,6 +115,14 @@ class FleetConfig(BaseModel):
             raise ValueError("Jobs require Fleet enabled")
         if self.agents_enabled and not self.jobs_enabled:
             raise ValueError("Agents require jobs enabled")
+        if self.continuations_enabled:
+            jobs = [name for name, profile in self.profiles.items() if profile.kind == "job"]
+            if self.reserved_job_profile is None:
+                if len(jobs) != 1:
+                    raise ValueError("Continuations require an explicit standard reserved job profile")
+                object.__setattr__(self, "reserved_job_profile", jobs[0])
+            elif self.reserved_job_profile not in jobs:
+                raise ValueError("Reserved job profile must be an approved job profile")
         if self.continuations_enabled and not self.agents_enabled:
             raise ValueError("Continuations require agents enabled")
         if self.enabled and self.jobs_enabled:

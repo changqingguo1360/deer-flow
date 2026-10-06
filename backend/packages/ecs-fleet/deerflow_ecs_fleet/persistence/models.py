@@ -29,6 +29,7 @@ class NodeRow(FleetBase):
         Column("protocol_version", Integer, nullable=False, server_default="1"),
         Column("runtime_digest", String(128)),
         Column("agent_compatibility", json_type),
+        Column("claim_kinds", json_type),
         Column("cpu_millis", Integer, nullable=False),
         Column("memory_mib", Integer, nullable=False),
         Column("agent_limit", Integer, nullable=False, server_default="0"),
@@ -620,4 +621,14 @@ class WaitGroupRow(FleetBase):
         ),
         CheckConstraint("generation > 0 AND policy='all_settled'"),
         CheckConstraint("jsonb_typeof(job_ids)='array' AND jsonb_array_length(job_ids)>0"),
+    )
+
+
+class SchedulingRow(FleetBase):
+    __table__ = Table(
+        "fleet_scheduling",
+        metadata,
+        Column("id", String(16), primary_key=True),
+        Column("next_kind", String(16), nullable=False, server_default="job"),
+        CheckConstraint("id='shared' AND next_kind IN ('job','agent')", name="ck_fleet_scheduling_turn"),
     )

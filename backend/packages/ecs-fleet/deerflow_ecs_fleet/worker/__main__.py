@@ -36,7 +36,7 @@ def read_file(path: Path, *, private=False, limit=65536):
 
 class WorkerSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    kind: str = Field(default="job", pattern=r"^(job|agent)$")
+    kind: str = Field(default="job", pattern=r"^(job|agent|mixed)$")
     agent_image: str | None = None
     agent_config_file: Path | None = None
     agent_environment_provider: str = Field(default="gateway", pattern=NAME_PATTERN)
@@ -56,7 +56,7 @@ class WorkerSettings(BaseModel):
         for path in (self.credential_file, self.state_dir, self.nas_root):
             if not path.is_absolute() or ".." in path.parts:
                 raise ValueError("Absolute local paths required")
-        if self.kind == "agent":
+        if self.kind in {"agent", "mixed"}:
             if self.agent_config_file is None or not self.agent_config_file.is_absolute() or self.agent_image is None:
                 raise ValueError("Agent workers require a private operator config and approved image")
             if self.agent_config_file.resolve().is_relative_to(self.nas_root.resolve()):
@@ -79,7 +79,7 @@ async def run_worker(settings: WorkerSettings):
     compatibility = None
     compatibility_loader = None
     prepare = None
-    if settings.kind == "agent":
+    if settings.kind in {"agent", "mixed"}:
         from .agent_containers import AgentContainers
 
         operator_config = json.loads(read_file(settings.agent_config_file, private=True, limit=1048576))
@@ -113,13 +113,14 @@ async def run_worker(settings: WorkerSettings):
             client=client,
             containers=containers,
             state_dir=settings.state_dir,
-            workspace=workspace if settings.kind == "job" else None,
-            prepare_workspace=prepare,
+            workspace=workspace if settings.kind in {"job", "mixed"} else None,
+            prepare_workspace=prepare if settings.kind == "agent" else None,
+            agent_prepare_workspace=prepare if settings.kind == "mixed" else None,
             renew_seconds=settings.renew_seconds,
             safety_margin_seconds=settings.safety_margin_seconds,
             poll_seconds=settings.poll_seconds,
         )
-        if settings.kind == "agent":
+        if settings.kind in {"agent", "mixed"}:
             from .workspace_publication import AgentWorkspacePublication
 
             daemon.workspace_publications = AgentWorkspacePublication(client=client, containers=containers, nas=workspace, journal=daemon.journal)
@@ -132,12 +133,12 @@ async def run_worker(settings: WorkerSettings):
             raise RuntimeError("Worker shutdown requires recovery of unacknowledged stop or completion")
     finally:
         try:
-            if settings.kind == "agent" and daemon is not None and daemon.workspace_publications is not None:
+            if settings.kind in {"agent", "mixed"} and daemon is not None and daemon.workspace_publications is not None:
                 await daemon.workspace_publications.join_writers()
         finally:
             # join_writers defers repeated cancellation until actual native
             # completion. Neither flock nor client is released before that.
-            if settings.kind == "agent" and daemon is not None and daemon.workspace_publications is not None and (daemon.workspace_publications.pending_copies or daemon.workspace_publications.pending_saves):
+            if settings.kind in {"agent", "mixed"} and daemon is not None and daemon.workspace_publications is not None and (daemon.workspace_publications.pending_copies or daemon.workspace_publications.pending_saves):
                 raise RuntimeError("Original publication writer ownership remains live")
             for sig in installed:
                 asyncio.get_running_loop().remove_signal_handler(sig)

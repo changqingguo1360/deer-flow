@@ -78,6 +78,7 @@ class NodeRegistry:
             # Fence the old incarnation using only the node lock. Reconciliation
             # acquires execution -> node -> reservation locks separately. Old
             # reservations remain charged until physical stop is established.
+            node.claim_kinds = None
             node.agent_compatibility = None
             node.runtime_digest = None
             node.session_id = str(uuid4())
@@ -85,6 +86,17 @@ class NodeRegistry:
             node.health = "unknown"
             node.last_seen_at = (await session.execute(select(func.clock_timestamp()))).scalar_one()
             return {"node_id": node_id, "node_session_id": node.session_id, "reconcile_required": bool(attempts)}
+
+    async def advertise(self, node_id, *, node_session_id, kind, compatibility=None):
+        if kind not in {"job", "agent", "mixed"}:
+            raise ValueError("Invalid worker capability")
+        async with self.sf.begin() as session:
+            node = await session.get(NodeRow, node_id, with_for_update=True)
+            if node is None or node.session_id != node_session_id:
+                raise ValueError("Stale node session")
+            node.claim_kinds = ["job", "agent"] if kind == "mixed" else [kind]
+            node.agent_compatibility = compatibility
+            node.runtime_digest = compatibility["runtime_digest"] if compatibility else None
 
     async def heartbeat(self, node_id: str, *, node_session_id: str, protocol_version: int) -> dict:
         async with self.sf.begin() as session:

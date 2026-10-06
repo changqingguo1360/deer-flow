@@ -16,7 +16,7 @@ class AgentRunner:
         from contextlib import ExitStack
 
         with ExitStack() as scopes:
-            for name in ("mutation_scope", "workspace_scope"):
+            for name in ("mutation_scope", "workspace_scope", "execution_scope"):
                 scope = getattr(environment, name, None)
                 if scope is not None:
                     scopes.enter_context(scope())
@@ -36,7 +36,14 @@ class AgentRunner:
                     await observe()
                 except asyncio.CancelledError:
                     raise
-                except BaseException:
+                except BaseException as error:
+                    import logging
+                    import traceback
+
+                    frames = [
+                        (frame.name, frame.lineno) for frame in traceback.extract_tb(error.__traceback__) if frame.name in {"observe_original", "observe", "observe_original_control", "validate", "execute", "__aexit__", "__aenter__", "read"}
+                    ]
+                    logging.getLogger(__name__).warning("Original Agent control observer failed: error_type=%s frames=%s", type(error).__name__, frames)
                     await environment.manager.mark_execution_ownership_lost(spec.run_id)
                     executor.cancel()
                     raise

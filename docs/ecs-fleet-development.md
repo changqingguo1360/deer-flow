@@ -556,3 +556,10 @@ The original notification idempotency key, busy deferral and continuation receip
 remain the durable recovery sources. Native main/one concentrated boundary passed;
 installed production and full combination remain BC10. See [runtime](ecs-fleet-bc04-runtime.md)
 and [acceptance](ecs-fleet-bc04-acceptance.md) for exact qualification and limits.
+
+
+## BC05 shared admission (in development)
+
+BC05 adds the private f0014 shared scheduling turn and session-scoped node capabilities. With continuations enabled, original B/C/ticket admission shares a durable category turn and the unreleased resource ledger: execution or scheduled parent/occurrence locks precede the singleton, then jointly sorted node locks. Opposite queue discovery is read-only. Only a committed new reservation advances the turn; an existing charged ticket is not counted twice. Operator-selected reserved mode protects a standard B quota on one actual eligible node, including quota already used by B; physical fit still counts all unreleased work. Explicit serial mode limits the entire pool to one unreleased reservation and retains unknown work until real STOP proof.
+
+The private Runner uses the approved built-in Fleet descriptor to bind submission/yield without invoking its Gateway installer. Approved bundle and workspace plugin contracts must match exactly. The neutral optional execution scope is entered after mutation/workspace scopes and before creating the original executor, so graph construction and tool tasks inherit the same Fleet/yield capability. Setup/cleanup cancellation settlement does not extend to normal execution. The installed main and one native boundary have passed at their recorded scopes; SPEC is ready, while QUALITY and final receipt remain pending; see [BC05 runtime](ecs-fleet-bc05-runtime.md) for current scope and failure provenance.

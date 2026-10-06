@@ -31,7 +31,17 @@ class FleetSchedulerTickets:
         old = await session.scalar(select(SchedulerTicketRow).where(SchedulerTicketRow.occurrence_id == occurrence.id, SchedulerTicketRow.state != "released"))
         if old is not None:
             return False
-        nodes = (await session.scalars(select(NodeRow).where(NodeRow.admin_state == "enabled", NodeRow.health == "online").order_by(NodeRow.id).with_for_update(skip_locked=True))).all()
+        window = None
+        if self.config.continuations_enabled:
+            from deerflow_ecs_fleet.admission_policy import SharedAdmissionPolicy
+
+            from .admission import agent_candidates
+
+            window = await SharedAdmissionPolicy(self.config, agent_candidates=agent_candidates).lock(session)
+            nodes = window.nodes
+            now = window.now
+        else:
+            nodes = (await session.scalars(select(NodeRow).where(NodeRow.admin_state == "enabled", NodeRow.health == "online").order_by(NodeRow.id).with_for_update(skip_locked=True))).all()
         for node in nodes:
             if (
                 node.agent_compatibility != binding.compatibility
@@ -44,6 +54,12 @@ class FleetSchedulerTickets:
                 continue
             if not await has_capacity(session, node, cpu_millis=profile.cpu_millis, memory_mib=profile.memory_mib, agent_units=1):
                 continue
+            if window is not None:
+                key = occurrence.run_id or "schedule:" + occurrence.id
+                projected = await agent_candidates(session, window, occurrence_id=occurrence.id)
+                candidate = next((row for row in projected if row.key == key), None)
+                if candidate is None or not await window.permits("agent", key, node, profile, candidate=candidate):
+                    continue
             ticket = SchedulerTicketRow(
                 id=str(uuid4()),
                 occurrence_id=occurrence.id,
@@ -62,6 +78,8 @@ class FleetSchedulerTickets:
             await session.flush()
             session.add(ReservationRow(id=str(uuid4()), ticket_id=ticket.id, node_id=node.id, cpu_millis=profile.cpu_millis, memory_mib=profile.memory_mib, agent_units=1))
             await session.flush()
+            if window is not None:
+                window.reserved("agent")
             return ticket.id
         return False
 

@@ -18,12 +18,13 @@ class RecoveryRequired(RuntimeError):
 
 
 class NodeDaemon:
-    def __init__(self, *, client, containers, state_dir: Path, prepare_workspace=None, workspace=None, workspace_publications=None, renew_seconds=30, safety_margin_seconds=5, poll_seconds=0.25):
+    def __init__(self, *, client, containers, state_dir: Path, prepare_workspace=None, agent_prepare_workspace=None, workspace=None, workspace_publications=None, renew_seconds=30, safety_margin_seconds=5, poll_seconds=0.25):
         if renew_seconds <= 0 or poll_seconds <= 0 or safety_margin_seconds < 0:
             raise ValueError("Invalid worker timing")
         self.client = client
         self.containers = containers
         self.journal = AttemptJournal(state_dir)
+        self.agent_prepare_workspace = agent_prepare_workspace
         self.workspace = workspace
         self.workspace_publications = workspace_publications
         if workspace is not None and prepare_workspace is not None:
@@ -81,7 +82,7 @@ class NodeDaemon:
                 row["server_state"] = response["state"]
                 await self._save_record(row)
             needs_completion = (row.get("server_state") == "running" and row.get("stop_reason") == "exit" and row.get("exit_code") == 0) or (row.get("completion_manifest") is not None and not row.get("completion_reported"))
-            if self.workspace is not None and needs_completion:
+            if row["claim"]["kind"] == "job" and self.workspace is not None and needs_completion:
                 if not await self.publish_record(row):
                     raise RecoveryRequired("Completion acknowledgement remains pending")
         health = await self.client.heartbeat()
@@ -149,8 +150,9 @@ class NodeDaemon:
             await self._save_record(record)
             if claim["kind"] == "agent":
                 self.containers.bind_claim(claim)
-            output = await self.prepare_workspace(claim, grant)
-            input_dirs = await asyncio.to_thread(self.workspace.prepare_inputs, claim, grant) if self.workspace is not None else {}
+            prepare = self.agent_prepare_workspace if claim["kind"] == "agent" and self.agent_prepare_workspace is not None else self.prepare_workspace
+            output = await prepare(claim, grant)
+            input_dirs = await asyncio.to_thread(self.workspace.prepare_inputs, claim, grant) if claim["kind"] == "job" and self.workspace is not None else {}
             if Path(self.journal.root).resolve().is_relative_to(Path(output).resolve()):
                 raise ValueError("Private worker journal cannot be mounted into a job")
 
@@ -247,7 +249,7 @@ class NodeDaemon:
                     record["reported"] = True
                     record["server_state"] = response["state"]
                     await self._save_record(record)
-                    if self.workspace is not None and response["state"] == "running" and reason == "exit" and record["exit_code"] == 0:
+                    if claim["kind"] == "job" and self.workspace is not None and response["state"] == "running" and reason == "exit" and record["exit_code"] == 0:
                         await self.publish_record(record)
         pending = not record["reported"] or (record.get("completion_manifest") is not None and not record.get("completion_reported"))
         if pending or record.get("server_state") == "unknown":

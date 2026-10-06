@@ -59,6 +59,7 @@ class AgentEnvironment:
     private_memory_manager: Any = None
     private_mcp_task_submitter: Any = None
     workspace_scope: Callable | None = None
+    execution_scope: Callable | None = None
     workspace_publications: Any = None
     observe_cancellation: Callable | None = None
     retain_executor: Callable | None = None

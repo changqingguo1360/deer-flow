@@ -218,7 +218,16 @@ class OriginalAgentCancellation:
 
     async def observe(self):
         while True:
-            control = await observe_original_control(self.sf, self.capability)
+            try:
+                control = await observe_original_control(self.sf, self.capability)
+            except TimeoutError:
+                # An unavailable bounded read grants no mutation authority and
+                # does not prove revocation. Original writes remain fenced.
+                import logging
+
+                logging.getLogger(__name__).warning("Original Agent control observation unavailable: error_type=TimeoutError")
+                await asyncio.sleep(0.05)
+                continue
             if control is not None:
                 deadline = self.teardown.budget.tighten(min(control["monotonic_deadline"], self.controller.execution_deadline))
                 self.capability.retain_cancellation_deadline(deadline)

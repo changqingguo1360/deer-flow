@@ -89,12 +89,12 @@ class WorkerCompatibilityRequest(BaseModel):
 
 
 class ClaimRequest(NodeSessionRequest):
-    kind: Literal["job", "agent"] = "job"
+    kind: Literal["job", "agent", "mixed"] = "job"
     compatibility: WorkerCompatibilityRequest | None = None
 
     @model_validator(mode="after")
     def compatibility_kind(self):
-        if (self.kind == "agent") != (self.compatibility is not None):
+        if (self.kind in {"agent", "mixed"}) != (self.compatibility is not None):
             raise ValueError("Agent claims require compatibility; job claims do not")
         return self
 
@@ -103,23 +103,33 @@ class ClaimRequest(NodeSessionRequest):
 async def claim(request: Request, body: ClaimRequest):
     principal = require_node(request)
     runtime = get_fleet_runtime(request.app)
-    if body.kind == "agent":
-        ownership = getattr(request.app.state, "fleet_ownership", None)
+    ownership = getattr(request.app.state, "fleet_ownership", None)
+    advertised = None
+    if body.compatibility is not None:
         if ownership is None:
             raise HTTPException(status_code=503, detail="Fleet Agent ownership unavailable")
         from deerflow_ecs_fleet.launch_spec import WorkerCompatibility
 
-        try:
-            advertised = WorkerCompatibility.model_validate(body.compatibility.model_dump())
-            claim = await ownership.claim_agent(principal.node_id, node_session_id=body.node_session_id, worker=advertised)
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail=str(exc)) from None
-        return Response(status_code=204) if claim is None else {"kind": "agent", **asdict(claim)}
+        advertised = WorkerCompatibility.model_validate(body.compatibility.model_dump())
     try:
-        claim = await runtime.scheduler.claim_job(principal.node_id, node_session_id=body.node_session_id)
+        await runtime.nodes.advertise(principal.node_id, node_session_id=body.node_session_id, kind=body.kind, compatibility=advertised.model_dump(mode="json") if advertised else None)
+        kinds = [body.kind]
+        if body.kind == "mixed":
+            from deerflow_ecs_fleet.persistence.models import SchedulingRow
+
+            async with runtime.session_factory() as session:
+                turn = await session.get(SchedulingRow, "shared")
+                preferred = turn.next_kind if runtime.config.continuations_enabled else "agent"
+            kinds = [preferred, "job" if preferred == "agent" else "agent"]
+        for kind in kinds:
+            candidate = (
+                await ownership.claim_agent(principal.node_id, node_session_id=body.node_session_id, worker=advertised) if kind == "agent" else await runtime.scheduler.claim_job(principal.node_id, node_session_id=body.node_session_id)
+            )
+            if candidate is not None:
+                return {"kind": kind, **asdict(candidate)}
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
-    return Response(status_code=204) if claim is None else {"kind": "job", **asdict(claim)}
+    return Response(status_code=204)
 
 
 async def attempt_operation(request, attempt_id, body, method):

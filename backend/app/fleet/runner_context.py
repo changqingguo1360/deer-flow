@@ -620,6 +620,22 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         from deerflow.persistence.agent_definition_context import agent_definition_store_scope
 
         @contextmanager
+        def execution_scope():
+            # Enter after the original mutation scope and before Runner creates
+            # its executor so graph construction and tool Tasks inherit both.
+            with ExitStack() as scoped:
+                if private_fleet_config is not None:
+                    from deerflow.mcp.tasks.fleet_runtime import fleet_job_submitter_scope
+
+                    names = tuple(sorted(name for name, profile in private_fleet_config.profiles.items() if profile.kind == "job"))
+                    scoped.enter_context(fleet_job_submitter_scope(private_submitter, profile_names=names, scheduled_job_slots=private_fleet_config.scheduled_job_slots))
+                if cooperative_yield is not None:
+                    from deerflow.runtime.execution.yield_control import yield_scope
+
+                    scoped.enter_context(yield_scope(cooperative_yield))
+                yield
+
+        @contextmanager
         def private_scope():
             with ExitStack() as scoped:
                 from deerflow.runtime.execution.mutation_context import remote_mutation_scope
@@ -630,15 +646,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
                 scoped.enter_context(model_credential_scope(resolver))
                 scoped.enter_context(extensions_config_scope(private.extensions))
                 scoped.enter_context(mcp_task_submitter_scope(private_submitter, private.extensions))
-                if private_fleet_config is not None:
-                    from deerflow.mcp.tasks.fleet_runtime import fleet_job_submitter_scope
-
-                    names = tuple(sorted(name for name, profile in private_fleet_config.profiles.items() if profile.kind == "job"))
-                    scoped.enter_context(fleet_job_submitter_scope(private_submitter, profile_names=names, scheduled_job_slots=private_fleet_config.scheduled_job_slots))
-                if cooperative_yield is not None:
-                    from deerflow.runtime.execution.yield_control import yield_scope
-
-                    scoped.enter_context(yield_scope(cooperative_yield))
+                scoped.enter_context(execution_scope())
                 scoped.enter_context(agent_definition_store_scope(*definitions))
                 if private_memory is not None:
                     scoped.enter_context(memory_manager_scope(private_memory))
@@ -659,7 +667,17 @@ async def build_agent_environment(*, bootstrap, spec, grant):
         stack.push_async_callback(original_pool.close_all)
         with private_scope():
             private_tools = await get_mcp_tools()
-            extensions, diagnostics = load_extensions(private.plugins)
+            # This approved built-in descriptor supplies the private submit/yield
+            # capability above. Its Gateway installer must never start services
+            # or migrations inside a Runner's isolated execution configuration.
+            runner_plugins = []
+            for plugin in private.plugins:
+                if plugin.enabled and plugin.use == "deerflow_ecs_fleet:install":
+                    if (plugin.name, plugin.package) != ("ecs-fleet", "deerflow-ecs-fleet"):
+                        raise ValueError("Private Fleet control descriptor identity rejected")
+                    continue
+                runner_plugins.append(plugin)
+            extensions, diagnostics = load_extensions(runner_plugins)
         if any(item.level == "error" for item in diagnostics):
             raise ValueError("Approved runtime plugin failed to initialize")
         from deerflow.extensions.gateway import bind_remote_extensions
@@ -848,6 +866,7 @@ async def build_agent_environment(*, bootstrap, spec, grant):
             private_memory_manager=private_memory,
             private_mcp_task_submitter=private_submitter,
             workspace_scope=lambda: workspace_writer_scope(workspace_writers),
+            execution_scope=execution_scope,
             workspace_publications=workspace_publications,
         )
     except BaseException as original_error:

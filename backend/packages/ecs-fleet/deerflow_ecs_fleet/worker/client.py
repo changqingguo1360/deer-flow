@@ -15,9 +15,9 @@ class NodeClient:
         if not credential.startswith("df_fleet_"):
             raise ValueError("Node credential required")
         if (
-            claim_kind not in {"job", "agent"}
+            claim_kind not in {"job", "agent", "mixed"}
             or (claim_kind == "job" and (compatibility is not None or compatibility_loader is not None))
-            or (claim_kind == "agent" and compatibility is None and not callable(compatibility_loader))
+            or (claim_kind in {"agent", "mixed"} and compatibility is None and not callable(compatibility_loader))
             or (compatibility_loader is not None and (compatibility is not None or not callable(compatibility_loader)))
         ):
             raise ValueError("Invalid worker claim capability")
@@ -46,7 +46,7 @@ class NodeClient:
 
     async def claim(self):
         body = {"node_session_id": self.session_id}
-        if self.claim_kind == "agent":
+        if self.claim_kind in {"agent", "mixed"}:
             if self._compatibility_loader is not None:
                 from ..launch_spec import WorkerCompatibility
 
@@ -55,7 +55,7 @@ class NodeClient:
                     raise ValueError("Installed workspace contracts required for new Agent claims")
                 self.compatibility = candidate.model_dump(mode="json")
                 self._compatibility_loader = None
-            body.update(kind="agent", compatibility=self.compatibility)
+            body.update(kind=self.claim_kind, compatibility=self.compatibility)
         return await self.call("claims", body)
 
     async def attempt(self, claim, operation, **fields):

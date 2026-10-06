@@ -49,21 +49,17 @@ class FleetRunOwnership:
             node = await session.get(NodeRow, node_id, with_for_update=True)
             if node is None or node.session_id != node_session_id:
                 raise ValueError("Stale node session")
+            if node.claim_kinds is None:
+                node.claim_kinds = ["agent"]
             node.agent_compatibility = worker.model_dump(mode="json")
             node.runtime_digest = worker.runtime_digest
         # New-admission switches do not revoke accepted queued placements.
         if not self.config.enabled:
             return None
-        async with self.sf() as session:
-            candidates = (
-                await session.execute(
-                    select(RunPlacementRow.run_id, RunPlacementRow.agent_task_id)
-                    .where(RunPlacementRow.state == "queued", RunPlacementRow.queue_deadline > func.clock_timestamp())
-                    .order_by(RunPlacementRow.created_at, RunPlacementRow.run_id)
-                    .limit(64)
-                )
-            ).all()
-        for run_id, task_id in candidates:
+        from deerflow_ecs_fleet.admission_policy import queued_keys
+
+        query = select(RunPlacementRow.run_id, RunPlacementRow.agent_task_id, RunPlacementRow.created_at, RunPlacementRow.run_id).where(RunPlacementRow.state == "queued", RunPlacementRow.queue_deadline > func.clock_timestamp())
+        async for run_id, task_id, _, _ in queued_keys(self.sf, query, (RunPlacementRow.created_at, RunPlacementRow.run_id)):
             async with self.sf.begin() as session:
                 from deerflow_ecs_fleet.persistence.models import ReservationRow, SchedulerTicketRow
 
@@ -80,7 +76,16 @@ class FleetRunOwnership:
                     continue
                 run = await self.lock_run(session, run_id)
                 placement = await session.get(RunPlacementRow, run_id, with_for_update=True)
-                node = await session.get(NodeRow, node_id, with_for_update=True)
+                window = None
+                if self.config.continuations_enabled:
+                    from deerflow_ecs_fleet.admission_policy import SharedAdmissionPolicy
+
+                    from .admission import agent_candidates
+
+                    window = await SharedAdmissionPolicy(self.config, agent_candidates=agent_candidates).lock(session)
+                    node = next((row for row in window.nodes if row.id == node_id), None)
+                else:
+                    node = await session.get(NodeRow, node_id, with_for_update=True)
                 now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
                 if node is None or node.session_id != node_session_id:
                     raise ValueError("Stale node session")
@@ -129,8 +134,12 @@ class FleetRunOwnership:
                     execution_deadline=spec.execution_deadline,
                 )
                 if scheduled is None:
+                    if window is not None and not await window.permits("agent", run_id, node, profile):
+                        continue
                     if not await reserve(session, node, attempt, cpu_millis=spec.resources.cpu_millis, memory_mib=spec.resources.memory_mib, agent_units=1):
                         continue
+                    if window is not None:
+                        window.reserved("agent")
                 else:
                     ticket = await session.get(SchedulerTicketRow, scheduled.id, with_for_update=True, populate_existing=True)
                     reservation = await session.scalar(select(ReservationRow).where(ReservationRow.ticket_id == ticket.id).with_for_update())
@@ -363,6 +372,9 @@ def install_fleet_ownership(app, session_factory):
 
     install_fleet_continuations(app, session_factory, runtime)
     app.state.bound_run_execution_backend = BoundFleetRunBackend(session_factory, runtime.config)
+    from .admission import agent_candidates
+
+    runtime.scheduler.agent_candidates = agent_candidates
     app.state.fleet_ownership = FleetRunOwnership(session_factory, runtime.config)
     app.state.fleet_routing_config = runtime.config
     from .scheduler_tickets import FleetSchedulerTickets
