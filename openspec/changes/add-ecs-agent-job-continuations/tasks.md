@@ -1,14 +1,14 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01 已按[源码审计计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc01-dependencies.md)开始，当前所有完成项仍未勾选；不因规划/校验成功而勾选。
+BC01 已完成本地源码/原生验收，提交 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`；BC02–BC10 仍未完成。主干与必要边界各1项自然通过，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
-- [ ] 1.1 写并运行 backend/tests/fleet/test_bc01_fleet_agent_job_dependencies.py，确认 BC01 行为测试 RED。
-- [ ] 1.2 完成计划列出的接口、事务和部署接线；满足 `Owned immutable child links and wait groups`。
-- [ ] 1.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 1.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 1.1 写并运行 backend/tests/fleet/test_bc01_fleet_agent_job_dependencies.py，确认 BC01 行为测试 RED。
+- [x] 1.2 完成计划列出的接口、事务和部署接线；满足 `Owned immutable child links and wait groups`。
+- [x] 1.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 1.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 2. BC02 实现 await 工具与安全让出屏障
 
