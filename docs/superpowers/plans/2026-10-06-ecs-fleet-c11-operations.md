@@ -53,7 +53,7 @@ UI precedence: recovery-required/unknown → needs confirmation; active cancella
 - [x] Resolve never-assigned terminal SSE with one compact native PG check: subscribe queued, cancel/retire original accepted run with no Attempt, observe END only after committed matching terminal proof; reconnect also closes. Retained queued or owner/history mismatch does not produce END. Existing assigned cursor/seal checks remain intact; use existing narrow C07 checks rather than a new matrix.
 - [x] Add only directly affected authorization/nonsecret/disable checks after main. Reuse existing B public-secret/presentation, C07 queued/changed-mapping and C10 cancellation cases where their source paths participate. No all-backend/all-Fleet command is required under the user’s corrected scope. Preserve failures and run only exact affected rechecks.
 - [x] Document offline Agent build contract and release boundary. Run changed backend Ruff check/format, diffcheck, strict OpenSpec; frontend through absolute `scripts/pnpm.py` from frontend cwd for focused Rstest and pnpm check. No package installs or pulls unless a concrete authorized need is established.
-- [ ] Whole SPEC→QUALITY followed by Root requirement/source/evidence audit. Fix actual findings and rerun only affected proof; no speculative expansion. Explicit slice commit only after Ready. Then check OpenSpec11.1–11.4; C12/BC remain unchecked and real startup flag remains closed.
+- [x] Whole SPEC→QUALITY followed by Root requirement/source/evidence audit. Fix actual findings and rerun only affected proof; no speculative expansion. Explicit slice commit only after Ready. Then check OpenSpec11.1–11.4; C12/BC remain unchecked and real startup flag remains closed.
 
 ## Ownership and evidence
 
@@ -87,3 +87,5 @@ warnings and strict OpenSpec3/0; wholeSPEC→QUALITY and slice acceptance remain
 Whole SPEC review Ready, no findings (2026-10-06). QUALITY review is now in progress; final Root acceptance and slice commit remain pending.
 
 Whole QUALITY Ready, no findings. Root matched all20 final source hashes, inspected retained proof and completed local C11 acceptance. Explicit source commit follows; C12/BC and public activation remain pending.
+
+C11 source slice committed: `f9fb8d3ada2751555310ac126e605754a012d310`,32 explicit files. OpenSpec11.1–11.4 now checked after verified natural commit exit0. C12/BC remain pending; public activation remains closed.

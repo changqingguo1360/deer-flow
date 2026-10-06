@@ -84,12 +84,12 @@ C10 本地验收（2026-10-06）：[验收报告](../../../docs/ecs-fleet-c10-ac
 
 ## 11. C11 C 任务摘要、部署和本地回归
 
-当前源码审计完成，按[主干优先 C11 计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-c11-operations.md)推进。任务摘要采用独立 C 类型接入现有面板；关闭只拒绝新准入，保留已接受排队任务领取和运行对账；补齐从未分配 Attempt 的权威终态流关闭。真实 HTTP/PG 主干、从未分配流 END 和关闭 C 后的原始 Local 执行已取得有限 GREEN；最终源码冻结、双阶段审查和实际验收仍在进行，11.1–11.4 不勾选。按用户收敛要求保持3个后端及2个前端新增用例，仅复核源码变更直接影响的行为；有效历史 B 证据保留原范围。
+当前源码审计完成，按[主干优先 C11 计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-c11-operations.md)推进。任务摘要采用独立 C 类型接入现有面板；关闭只拒绝新准入，保留已接受排队任务领取和运行对账；补齐从未分配 Attempt 的权威终态流关闭。真实 HTTP/PG 主干、从未分配流 END 和关闭 C 后的原始 Local 执行已取得有限 GREEN；最终源码冻结、双阶段审查和Root本地验收已完成，11.1–11.4在实际slice提交后勾选。按用户收敛要求保持3个后端及2个前端新增用例，仅复核源码变更直接影响的行为；有效历史 B 证据保留原范围。
 
-- [ ] 11.1 写并运行 backend/tests/fleet/test_c11_remote_agent_operations.py，确认 C11 行为测试 RED。
-- [ ] 11.2 完成计划列出的接口、事务和部署接线；满足 `Remote task visibility and reversible enablement`。
-- [ ] 11.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 11.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 11.1 写并运行 backend/tests/fleet/test_c11_remote_agent_operations.py，确认 C11 行为测试 RED。
+- [x] 11.2 完成计划列出的接口、事务和部署接线；满足 `Remote task visibility and reversible enablement`。
+- [x] 11.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 11.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 12. C12 C 故障验收门槛
 
@@ -248,3 +248,5 @@ SPEC then QUALITY passes with no findings, original actual PostgreSQL2PASS/0skip
 Current stockd3b529/inventorye207 and Bfb884 have complete byte verification,
 not fresh main6/B12/native24 execution. Source14/runtime4 retain original main
 proof IDs; sparse override and final Root receipt accompany the single C08 commit.
+
+C11 本地验收提交：`f9fb8d3ada2751555310ac126e605754a012d310`。真实 HTTP/PG 主干、从未分配 END、关闭 C 后原始 Local 和有限 UI 验证通过；whole SPEC→QUALITY Ready、Root20文件哈希一致。新增3后端+2前端用例，无整套重跑。原邻接批次1failed/9passed及删除的镜像源码断言失败原样保留；实际生产 recipe build/runtime 属于 C12。见 [C11 验收](../../../docs/ecs-fleet-c11-acceptance.md)。C12、C→B→C 和公有准入仍未完成。

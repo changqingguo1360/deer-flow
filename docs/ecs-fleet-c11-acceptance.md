@@ -3,7 +3,7 @@
 C11 source is frozen against C10 baseline `74003058d607e1f389d3cbf071c15ba44aa0c4f6`.
 Whole SPEC→QUALITY is Ready with no findings. Root independently matched the20
 frozen source/test/fixture hashes and inspected actual logs, receipts and observations.
-C11 is locally accepted; the source commit receipt follows. Public remote activation stays closed. C12 and C→B→C
+C11 is locally accepted and committed as `f9fb8d3ada2751555310ac126e605754a012d310` (32 explicit files). Public remote activation stays closed. C12 and C→B→C
 remain required next work.
 
 ## Behavior and authoritative evidence
