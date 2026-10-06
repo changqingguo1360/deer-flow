@@ -851,7 +851,43 @@ class FleetWorkspaceTerminalParticipant:
         if previous is None or previous.id != spec.source_workspace_point_id or previous.checkpoint_id != spec.source_workspace_checkpoint_id:
             return False
         expected_generation = spec.generation - 1
-        if previous.kind == "final" and previous.desired_task_status == "waiting_jobs":
+        from deerflow_ecs_fleet.persistence.models import TaskOperationReceiptRow
+
+        receipt = await session.scalar(select(TaskOperationReceiptRow).where(TaskOperationReceiptRow.admitted_run_id == spec.run_id))
+        if receipt is not None:
+            if (
+                receipt.state != "admitted"
+                or receipt.operation not in {"message", "resume"}
+                or previous.kind not in ({"final", "paused"} if receipt.operation == "message" else {"final"})
+                or (receipt.agent_task_id, receipt.user_id, receipt.thread_id, receipt.source_point_generation, receipt.target_generation, receipt.source_run_id, receipt.source_workspace_point_id, receipt.source_checkpoint_id)
+                != (spec.agent_task_id, spec.user_id, spec.thread_id, previous.generation, spec.generation, previous.run_id, previous.id, previous.checkpoint_id)
+            ):
+                return False
+            group = await session.get(WaitGroupRow, receipt.wait_group_id)
+            if group is None or (group.agent_task_id, group.user_id, group.thread_id) != (spec.agent_task_id, spec.user_id, spec.thread_id) or group.generation > receipt.source_generation:
+                return False
+            if (
+                receipt.operation == "message"
+                and receipt.preceding_receipt_id is None
+                and previous.kind == "final"
+                and (
+                    previous.desired_task_status != "waiting_jobs"
+                    or previous.desired_core_status != "success"
+                    or previous.desired_placement_status != "succeeded"
+                    or (group.generation, group.parent_run_id, group.workspace_point_id, group.checkpoint_id) != (previous.generation, previous.run_id, previous.id, previous.checkpoint_id)
+                )
+            ):
+                return False
+            if previous.kind == "paused" and (
+                receipt.operation != "message" or receipt.request_digest is None or (previous.desired_task_status, previous.desired_core_status, previous.desired_placement_status) != ("paused", "interrupted", "cancelled")
+            ):
+                return False
+            from .operation_sources import receipt_chain
+
+            if not await receipt_chain(session, receipt=receipt, point=previous):
+                return False
+            expected_generation = receipt.source_point_generation
+        elif previous.kind == "final" and previous.desired_task_status == "waiting_jobs":
             group = await session.scalar(select(WaitGroupRow).where(WaitGroupRow.continuation_run_id == spec.run_id))
             if (
                 group is None

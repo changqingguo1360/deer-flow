@@ -148,10 +148,10 @@ class RunRepository(RunStore):
                 raise ConflictError("Thread execution backend is unavailable")
             await guard(session, user_id=user_id, thread_id=thread_id, backend=binding.backend, requested_backend=backend, operation=operation, participant=participant)
 
-    async def check_thread_admission(self, thread_id, *, user_id, operation="checkpoint_write"):
+    async def check_thread_admission(self, thread_id, *, user_id, operation="checkpoint_write", participant=None):
         resolved = resolve_user_id(user_id or AUTO, method_name="RunRepository.check_thread_admission")
         async with self._sf.begin() as session:
-            await self._guard_thread_admission(session, user_id=resolved, thread_id=thread_id, backend="local", operation=operation, participant=None)
+            await self._guard_thread_admission(session, user_id=resolved, thread_id=thread_id, backend="local", operation=operation, participant=participant)
 
     async def thread_execution_backend(self, thread_id, *, user_id):
         async with self._sf() as session:
@@ -966,7 +966,12 @@ class RunRepository(RunStore):
                         await participant.validate_reuse(session, stored)
                         raise RunIdempotencyConflict(stored)
                 await self._guard_thread_admission(
-                    session, user_id=resolved_user_id, thread_id=thread_id, backend=(kwargs or {}).get("execution_backend", "local") if participant is not None else "local", operation=operation_kind, participant=participant
+                    session,
+                    user_id=resolved_user_id,
+                    thread_id=thread_id,
+                    backend=getattr(participant, "admission_backend", (kwargs or {}).get("execution_backend", "local")) if participant is not None else "local",
+                    operation=operation_kind,
+                    participant=participant,
                 )
                 if participant is not None:
                     await participant.prepare(session)

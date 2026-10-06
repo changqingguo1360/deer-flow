@@ -1358,8 +1358,10 @@ class ChannelManager:
                 "context": run_context,
                 "multitask_strategy": "reject",
             }
-            if owner_headers := _owner_headers(carrier_msg):
-                run_kwargs["headers"] = owner_headers
+            if owner := _effective_owner_user_id(carrier_msg):
+                from app.gateway.internal_auth import create_channel_human_headers
+
+                run_kwargs["headers"] = create_channel_human_headers(owner_user_id=owner, thread_id=thread_id, graph_input=run_kwargs["input"], event_key=repr([(entry.dedupe_key, entry.text) for entry in entries]))
 
             result = await client.runs.create(thread_id, assistant_id, **run_kwargs)
         except Exception as exc:
@@ -2200,8 +2202,10 @@ class ChannelManager:
             "context": run_context,
             "multitask_strategy": "reject",
         }
-        if owner_headers := _owner_headers(msg):
-            run_kwargs["headers"] = owner_headers
+        if owner := _effective_owner_user_id(msg):
+            from app.gateway.internal_auth import create_channel_human_headers
+
+            run_kwargs["headers"] = create_channel_human_headers(owner_user_id=owner, thread_id=thread_id, graph_input=run_kwargs["input"], event_key=_followup_dedupe_key(msg))
 
         if policy is not None and policy.fire_and_forget:
             # Fire-and-forget path: the channel does its own outbound
@@ -2327,8 +2331,10 @@ class ChannelManager:
             "stream_mode": list(STREAM_MODES),
             "multitask_strategy": "reject",
         }
-        if owner_headers := _owner_headers(msg):
-            stream_kwargs["headers"] = owner_headers
+        if owner := _effective_owner_user_id(msg):
+            from app.gateway.internal_auth import create_channel_human_headers
+
+            stream_kwargs["headers"] = create_channel_human_headers(owner_user_id=owner, thread_id=thread_id, graph_input=stream_kwargs["input"], event_key=_followup_dedupe_key(msg))
 
         try:
             async for chunk in client.runs.stream(

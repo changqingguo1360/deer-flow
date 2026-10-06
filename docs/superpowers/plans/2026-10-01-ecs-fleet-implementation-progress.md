@@ -1,5 +1,9 @@
 # ECS Fleet implementation evidence
 
+## 2026-10-07 — BC06 current qualification
+
+BC06 main-green-04 naturally passed (1passed12.53s, owned schema dropped). Root independently verified419 pre-run source hashes and actual native explicit resumed execution, original STOP/releases, preserved newer message and bounded accepted child result references, with jobs2/childattempt1 unchanged. This is original authenticated-handler/installed-ownership native composition, not normal Gateway startup, installed image or ECS. One concentrated boundary is being implemented; SPEC→QUALITY, source commit and BC06 acceptance remain pending. BC07–10 are required. See [BC06 scope](../../ecs-fleet-bc06-runtime.md) and [current execution plan](2026-10-07-ecs-fleet-bc06-generation.md).
+
 ## 2026-10-06 — Current B/C/BC delivery state
 
 B and C01–C12 are locally accepted. BC01–BC04 are locally accepted; BC03 source `87e0d42876db67c01afc58c37a359afc28a22175` passed one native main8.30s and one concentrated boundary11.09s after the result-bounds repair, with fresh independent SPEC→QUALITY. Exact tested/current source and the sole cached-import formatting delta are documented in [BC03 acceptance](../../ecs-fleet-bc03-acceptance.md). BC04 source `f24a88d7142e83a4a57077a1cafaa4411c067d42` passed native main12.52s/boundary8.44s with both independent reviews and matching7blobs. [BC04 acceptance](../../ecs-fleet-bc04-acceptance.md) retains exact scope and historical limits. BC05 source `c153ad19` is locally accepted with an installed one-slot C→B→C main and one native boundary; BC06–BC10 and final combined entrypoint qualification remain required. Operator activation is not claimed. The older dated sections below are historical evidence, not current completion status.

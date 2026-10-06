@@ -632,3 +632,31 @@ class SchedulingRow(FleetBase):
         Column("next_kind", String(16), nullable=False, server_default="job"),
         CheckConstraint("id='shared' AND next_kind IN ('job','agent')", name="ck_fleet_scheduling_turn"),
     )
+
+
+class TaskOperationReceiptRow(FleetBase):
+    __table__ = Table(
+        "fleet_task_operation_receipts",
+        metadata,
+        Column("id", String(64), primary_key=True),
+        Column("agent_task_id", String(64), ForeignKey("fleet_agent_tasks.id"), nullable=False),
+        Column("user_id", String(64), nullable=False),
+        Column("thread_id", String(64), nullable=False),
+        Column("operation", String(32), nullable=False),
+        Column("idempotency_key", String(128), nullable=False),
+        Column("request_digest", String(64)),
+        Column("source_point_generation", Integer),
+        Column("preceding_receipt_id", String(64)),
+        Column("stopped_run_id", String(64)),
+        Column("source_generation", Integer, nullable=False),
+        Column("target_generation", Integer, nullable=False),
+        Column("source_run_id", String(64)),
+        Column("source_workspace_point_id", String(128)),
+        Column("source_checkpoint_id", String(128)),
+        Column("wait_group_id", String(64)),
+        Column("admitted_run_id", String(64), unique=True),
+        Column("state", String(16), nullable=False),
+        timestamp("created_at"),
+        UniqueConstraint("agent_task_id", "operation", "idempotency_key", name="uq_fleet_task_operation_key"),
+        CheckConstraint("source_generation > 0 AND target_generation >= source_generation", name="ck_fleet_task_operation_generation"),
+    )

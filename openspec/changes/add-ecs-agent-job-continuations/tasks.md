@@ -48,7 +48,9 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 6. BC06 取消、用户输入和 generation 竞态
 
-- [ ] 6.1 写并运行 backend/tests/fleet/test_bc06_fleet_agent_job_dependencies.py，确认 BC06 行为测试 RED。
+按[实际事务接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc06-generation.md)推进：human operation参加原准入UoW，waiting在确切STOP/release后同事务supersede；assigned先原cancel/STOP握手再升generation；explicit resume用新的trusted source receipt。一个实际主干先行，再至多一个集中必要边界。完整19文件补丁已批准应用，Root 指纹核对一致；race 修复后 main-green-05 主干自然退出0，1passed11.96s；boundary-05 唯一集中边界自然退出0，1passed32.10s，七个 owned schema 清理完成。当前419源码指纹已独立核对；SPEC 已 Ready；QUALITY 发现首次非 waiting 运行接管会先取消再拒绝的 P1，原作者已应用两行事务 guard，quality-green-01 同一边界1passed33.00s、八个 owned schema 清理、初始queued/assigned请求409且完整SQL不变；QUALITY 复审、源码提交及本阶段验收待完成，详见[资格报告](../../../docs/ecs-fleet-bc06-acceptance.md)。
+
+- [x] 6.1 写并运行 backend/tests/fleet/test_bc06_fleet_agent_job_dependencies.py，确认 BC06 行为测试 RED。main-red-06 实际 session HTTP409 证明 waiting human admission 缺口；自然退出1/自有schema清理，不代表全部 generation/resume 行为均已执行。
 - [ ] 6.2 完成计划列出的接口、事务和部署接线；满足 `Generation fences continuation and user edits`。
 - [ ] 6.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
 - [ ] 6.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。

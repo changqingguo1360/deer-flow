@@ -191,16 +191,20 @@ class FleetJobService:
             job = await session.get(JobRow, job_id, with_for_update=True)
             if job is None or job.user_id != user_id or job.thread_id != thread_id:
                 raise PermissionError("Job unavailable")
-            if job.state in {"succeeded", "failed", "cancelled"}:
-                return self.summary(job)
-            now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
-            job.cancel_requested_at = job.cancel_requested_at or now
-            if job.state in {"staged", "queued"}:
-                job.state = "cancelled"
-                job.finished_at = now
-            else:
-                await cancel_stopped_attempt(session, job, now)
-            # Cancellation cannot invent stop evidence. Started/claimed work
-            # retains state and capacity until a physical stop is durable.
-            job.updated_at = now
+            return await self.cancel_locked(session, job)
+
+    async def cancel_locked(self, session, job):
+        """Caller holds every affected job before acquiring any node lock."""
+        if job.state in {"succeeded", "failed", "cancelled"}:
             return self.summary(job)
+        now = (await session.execute(select(func.clock_timestamp()))).scalar_one()
+        job.cancel_requested_at = job.cancel_requested_at or now
+        if job.state in {"staged", "queued"}:
+            job.state = "cancelled"
+            job.finished_at = now
+        else:
+            await cancel_stopped_attempt(session, job, now)
+        # Cancellation cannot invent stop evidence. Started/claimed work
+        # retains state and capacity until a physical stop is durable.
+        job.updated_at = now
+        return self.summary(job)

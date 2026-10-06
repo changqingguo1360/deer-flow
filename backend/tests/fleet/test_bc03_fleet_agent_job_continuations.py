@@ -56,7 +56,7 @@ async def owner_environment(admission, tmp_path, monkeypatch):
         await generator.aclose()
 
 
-async def complete_children(sf, wire, node_id, node_session_id):
+async def complete_children(sf, wire, node_id, node_session_id, *, max_jobs=2):
     from deerflow_ecs_fleet.config import FleetConfig
     from deerflow_ecs_fleet.job_service import FleetJobService
     from deerflow_ecs_fleet.persistence.attempts import JobAttempts
@@ -76,7 +76,7 @@ async def complete_children(sf, wire, node_id, node_session_id):
     workspace = NASWorkspace(config.nas_root, identity=config.nas_identity)
     manifests = FleetManifests(sf, attempts=attempts, workspace=workspace)
     completed = []
-    while claim := await scheduler.claim_job(node_id, node_session_id=node_session_id):
+    while len(completed) < max_jobs and (claim := await scheduler.claim_job(node_id, node_session_id=node_session_id)):
         identity = dict(node_id=node_id, node_session_id=node_session_id, attempt_id=claim.attempt_id, token=claim.token)
         grant = await attempts.authorize_start(**identity)
         await attempts.renew(**identity, running=True)
@@ -90,7 +90,8 @@ async def complete_children(sf, wire, node_id, node_session_id):
         completed.append({"job_id": claim.job_id, "pid": child.pid, "exit": child.returncode, "manifest_id": result["manifest_id"], "files": manifest["files"]})
     if directory := os.environ.get("BC03_EVIDENCE_DIR"):
         Path(directory, "children-" + node_id + ".json").write_text(json.dumps(completed, indent=2))
-    assert len(completed) == 2
+    assert len(completed) == max_jobs
+    return completed
 
 
 @pytest.mark.integration
@@ -217,7 +218,7 @@ async def verify_admission(item, observed, second):
         )
 
 
-async def execute_continuation(item, tmp_path):
+async def execute_continuation(item, tmp_path, *, human=False):
     """Actual new AgentRunner process restores NAS source and publishes its next pair."""
     import hashlib
     import sys
@@ -236,7 +237,12 @@ async def execute_continuation(item, tmp_path):
     from .c04_integration_fixture import node_server
 
     runtime, app = item.env[3], item.env[4]
-    await runtime.nodes.register(node_id="node-bc03-new", name="node-bc03-new", cpu_millis=4000, memory_mib=8192, agent_limit=1, profile_allowlist=["remote", "batch"])
+    from deerflow_ecs_fleet.persistence.models import NodeRow
+
+    async with item.env[1]() as session:
+        existing = await session.get(NodeRow, "node-bc03-new")
+    if existing is None:
+        await runtime.nodes.register(node_id="node-bc03-new", name="node-bc03-new", cpu_millis=4000, memory_mib=8192, agent_limit=1, profile_allowlist=["remote", "batch"])
     opened = await runtime.nodes.open_session("node-bc03-new", protocol_version=1)
     session_id = opened["node_session_id"]
     await runtime.nodes.heartbeat("node-bc03-new", node_session_id=session_id, protocol_version=1)
@@ -390,7 +396,10 @@ async def execute_continuation(item, tmp_path):
     assert rows[0]["status"] == rows[1]["status"] == "success", observed
     assert rows[1]["node_id"] == "node-bc03-new" and rows[1]["stopped_at"] and rows[1]["reservation_state"] == "released"
     assert final_point != spec.source_workspace_point_id and observed["history"]["unpaired_tool_calls"] == 0
-    assert observed["history"]["model_calls_total"] == 1 and observed["history"]["continuation_message_seen"]
+    assert observed["history"]["model_calls_total"] == 1
+    if not human:
+        assert observed["history"]["continuation_message_seen"]
+    return observed
 
 
 def verify_bounded_observations():

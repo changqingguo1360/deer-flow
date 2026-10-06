@@ -682,15 +682,11 @@ async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteRe
     and removes the thread_meta row from the configured ThreadMetaStore
     (sqlite or memory).
     """
-    run_manager = get_run_manager(request)
+    from app.gateway.services import reserve_trusted_thread_operation
+
     try:
-        async with goal_thread_lock(thread_id):
-            async with run_manager.reserve_thread_operation(
-                thread_id,
-                kind=ThreadOperationKind.delete,
-                user_id=get_effective_user_id(),
-            ):
-                return await _delete_thread_data_with_reservation(thread_id, request)
+        async with reserve_trusted_thread_operation(request, thread_id, operation="delete", user_id=get_effective_user_id()):
+            return await _delete_thread_data_with_reservation(thread_id, request)
     except ConflictError:
         raise HTTPException(
             status_code=409,

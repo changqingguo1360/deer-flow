@@ -30,6 +30,12 @@ class RunAdmissionParticipant(Protocol):
     async def validate_reuse(self, session: AsyncSession, stored_run: dict) -> None: ...
 
 
+class ThreadOperationParticipant(RunAdmissionParticipant, Protocol):
+    """A non-run participant owns completion while its reservation is held."""
+
+    async def finish_operation(self, error: BaseException | None) -> None: ...
+
+
 class RunTerminalParticipant(Protocol):
     """Trusted extension writes on the repository's original terminal TX.
 
@@ -52,7 +58,7 @@ class ExecutionPlan:
             not isinstance(self.public_kwargs.get("execution_backend"), str) or (self.public_kwargs["execution_backend"] == "local" or re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}", self.public_kwargs["execution_backend"]) is None)
         ):
             raise ValueError("Remote admission requires a server-owned nonlocal backend label")
-        if self.store_only != (self.participant is not None):
+        if self.store_only and self.participant is None:
             raise ValueError("Remote execution requires a transactional admission participant")
 
 

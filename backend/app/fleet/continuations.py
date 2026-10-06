@@ -75,6 +75,15 @@ class FleetContinuationAdmission(FleetRunAdmission):
             or task.continuation_budget <= 0
         ):
             raise ConflictError("Original task cannot admit a continuation")
+        from deerflow_ecs_fleet.persistence.models import TaskOperationReceiptRow
+
+        pending = await session.scalar(
+            select(TaskOperationReceiptRow.id)
+            .where(TaskOperationReceiptRow.agent_task_id == task.id, TaskOperationReceiptRow.source_generation == task.generation, TaskOperationReceiptRow.state.in_(["requested", "reserved", "blocked"]))
+            .limit(1)
+        )
+        if pending is not None:
+            raise ConflictError("Original human task operation supersedes automatic continuation")
         run = await session.get(RunRow, group.parent_run_id, with_for_update=True)
         placement = await session.get(RunPlacementRow, group.parent_run_id, with_for_update=True)
         if run is None or placement is None or placement.active_attempt_id is None or run.cancel_action is not None or run.status != "success":

@@ -22,7 +22,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core.messages.utils import convert_to_messages
 from langgraph.types import Command
 
-from app.gateway.auth_disabled import AUTH_SOURCE_INTERNAL
+from app.gateway.auth_disabled import AUTH_SOURCE_AUTH_DISABLED, AUTH_SOURCE_INTERNAL, AUTH_SOURCE_PAT, AUTH_SOURCE_SESSION
 from app.gateway.authz import require_cancel_permission_if
 from app.gateway.deps import get_checkpointer, get_local_provider, get_run_context, get_run_manager, get_stream_bridge
 from app.gateway.internal_auth import (
@@ -91,14 +91,36 @@ async def reserve_checkpoint_write(
     user_id: str | None = None,
 ) -> AsyncIterator[None]:
     """Serialize an out-of-run checkpoint writer against all thread operations."""
-    run_manager = get_run_manager(request)
-    async with goal_thread_lock(thread_id):
-        async with run_manager.reserve_thread_operation(
-            thread_id,
-            kind=ThreadOperationKind.checkpoint_write,
-            user_id=user_id,
-        ):
-            yield
+    async with reserve_trusted_thread_operation(request, thread_id, operation="checkpoint_write", user_id=user_id):
+        yield
+
+
+@asynccontextmanager
+async def reserve_trusted_thread_operation(request, thread_id, *, operation, user_id):
+    """Retry only the rolled-back final human handoff, never the mutation."""
+    from contextlib import AsyncExitStack
+    from uuid import uuid4
+
+    manager = get_run_manager(request)
+    participant, expected = None, None
+    fleet = getattr(request.app.state, "fleet_ownership", None) is not None
+    key = request.headers.get("Idempotency-Key") or uuid4().hex
+    async with goal_thread_lock(thread_id), AsyncExitStack() as stack:
+        for retry in range(2):
+            if fleet:
+                from app.fleet.task_admission import HumanOperationNeedsStop, neutral_participant
+                from app.gateway.deps import get_current_user
+
+                participant = await neutral_participant(request, thread_id, operation, user_id or await get_current_user(request), operation_key=key, expected=expected)
+            try:
+                await stack.enter_async_context(manager.reserve_thread_operation(thread_id, kind=ThreadOperationKind(operation), user_id=user_id, **({"participant": participant} if participant is not None else {})))
+            except ConflictError as exc:
+                if not fleet or retry or not isinstance(exc, HumanOperationNeedsStop):
+                    raise
+                expected = (exc.task_id, exc.generation)
+            else:
+                break
+        yield
 
 
 _TERMINAL_RUN_STATUSES = {
@@ -1279,6 +1301,9 @@ async def start_run(
             )
 
     owner_user_id = get_trusted_internal_owner_user_id(request)
+    from app.gateway.internal_auth import authenticated_channel_human_event
+
+    channel_human = authenticated_channel_human_event(request, thread_id, body.input)
     # Stateless run endpoints carry thread_id in the request *body*, so the
     # @require_permission(owner_check=True) decorator -- which resolves ownership
     # from the path param -- cannot protect them. Enforce thread ownership here,
@@ -1368,11 +1393,47 @@ async def start_run(
             public_kwargs={"input": body.input, "config": redact_config_secrets(body.config)},
             model_name=model_name,
         )
+        fleet_human_retry = None
         if execution_backend is None:
             resolver = getattr(request.app.state, "bound_run_execution_backend", None)
             if resolver is not None:
                 try:
-                    execution_backend = await resolver(parameters)
+                    human_resolver = getattr(resolver, "resolve_human", None)
+                    if human_resolver is not None and (channel_human is not None or getattr(request.state, "auth_source", None) in {AUTH_SOURCE_SESSION, AUTH_SOURCE_PAT, AUTH_SOURCE_AUTH_DISABLED}):
+                        ownership = getattr(request.app.state, "fleet_ownership", None)
+                        fleet_bound = False
+                        if ownership is not None:
+                            from app.fleet.execution import BoundFleetRunBackend
+
+                            fleet_bound = isinstance(resolver, BoundFleetRunBackend)
+                        if fleet_bound:
+                            from uuid import uuid4
+
+                            from app.fleet.task_admission import message_digest, owned_message_backend, scoped_operation_key
+                            from app.fleet.task_operations import stop_before_human
+
+                            caller_key = request.headers.get("Idempotency-Key")
+                            if caller_key is not None and (not caller_key or len(caller_key) > 128):
+                                raise HTTPException(400, "Idempotency-Key must contain 1 to 128 characters")
+                            operation_key = caller_key or uuid4().hex
+                            if channel_human is None or channel_human[1]:
+                                await stop_before_human(ownership, parameters, operation_key, request, digest=message_digest(parameters))
+                            execution_backend = await owned_message_backend(resolver, parameters, operation_key, allow_fresh=channel_human is None or channel_human[1])
+                            if getattr(execution_backend, "human_operation", None) and (channel_human is None or channel_human[1]):
+                                fleet_human_retry = (ownership, resolver, operation_key)
+                            if caller_key is not None and getattr(execution_backend, "human_operation", None):
+                                idempotency_key = scoped_operation_key(parameters.user_id, thread_id, caller_key)
+                        else:
+                            execution_backend = await human_resolver(parameters)
+                        if getattr(execution_backend, "human_operation", None):
+                            if fleet_bound:
+                                from app.fleet.task_admission import bind_cancel_permission
+
+                                await bind_cancel_permission(request, execution_backend)
+                            else:
+                                require_cancel_permission_if(request, True)
+                    else:
+                        execution_backend = await resolver(parameters)
                 except ConflictError as exc:
                     raise HTTPException(status_code=409, detail=str(exc)) from exc
         from app.fleet.routing import resolve_execution_backend
@@ -1473,22 +1534,45 @@ async def start_run(
                 # cannot both succeed across Gateway workers.
                 if require_existing_thread and not await thread_access_allowed():
                     raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
-                record = await run_mgr.create_or_reject(
-                    thread_id,
-                    body.assistant_id,
-                    on_disconnect=disconnect,
-                    metadata=body.metadata or {},
-                    # Persist a secret-redacted copy of the config: the run record is
-                    # written to runs.kwargs_json and echoed by the run API, so a
-                    # request-scoped secret (#3861) must not ride along. The live
-                    # config built above keeps the secrets for the actual run.
-                    kwargs=execution_plan.public_kwargs,
-                    multitask_strategy=body.multitask_strategy,
-                    model_name=model_name,
-                    user_id=parameters.user_id if execution_plan.store_only else owner_user_id,
-                    idempotency_key=idempotency_key,
-                    **({"execution_plan": execution_plan} if execution_plan.store_only else {}),
-                )
+
+                async def admit_current_plan():
+                    return await run_mgr.create_or_reject(
+                        thread_id,
+                        body.assistant_id,
+                        on_disconnect=disconnect,
+                        metadata=body.metadata or {},
+                        # Persist a secret-redacted copy of the config: the run record is
+                        # written to runs.kwargs_json and echoed by the run API, so a
+                        # request-scoped secret (#3861) must not ride along. The live
+                        # config built above keeps the secrets for the actual run.
+                        kwargs=execution_plan.public_kwargs,
+                        multitask_strategy=body.multitask_strategy,
+                        model_name=model_name,
+                        user_id=parameters.user_id if execution_plan.store_only else owner_user_id,
+                        idempotency_key=idempotency_key,
+                        **({"execution_plan": execution_plan} if execution_plan.store_only else {}),
+                    )
+
+                for retry in range(2):
+                    try:
+                        record = await admit_current_plan()
+                    except ConflictError as exc:
+                        if fleet_human_retry is None or retry:
+                            raise
+                        from app.fleet.task_admission import HumanOperationNeedsStop, bind_cancel_permission, message_digest, owned_message_backend
+                        from app.fleet.task_operations import stop_before_human
+
+                        if not isinstance(exc, HumanOperationNeedsStop):
+                            raise
+                        ownership, resolver, operation_key = fleet_human_retry
+                        await stop_before_human(ownership, parameters, operation_key, request, digest=message_digest(parameters), expected=(exc.task_id, exc.generation))
+                        execution_backend = await owned_message_backend(resolver, parameters, operation_key)
+                        if execution_backend is None:
+                            raise ConflictError("Original human handoff unavailable")
+                        await bind_cancel_permission(request, execution_backend)
+                        execution_plan = execution_backend.plan(parameters)
+                    else:
+                        break
 
                 if record.idempotency_reused or execution_plan.store_only:
                     return record

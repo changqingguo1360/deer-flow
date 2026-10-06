@@ -167,8 +167,9 @@ async def original_child(payload):
         AIMessage(content="", tool_calls=[{"id": "await-one", "name": "await_fleet_jobs", "args": {}, "type": "tool_call"}, {"id": "sibling-one", "name": "settled_sibling", "args": {}, "type": "tool_call"}]),
         AIMessage(content="unexpected extra model call"),
     ]
-    if payload.get("normal_end"):
+    if payload.get("normal_end") or payload.get("continuation_case") == "bc06_boundary":
         responses[0].tool_calls.append({"id": "detached-one", "name": "submit_fleet_job", "args": {"task_name": "detached", "profile": "batch", "argv": ["/bin/true"], "link_mode": "detached"}, "type": "tool_call"})
+    if payload.get("normal_end"):
         responses[1] = AIMessage(content="", tool_calls=[{"id": "terminal-children", "name": "settled_sibling", "args": {}, "type": "tool_call"}])
     if payload.get("continue_existing"):
         responses = [AIMessage(content="Continued from accepted checkpoint and consumed settled jobs.")]
@@ -217,6 +218,7 @@ async def original_child(payload):
                         "model_calls_after_await": None if payload.get("continue_existing") else len(model_calls) - (3 if payload.get("normal_end") else 2),
                         "model_calls_total": len(model_calls),
                         "continuation_message_seen": any(continuation_seen),
+                        "human_messages": [str(message.content) for message in snapshot.values["messages"] if getattr(message, "type", None) == "human"],
                         "pending_next": list(snapshot.next),
                         "task_errors": [str(task.error) for task in snapshot.tasks],
                         "tool_call_ids": calls,

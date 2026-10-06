@@ -127,8 +127,6 @@ async def accepted_final(session, *, task, run, placement, attempt):
     The caller already owns the original task/run/placement/node/ledger/attempt
     locks. This helper acquires no independent transaction and grants no writes.
     """
-    from sqlalchemy import text
-
     from .models import WorkspacePointRow
 
     if not task.accepted_workspace_point_id or task.accepted_workspace_point_id != placement.final_workspace_point_id:
@@ -136,11 +134,22 @@ async def accepted_final(session, *, task, run, placement, attempt):
     point = await session.get(WorkspacePointRow, placement.final_workspace_point_id)
     if point is None or point.kind not in {"final", "paused"}:
         return None
+    if task.id != placement.agent_task_id or task.current_run_id != run.run_id or task.generation != placement.generation:
+        return None
+    return await accepted_source_identity(session, point=point, run=run, placement=placement, attempt=attempt)
+
+
+async def accepted_source_identity(session, *, point, run, placement, attempt):
+    """Immutable original proof; callers must separately authorize current lineage."""
+    from sqlalchemy import text
+
+    if point is None or point.kind not in {"final", "paused"} or placement.final_workspace_point_id != point.id or placement.active_attempt_id != attempt.id:
+        return None
     expected = dict(
         user_id=run.user_id,
         thread_id=run.thread_id,
         run_id=run.run_id,
-        agent_task_id=task.id,
+        agent_task_id=placement.agent_task_id,
         generation=placement.generation,
         attempt_id=attempt.id,
         node_id=attempt.node_id,
@@ -152,7 +161,7 @@ async def accepted_final(session, *, task, run, placement, attempt):
         error=run.error,
         stop_reason=run.stop_reason,
     )
-    if any(getattr(point, name) != value for name, value in expected.items()) or task.current_run_id != run.run_id or task.generation != placement.generation:
+    if any(getattr(point, name) != value for name, value in expected.items()):
         return None
     from ..launch_spec import LaunchSpec
 

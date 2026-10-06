@@ -1830,11 +1830,11 @@ class RunManager:
         logger.info("Run created: run_id=%s thread_id=%s", run_id, thread_id)
         return record
 
-    async def assert_thread_operation_allowed(self, thread_id, *, user_id=None):
+    async def assert_thread_operation_allowed(self, thread_id, *, user_id=None, participant=None):
         """Shared durable routing/recovery guard before preparing host mutations."""
         guard = getattr(self._store, "check_thread_admission", None)
         if guard is not None:
-            await guard(thread_id, user_id=user_id)
+            await guard(thread_id, user_id=user_id, **({"participant": participant} if participant is not None else {}))
 
     @asynccontextmanager
     async def reserve_thread_operation(
@@ -1843,6 +1843,7 @@ class RunManager:
         *,
         kind: ThreadOperationKind,
         user_id: str | None = None,
+        participant=None,
     ) -> AsyncIterator[None]:
         """Hold exclusive durable admission for a non-run thread operation.
 
@@ -1855,6 +1856,7 @@ class RunManager:
         record = await self._admit_thread_operation(
             thread_id,
             operation_kind=kind,
+            execution_plan=ExecutionPlan(public_kwargs={}, participant=participant) if participant is not None else None,
             multitask_strategy="reject",
             user_id=user_id,
         )
@@ -1882,6 +1884,18 @@ class RunManager:
             original_error = sys.exception()
 
             async def release_original_reservation():
+                try:
+                    if participant is not None:
+                        try:
+                            await participant.finish_operation(original_error)
+                        except BaseException:
+                            if original_error is None:
+                                raise
+                            logger.exception("Thread operation completion failed while preserving original mutation error")
+                finally:
+                    await release_core_reservation()
+
+            async def release_core_reservation():
                 try:
                     if self._store is not None:
                         try:

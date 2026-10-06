@@ -65,7 +65,12 @@ class FleetExecutionBackend:
     def plan(self, parameters: RunExecutionParameters):
         if parameters.model_name is not None and parameters.model_name != self.model_name:
             raise ValueError("Run model conflicts with operator execution binding")
-        participant = FleetRunAdmission(self, parameters)
+        if human := getattr(self, "human_operation", None):
+            from .task_admission import FleetHumanRunAdmission
+
+            participant = FleetHumanRunAdmission(self, parameters, **human)
+        else:
+            participant = FleetRunAdmission(self, parameters)
         return ExecutionPlan(store_only=True, participant=participant, public_kwargs={"execution_backend": "fleet", "profile": self.profile_name, "schema_version": 1})
 
 
@@ -286,10 +291,52 @@ async def fleet_thread_admission_guard(session, *, user_id, thread_id, backend, 
         raise ConflictError("Thread execution backend is unsupported")
     tasks = (await session.execute(select(AgentTaskRow).where(AgentTaskRow.user_id == user_id, AgentTaskRow.thread_id == thread_id).order_by(AgentTaskRow.created_at, AgentTaskRow.id).with_for_update())).scalars().all()
     active = [task for task in tasks if task.state not in {"succeeded", "failed", "cancelled", "timed_out"}]
+    if getattr(participant, "observe_human_mutation", False):
+        if len(active) == 1 and active[0].state in {"waiting_jobs", "queued", "running"}:
+            return
+        if len(active) == 1 and active[0].state == "paused":
+            from deerflow_ecs_fleet.persistence.models import TaskOperationReceiptRow
+
+            pending = await session.scalar(
+                select(TaskOperationReceiptRow.id)
+                .where(
+                    TaskOperationReceiptRow.agent_task_id == active[0].id,
+                    TaskOperationReceiptRow.source_generation == active[0].generation,
+                    TaskOperationReceiptRow.operation.in_(["checkpoint_write", "delete"]),
+                    TaskOperationReceiptRow.state == "requested",
+                )
+                .limit(1)
+            )
+            if pending is not None:
+                return
+        if active:
+            raise ConflictError("Thread has unfinished remote execution or recovery")
+    if hasattr(participant, "validate_human_operation"):
+        owned = next((task for task in tasks if task.id == participant.task_id), None)
+        if operation not in {"run", "checkpoint_write", "delete"} or (requested_backend != "fleet" and operation == "run") or owned is None or any(task.id != owned.id for task in active):
+            raise ConflictError("Thread human operation conflicts")
+        await participant.validate_human_operation(session, owned)
+        return
+    from deerflow_ecs_fleet.persistence.models import TaskOperationReceiptRow
+
+    pending = await session.scalar(
+        select(TaskOperationReceiptRow.id)
+        .join(AgentTaskRow, AgentTaskRow.id == TaskOperationReceiptRow.agent_task_id)
+        .where(
+            TaskOperationReceiptRow.user_id == user_id,
+            TaskOperationReceiptRow.thread_id == thread_id,
+            TaskOperationReceiptRow.state.in_(["reserved", "blocked"]) | ((TaskOperationReceiptRow.state == "requested") & (TaskOperationReceiptRow.source_generation == AgentTaskRow.generation)),
+        )
+        .limit(1)
+    )
+    if pending is not None:
+        raise ConflictError("Original human task operation is pending or requires recovery")
     if active:
         if operation != "run" or requested_backend != "fleet" or not isinstance(participant, FleetRunAdmission) or len(active) != 1:
             raise ConflictError("Thread has unfinished remote execution or recovery")
-        if getattr(participant, "continuation_group_id", None) is not None:
+        if hasattr(participant, "validate_human_operation"):
+            await participant.validate_human_operation(session, active[0])
+        elif getattr(participant, "continuation_group_id", None) is not None:
             await participant.validate_continuation(session, active[0])
         else:
             await participant.validate_paused_resume(session, active[0])
@@ -305,18 +352,25 @@ class BoundFleetRunBackend:
     def __init__(self, session_factory, config):
         self.sf, self.config = session_factory, config
 
-    async def __call__(self, parameters):
+    async def resolve_human(self, parameters):
+        if isinstance(parameters.graph_input, Command):
+            return await self(parameters)
+        return await self(parameters, human=True)
+
+    async def __call__(self, parameters, *, human=False):
         from deerflow_ecs_fleet.persistence.models import AttemptRow, RunPlacementRow, WorkspacePointRow
 
         from deerflow.persistence.run.model import ThreadExecutionBindingRow
 
-        if not isinstance(parameters.graph_input, Command) or parameters.graph_input.resume is None:
+        if not human and (not isinstance(parameters.graph_input, Command) or parameters.graph_input.resume is None):
             return None
         async with self.sf() as session:
             binding = await session.get(ThreadExecutionBindingRow, (parameters.user_id, parameters.thread_id))
             if binding is None or binding.backend != "fleet":
                 return None
             task = await session.scalar(select(AgentTaskRow).where(AgentTaskRow.user_id == parameters.user_id, AgentTaskRow.thread_id == parameters.thread_id, text(AGENT_TASK_ACTIVE)))
+            if human and not isinstance(parameters.graph_input, Command) and (task is None or task.state != "waiting_jobs"):
+                return None
             if binding.recovery_required or task is None or task.current_run_id is None:
                 raise ConflictError("Bound remote human input requires its original task")
             spec = await RunPlacements().load_launch_spec(session, run_id=task.current_run_id, user_id=parameters.user_id, thread_id=parameters.thread_id)
@@ -328,7 +382,7 @@ class BoundFleetRunBackend:
             profile = self.config.profiles.get(spec.profile)
             if profile is None or frozen_profile != profile.model_dump(mode="json") or profile.runtime_digest != spec.runtime_digest or profile.cpu_millis != spec.resources.cpu_millis or profile.memory_mib != spec.resources.memory_mib:
                 raise ConflictError("Bound remote execution profile changed")
-            return FleetExecutionBackend(
+            backend = FleetExecutionBackend(
                 config=self.config,
                 profile_name=spec.profile,
                 model_name=spec.model_name,
@@ -339,3 +393,7 @@ class BoundFleetRunBackend:
                 secret_refs=spec.secret_refs,
                 continuation_budget=task.continuation_budget,
             )
+
+            if human and task.state == "waiting_jobs":
+                backend.human_operation = {"task_id": task.id, "expected_generation": task.generation}
+            return backend
