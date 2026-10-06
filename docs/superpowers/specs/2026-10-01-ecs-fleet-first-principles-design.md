@@ -332,9 +332,11 @@ await 工具，运行时为这些依赖建立等待组并执行相同的安全�
 2. C 调用 `await_fleet_jobs(job_ids)`；工具校验所有 job 属于当前 task/generation，
    写入 preparing wait group，并请求运行时在工具消息已保存的安全边界结束本次 run。
 3. 运行时停止后续 graph 步骤、完成 checkpoint、停止本地工具并封存 workspace。
-   与 run.success、placement.succeeded 一起提交 task 的 waiting_jobs 状态；工具返回
-   “已等待”的状态需完整进入会话，不能留下未配对的 tool call。
-4. worker 确认旧 runner 和工具进程全部退出；释放 C reservation。wait group 此前不得
+   在原终结事务中提交 run.success、精确 checkpoint/workspace 配对及 waiting_jobs 的
+   目标状态；task/placement 沿用已实现的 finishing 屏障。工具返回“已等待”的状态需
+   完整进入会话，不能留下未配对的 tool call。
+4. worker 确认旧 runner 和工具进程全部退出；原 STOP 事务按已接受配对应用
+   task.waiting_jobs/placement.succeeded 并释放 C reservation。wait group 此前不得
    启动 continuation，即使全部 B 已经完成。
 5. coordinator 从持久状态同时检查：全部依赖终态、父 task 未取消/暂停、generation 未变、
    当前 run 已终态、资源清理已确认、线程允许新准入、预算/deadline 未耗尽。

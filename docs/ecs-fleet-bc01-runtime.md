@@ -1,6 +1,6 @@
 # BC01 runtime boundary
 
-BC01 source/native foundation passed independent SPEC and QUALITY review. Its two native PostgreSQL cases passed, including the actual loaded ToolNode→submit_fleet_job→private McpTaskService→FleetTaskDriver→FleetJobService submission path. The final source/evidence match is verified; the explicit commit receipt follows final static checks. This foundation does not deliver cooperative yield, resumed C runs or installed C→B→C; BC02–BC10 remain required.
+BC01 source/native foundation passed independent SPEC and QUALITY review. Its two native PostgreSQL cases passed, including the actual loaded ToolNode→submit_fleet_job→private McpTaskService→FleetTaskDriver→FleetJobService submission path. The final source/evidence match is verified; source commit is `ce92de4a`, with acceptance receipt `62784b46`. This foundation does not deliver cooperative yield, resumed C runs or installed C→B→C; BC02–BC10 remain required.
 
 ## Owned submissions
 

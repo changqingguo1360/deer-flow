@@ -1,6 +1,6 @@
 # BC01 acceptance status
 
-BC01 source/native foundation accepted after independent SPEC→QUALITY review and current-source/evidence verification. Final native main and one concentrated boundary case passed. The explicit source commit is recorded separately after final static checks. BC02–BC10 remain required.
+BC01 source/native foundation accepted after independent SPEC→QUALITY review and current-source/evidence verification. Final native main and one concentrated boundary case passed. The explicit source commit is `ce92de4a`, with acceptance receipt `62784b46`. BC02–BC10 remain required.
 
 | Requirement | Current evidence | Scope/status |
 |---|---|---|

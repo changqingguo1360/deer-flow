@@ -12,6 +12,8 @@ BC01 已完成本地源码/原生验收，提交 `ce92de4ab1f47eeac25e03544019bb
 
 ## 2. BC02 实现 await 工具与安全让出屏障
 
+已开始[当前源码接线计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc02-yield.md)，仅主干先行；完成项按实际证据记录。
+
 - [ ] 2.1 写并运行 backend/tests/fleet/test_bc02_fleet_agent_job_dependencies.py，确认 BC02 行为测试 RED。
 - [ ] 2.2 完成计划列出的接口、事务和部署接线；满足 `Durable cooperative yield releases execution resources`。
 - [ ] 2.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。

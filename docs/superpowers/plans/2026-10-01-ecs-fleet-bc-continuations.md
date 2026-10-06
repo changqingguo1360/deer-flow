@@ -13,7 +13,7 @@
 **前置：** add-ecs-remote-agent 验收通过，B/C 独立执行均可用。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-agent-job-continuations/proposal.md)、[tasks](../../../openspec/changes/add-ecs-agent-job-continuations/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** BC01 当前按[源码审计后的详细计划](2026-10-06-ecs-fleet-bc01-dependencies.md)开始实施；后继BC02–BC10未实施。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
+**计划状态：** BC01 原生基础已验收，源码提交 `ce92de4a`、记录 `62784b46`；BC02 按[当前源码接线计划](2026-10-06-ecs-fleet-bc02-yield.md)开始，BC03–BC10未实施。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -97,7 +97,7 @@ class FleetProbe:
 
 **OpenSpec:** `fleet-agent-job-dependencies` / `Owned immutable child links and wait groups`。
 
-- [ ] **Step 1 — 场景搭建与失败测试。** 两个 task/用户创建子 job；交叉 await 拒绝；重复 seal 返回原组；模拟旧 generation 提交，查看未新增记录。
+- [x] **Step 1 — 场景搭建与失败测试。** 两个 task/用户创建子 job；交叉 await 拒绝；重复 seal 返回原组；模拟旧 generation 提交，查看未新增记录。
 
 测试判据（该任务注册的场景必须从实际 DB/HTTP/进程收集以下事实）：
 
@@ -114,7 +114,7 @@ async def test_bc01_contract(fleet_probe):
     assert observed['group_count_for_key'] == 1
 ```
 
-- [ ] **Step 2 — 运行 RED。** 在 backend 执行：
+- [x] **Step 2 — 运行 RED。** 在 backend 执行：
 
 ```bash
 PYTHONPATH=. uv run pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py::test_bc01_contract -vv
@@ -122,7 +122,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py
 
 期望：尚未实现的对应行为断言失败；不能以夹具未注册、连接失败或被 skip 作为有效 RED。
 
-- [ ] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
+- [x] **Step 3 — 实现这一条最小协议路径。** 在 Files 对应模块完成以下事务/控制边界，再接入既有调用点；不要另写影子运行时。
 
 ```python
 # link ownership = task_id + generation + server-bound parent run + job_id.
@@ -132,7 +132,7 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py
 
 重复请求、故障恢复和相邻 Local/B 路径必须使用同一持久状态源。
 
-- [ ] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
+- [x] **Step 4 — 验证 GREEN 与相邻回归。** 只重跑本任务的实际主干 node ID，确认副作用和数据库结果符合断言；主干通过后，按源码变动选择最少必要的关键邻接验证。复用仍匹配的历史证据，不从 expected 值构造结果。
 
 ```bash
 .venv/bin/python -m pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py::test_bc01_contract -q -o addopts= --tb=short
@@ -140,13 +140,13 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc01_fleet_agent_job_dependencies.py
 
 期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc01 建立依赖与等待组持久模型"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `1.1` 至 `1.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `1.1` 至 `1.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
 
 ### Task BC02: 实现 await 工具与安全让出屏障
 
