@@ -1,5 +1,9 @@
 # ECS Fleet implementation evidence
 
+## 2026-10-06 — Current B/C/BC delivery state
+
+B and C01–C12 are locally accepted. BC01–BC03 are locally accepted; BC03 source `87e0d42876db67c01afc58c37a359afc28a22175` passed one native main8.30s and one concentrated boundary11.09s after the result-bounds repair, with fresh independent SPEC→QUALITY. Exact tested/current source and the sole cached-import formatting delta are documented in [BC03 acceptance](../../ecs-fleet-bc03-acceptance.md). BC04–BC10 remain required; installed C→B→C and operator activation are not claimed. The older dated sections below are historical evidence, not current completion status.
+
 ## 2026-10-06 — C09 isolated local acceptance completed
 
 Final image `sha256:960f86678b81020b3f850bcf0ab0ae1674a6f9ab62ee92730fb53ae13b5bc444` passes the one actual stock Node restart main (natural exit0, 42.13 seconds), six-wheel/784-member inventory and thirteen installed-source checks. The original attempt session remains unchanged; physical STOP reconciliation acknowledges the old journal and releases capacity once without reviving the writer. Missing exact recovery source leaves recovery_required/unknown and the stock child naturally exits1. Two existing native identity/historical-ACK checks and nine necessary neighbors pass; SPEC→QUALITY finds no production defect. Evidence: `.local/fleet-evidence/c09/task4-restart-final-v1/`, `task4-lateack-green-v1/`, `task4-adjacent-final-v1/`.
@@ -6417,3 +6421,5 @@ BC01 main RED observed after C acceptance: actual original submission chain crea
 BC01 accepted: `ce92de4ab1f47eeac25e03544019bb7d619b23dd`. Main-final-01 1passed2.73s; boundary-final-01 1passed2.04s; natural0, matching maps, owned schemas dropped. Fresh SPEC then QUALITY Ready. BC02–BC10 remain required; installed C→B→C not yet demonstrated.
 
 BC02 accepted at `c08b8014801c762c3d2a9157e90ca1462a6a35f3`: one explicit-await native main1passed6.59s, one concentrated normal-end boundary1passed9.18s, natural0/matching actual owned process/STOP/cleanup/source qualification. Fresh SPEC then QUALITY Ready; no broad suite or Dockerbuild. BC03–BC10 and installed C→B→C remain required.
+
+BC03 accepted source `87e0d42876db67c01afc58c37a359afc28a22175`: V2 native main1passed8.30s/boundary1passed11.09s, separateownedschemasdropped, globalUTF8summarybudget and original128awaitedadmissioncap qualified. Fresh SPECv2/QUALITYv2 Ready; Root17technicalcommitblobsmatched. Exactimport-onlypostqualificationdelta+3unexecutedheadexpectationedits are scoped honestly. BC04–BC10 remainrequired, no productionactivation orpush.

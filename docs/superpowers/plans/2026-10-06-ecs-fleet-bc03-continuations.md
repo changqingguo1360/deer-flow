@@ -29,7 +29,7 @@ Actual resumed-publication audit: FleetWorkspaceTerminalParticipant._is_stopped_
 - [x] One real PostgreSQL main: meaningful RED then GREEN, results-before-seal plus concurrent/repeated admission; inspect exactly one new run/placement and unchanged old run/child counts.
 - [x] After main GREEN, one concentrated result-after-seal/commit-restart boundary if needed. Preserve those semantic orderings without expanding the old matrix.
 - [x] Per-attempt immutable literal argv/cwd/natural exit/preexecution source map, real SQL/NAS/process observations and owned UUID-schema cleanup; private PG URI through environment only.
-- [ ] Final changed-file static checks, fresh SPEC→QUALITY, requirement/evidence mapping, capability docs, explicit source commit then OpenSpec3.1–3.4 receipt.
+- [x] Final changed-file static checks, fresh SPEC→QUALITY, requirement/evidence mapping, capability docs, explicit source commit then OpenSpec3.1–3.4 receipt.
 
 This plan is not execution evidence. Real installed B computation and complete installed C→B→C remain final combination requirements; native slice evidence cannot replace them.
 
@@ -42,3 +42,5 @@ Final qualification: qualified-main1passed7.30s and qualified-boundary1passed7.0
 QUALITYv1 found one P1 bounds defect: valid accepted artifact metadata can exceed64KiB and repeatedly block original continuation; auto-collected awaitedchildren can exceedformatter128cap. Sole repairauthor is implementing deterministicglobalbytebudget withwholeacceptedpath entries/explicittruncation and consistentoriginalawaitedadmissionlimit. No newslice or matrix. Requalifyonlyaffected existingmain/boundary againstchangedsource, thenSPEC/QUALITYrecheck; oldsourcequalification remains honestv1evidence.
 
 BoundsrepairV2qualified: main1passed8.30s/boundary1passed11.09s natural0, ownedschemasdropped,14testedsource matchbothpreexecmaps. Onlypostqualificationchange is cachedhelperimportorder forRuffI001; exactreversepatch reconstructstestedhash and13othersunchanged. Currentstatic0, noformat-onlyruntime repeat. RecheckSPEC thenQUALITY againstcurrentmap+precisedelta beforecommit.
+
+Final closeout: freshSPECv2/QUALITYv2 whole-sliceReady, rootdoc/staticchecks0 (guidance24/0errors/6softwarnings), acceptedsourcecommit `87e0d42876db67c01afc58c37a359afc28a22175` withall14reviewed+3assertion-onlyblobsmatched. OpenSpec3.1–3.4 checked post-sourcecommit; BC04–BC10remainrequired. No newruntimeexecutionafterformat/docs; noactivation/push/merge.

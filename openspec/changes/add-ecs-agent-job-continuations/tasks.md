@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 正在实施，BC04–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -21,12 +21,12 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 3. BC03 实现 exactly-one continuation 准入
 
-已开始[当前源码接线计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc03-continuations.md)，按用户要求先一个主干，再一个必要集中边界，不运行原矩阵。
+已按[当前源码接线计划](../../../docs/superpowers/plans/2026-10-06-ecs-fleet-bc03-continuations.md)完成本地验收，源码提交 `87e0d42876db67c01afc58c37a359afc28a22175`。V2 原主干1passed8.30s、同一集中边界1passed11.09s，自然0/自有schema清理；全局摘要bounds修复后独立 SPEC→QUALITY Ready。保留精确import-only资格差异和单独迁移断言维护记录；不运行原矩阵。BC04–BC10仍未完成。
 
-- [ ] 3.1 写并运行 backend/tests/fleet/test_bc03_fleet_agent_job_continuations.py，确认 BC03 行为测试 RED。
-- [ ] 3.2 完成计划列出的接口、事务和部署接线；满足 `Idempotent continuation after all results settle`。
-- [ ] 3.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 3.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 3.1 写并运行 backend/tests/fleet/test_bc03_fleet_agent_job_continuations.py，确认 BC03 行为测试 RED。
+- [x] 3.2 完成计划列出的接口、事务和部署接线；满足 `Idempotent continuation after all results settle`。
+- [x] 3.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 3.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
 
 ## 4. BC04 统一结果 delivery owner 与通知互斥
 

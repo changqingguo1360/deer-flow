@@ -1,6 +1,6 @@
 # BC03 native acceptance
 
-Status: locally accepted. Final native qualification and fresh independent SPEC→QUALITY rechecks are Ready. Source commit is recorded after creation. BC04–BC10 and installed production C→B→C remain required.
+Status: locally accepted. Final native qualification and fresh independent SPEC→QUALITY rechecks are Ready. Accepted source commit `87e0d42876db67c01afc58c37a359afc28a22175`; all14 current reviewed blobs and3 assertion-only blobs independently match that commit. BC04–BC10 and installed production C→B→C remain required.
 
 | Requirement | Current evidence |
 | --- | --- |

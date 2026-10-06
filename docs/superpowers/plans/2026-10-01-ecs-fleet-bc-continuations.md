@@ -13,7 +13,7 @@
 **前置：** add-ecs-remote-agent 验收通过，B/C 独立执行均可用。
 **工作目录：** `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`。
 **需求来源：** [OpenSpec proposal](../../../openspec/changes/add-ecs-agent-job-continuations/proposal.md)、[tasks](../../../openspec/changes/add-ecs-agent-job-continuations/tasks.md)、[统一设计](../specs/2026-10-01-ecs-fleet-first-principles-design.md)。
-**计划状态：** BC01 原生基础已验收，源码提交 `ce92de4a`、记录 `62784b46`；BC02 已按[当前源码接线计划](2026-10-06-ecs-fleet-bc02-yield.md)验收，源码提交 `c08b8014`；BC03 已完成原生验证与独立复审（源码提交待记录）；BC04–BC10未实施。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
+**计划状态：** BC01 原生基础已验收，源码提交 `ce92de4a`、记录 `62784b46`；BC02 已按[当前源码接线计划](2026-10-06-ecs-fleet-bc02-yield.md)验收，源码提交 `c08b8014`；BC03 已完成原生验证与独立复审（源码提交 `87e0d428`）；BC04–BC10未实施。下列原始测试代码仍是规划判据，实际输出以各 slice 独立证据为准。
 
 共享签名与 wire 协议：[Fleet 契约](../../../openspec/ecs-fleet-contracts.md)。
 
@@ -268,13 +268,15 @@ PYTHONPATH=. uv run pytest tests/fleet/test_bc03_fleet_agent_job_continuations.p
 
 期望：当前主干与明确选定的必要邻接验证 PASS；集成环境缺失必须记录，release gate 不得通过。以上计划 node ID 须在实际测试创建后确认，不能作为已执行证据。涉及 UI 的步骤再执行 `python3 scripts/pnpm.py rstest run fleet` 和 `python3 scripts/pnpm.py check`（repo 根）。
 
-- [ ] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
+- [x] **Step 5 — 文档、格式和 slice 提交。** 更新实际已实现能力，不提前宣称后继阶段完成。backend 仅对改动的 Python 文件运行 Ruff format/check；检查 `git diff --check`；用显式文件路径 `git add` 本任务源码/测试/文档后执行：
 
 ```bash
 git commit -m "feat(fleet): bc03 实现 exactly-one continuation 准入"
 ```
 
-- [ ] **Step 6 — 记录结果。** 在 OpenSpec `3.1` 至 `3.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+- [x] **Step 6 — 记录结果。** 在 OpenSpec `3.1` 至 `3.4` 对应项记录测试命令、通过/跳过数、commit ID；只在实际执行后勾选。不能仅靠 CLI artifacts done 判断实现完成。
+
+源码提交 `87e0d42876db67c01afc58c37a359afc28a22175` 已核对全部14 reviewed与3 assertion-only blobs；OpenSpec3.1–3.4据实际证据勾选，BC04–BC10仍未完成。
 
 ### Task BC04: 统一结果 delivery owner 与通知互斥
 
