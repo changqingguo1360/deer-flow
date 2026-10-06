@@ -66,6 +66,8 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 ## 8. BC08 Scheduler 目标阻塞与命名子任务
 
+按[当前接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc08-scheduled-goals.md)推进：复用原 ticket/placement/AgentTask 关联，在原认证 STOP 或严格未分配取消事务记录不可重开的目标完成凭据；排队/公平候选只读阻塞条件。保留原 occurrence 完成身份，once 父任务等待真实聚合完成；重启恢复复用中立可选回调。现有命名 slot 去重键复用。先一个真实到期 schedule→C→B→C→下一 queued occurrence 主干，GREEN 后仅一个重启/队列超时/once 集中必要边界；尚未修改 BC08 源码或运行测试。
+
 - [ ] 8.1 写并运行 backend/tests/fleet/test_bc08_fleet_agent_job_continuations.py，确认 BC08 行为测试 RED。
 - [ ] 8.2 完成计划列出的接口、事务和部署接线；满足 `Scheduled aggregate tasks preserve durable queue semantics`。
 - [ ] 8.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
