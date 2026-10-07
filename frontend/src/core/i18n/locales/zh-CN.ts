@@ -332,6 +332,17 @@ export const zhCN: Translations = {
   },
 
   fleetTasks: {
+    generation: "代次",
+    job: "计算任务",
+    parentRun: "父运行",
+    history: "历史",
+    acceptedResult: "已接受结果",
+    relatedTruncated: "其余关联计算任务或运行已省略",
+    cancelGoal: "取消目标",
+    resumeGoal: "恢复目标",
+    resuming: "正在恢复…",
+    operationConflict: "目标状态已变化，已刷新最新状态。请确认后重试。",
+    operationFailed: "目标操作失败",
     title: "远程 Agent",
     run: "运行",
     loadFailed: "远程 Agent 状态暂不可用",
@@ -339,7 +350,7 @@ export const zhCN: Translations = {
     status: {
       queued: "排队中",
       running: "远程执行中",
-      waiting_jobs: "等待任务结果",
+      waiting_jobs: "等待计算",
       paused: "已暂停",
       input_required: "需要输入",
       unknown: "需要确认",

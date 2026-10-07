@@ -1,7 +1,7 @@
 """Bounded owner-scoped projection; private Fleet records never cross HTTP."""
 
 from deerflow_ecs_fleet.persistence.agent_tasks import AgentTasks
-from deerflow_ecs_fleet.persistence.models import AgentTaskRow, AttemptRow, ReservationRow, RunPlacementRow, SchedulerTicketRow, TaskBudgetRow
+from deerflow_ecs_fleet.persistence.models import AgentTaskRow, ArtifactManifestRow, AttemptRow, JobLinkRow, JobRow, ReservationRow, RunPlacementRow, SchedulerTicketRow, TaskBudgetRow, TaskOperationReceiptRow
 from sqlalchemy import and_, exists, or_, select
 
 from deerflow.persistence.run.model import RunRow
@@ -30,6 +30,24 @@ class FleetTaskSummaries:
         )
         historical = exists(select(AttemptRow.id).where(AttemptRow.kind == "agent", AttemptRow.run_id == task.current_run_id).correlate(task))
         unsettled = or_(task.state.not_in(TERMINAL_TASKS), held)
+        # A completed owned cancellation advances the goal, retaining its exact
+        # original source run. This read-only receipt is not admission authority.
+        cancelled_source = exists(
+            select(TaskOperationReceiptRow.id)
+            .where(
+                task.state == "cancelled",
+                TaskOperationReceiptRow.agent_task_id == task.id,
+                TaskOperationReceiptRow.user_id == task.user_id,
+                TaskOperationReceiptRow.thread_id == task.thread_id,
+                TaskOperationReceiptRow.operation == "cancel",
+                TaskOperationReceiptRow.state == "completed",
+                TaskOperationReceiptRow.source_run_id == task.current_run_id,
+                TaskOperationReceiptRow.source_generation == placement.generation,
+                TaskOperationReceiptRow.target_generation == task.generation,
+                TaskOperationReceiptRow.target_generation == TaskOperationReceiptRow.source_generation + 1,
+            )
+            .correlate(task, placement)
+        )
         query = (
             select(
                 task.id,
@@ -48,7 +66,17 @@ class FleetTaskSummaries:
                 historical.label("historical"),
                 TaskBudgetRow,
             )
-            .join(placement, and_(placement.run_id == task.current_run_id, placement.agent_task_id == task.id, placement.generation == task.generation, placement.user_id == task.user_id, placement.thread_id == task.thread_id))
+            .select_from(task)
+            .join(
+                placement,
+                and_(
+                    placement.run_id == task.current_run_id,
+                    placement.agent_task_id == task.id,
+                    or_(placement.generation == task.generation, cancelled_source),
+                    placement.user_id == task.user_id,
+                    placement.thread_id == task.thread_id,
+                ),
+            )
             .join(run, and_(run.run_id == placement.run_id, run.user_id == task.user_id, run.thread_id == task.thread_id))
             .outerjoin(attempt, and_(attempt.id == placement.active_attempt_id, attempt.kind == "agent", attempt.run_id == run.run_id))
             .outerjoin(TaskBudgetRow, TaskBudgetRow.agent_task_id == task.id)
@@ -59,7 +87,49 @@ class FleetTaskSummaries:
         query = query.order_by(unsettled.desc(), task.updated_at.desc(), task.id).limit(min(max(limit, 1), 100)).offset(min(max(offset, 0), 10000))
         async with self.sf() as session:
             rows = (await session.execute(query)).mappings().all()
-        return [self.public(row) for row in rows]
+            summaries = []
+            for row in rows:
+                related = await self.related(session, row, user_id=user_id, thread_id=thread_id)
+                summaries.append({**self.public(row), **related})
+        return summaries
+
+    @staticmethod
+    async def related(session, row, *, user_id, thread_id):
+        link, job, placement, run, attempt, manifest = JobLinkRow, JobRow, RunPlacementRow, RunRow, AttemptRow, ArtifactManifestRow
+        jobs = (
+            select(link.job_id, link.generation, link.parent_run_id, link.link_mode, job.state, manifest.id.label("accepted_manifest_id"))
+            .select_from(link)
+            .join(job, and_(job.id == link.job_id, job.user_id == link.user_id, job.thread_id == link.thread_id, job.source_run_id == link.parent_run_id))
+            .join(
+                placement,
+                and_(placement.run_id == link.parent_run_id, placement.agent_task_id == link.agent_task_id, placement.generation == link.generation, placement.user_id == link.user_id, placement.thread_id == link.thread_id),
+            )
+            .join(run, and_(run.run_id == placement.run_id, run.user_id == placement.user_id, run.thread_id == placement.thread_id))
+            .outerjoin(attempt, and_(attempt.id == job.active_attempt_id, attempt.kind == "job", attempt.job_id == job.id, attempt.state == "succeeded", attempt.stopped_at.is_not(None), attempt.finished_at.is_not(None)))
+            .outerjoin(
+                manifest,
+                and_(manifest.id == job.accepted_manifest_id, manifest.attempt_id == attempt.id, manifest.user_id == job.user_id, manifest.thread_id == job.thread_id, job.state == "succeeded"),
+            )
+            .where(link.agent_task_id == row["id"], link.user_id == user_id, link.thread_id == thread_id, link.generation <= row["generation"])
+            .order_by(link.generation.desc(), link.created_at.desc(), link.job_id)
+            .limit(21)
+        )
+        runs = (
+            select(run.run_id, placement.generation, run.status.label("run_status"))
+            .select_from(run)
+            .join(placement, and_(placement.run_id == run.run_id, placement.user_id == run.user_id, placement.thread_id == run.thread_id))
+            .where(placement.agent_task_id == row["id"], placement.user_id == user_id, placement.thread_id == thread_id, placement.generation <= row["generation"])
+            .order_by((run.run_id == row["current_run_id"]).desc(), placement.generation.desc(), run.created_at.desc(), run.run_id)
+            .limit(21)
+        )
+        job_rows = (await session.execute(jobs)).mappings().all()
+        run_rows = (await session.execute(runs)).mappings().all()
+        return {
+            "jobs": [dict(item) for item in job_rows[:20]],
+            "runs": [dict(item) for item in run_rows[:20]],
+            "jobs_truncated": len(job_rows) > 20,
+            "runs_truncated": len(run_rows) > 20,
+        }
 
     @staticmethod
     def public(row):

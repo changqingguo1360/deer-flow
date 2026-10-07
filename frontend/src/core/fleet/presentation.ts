@@ -13,6 +13,21 @@ export function isUnsettledFleetTask(task: FleetTask): boolean {
 }
 
 export function fleetTaskPresentation(task: FleetTask) {
+  const awaited = (task.jobs ?? []).filter(
+    (job) =>
+      job.link_mode === "awaited" &&
+      job.generation === task.generation &&
+      job.parent_run_id === task.current_run_id,
+  );
+  const settledResults =
+    !task.jobs_truncated &&
+    awaited.length > 0 &&
+    awaited.every(
+      (job) =>
+        (job.state === "succeeded" && Boolean(job.accepted_manifest_id)) ||
+        job.state === "failed" ||
+        job.state === "cancelled",
+    );
   const needsConfirmation =
     task.recovery_required ||
     task.state === "unknown" ||
@@ -35,6 +50,13 @@ export function fleetTaskPresentation(task: FleetTask) {
     canCancel:
       !task.cancel_requested &&
       !needsConfirmation &&
-      (task.run_status === "pending" || task.run_status === "running"),
+      ["queued", "running", "waiting_jobs"].includes(task.state),
+    canResume:
+      task.state === "waiting_jobs" &&
+      !task.cancel_requested &&
+      !needsConfirmation &&
+      task.stop_state === "confirmed" &&
+      !task.resources_held &&
+      settledResults,
   } as const;
 }

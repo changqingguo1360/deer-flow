@@ -13,7 +13,7 @@ const state = rs.hoisted(() => ({
 
 rs.mock("@/core/fleet/hooks", () => ({
   useFleetTasks: () => ({ data: [], isError: false }),
-  useCancelFleetRun: () => ({ mutate: rs.fn(), isPending: false }),
+  useFleetGoalOperation: () => ({ mutate: rs.fn(), isPending: false }),
 }));
 
 rs.mock("@/core/features", () => ({

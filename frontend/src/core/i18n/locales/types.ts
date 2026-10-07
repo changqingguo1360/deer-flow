@@ -272,6 +272,17 @@ export interface Translations {
   };
 
   fleetTasks: {
+    generation: string;
+    job: string;
+    parentRun: string;
+    history: string;
+    acceptedResult: string;
+    relatedTruncated: string;
+    cancelGoal: string;
+    resumeGoal: string;
+    resuming: string;
+    operationConflict: string;
+    operationFailed: string;
     title: string;
     run: string;
     loadFailed: string;

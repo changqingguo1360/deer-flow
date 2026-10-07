@@ -351,6 +351,18 @@ export const enUS: Translations = {
   },
 
   fleetTasks: {
+    generation: "Generation",
+    job: "Job",
+    parentRun: "Parent run",
+    history: "History",
+    acceptedResult: "Accepted result",
+    relatedTruncated: "Further related jobs or runs omitted",
+    cancelGoal: "Cancel goal",
+    resumeGoal: "Resume goal",
+    resuming: "Resuming…",
+    operationConflict:
+      "The goal changed. Its latest state has been refreshed; review it before trying again.",
+    operationFailed: "Goal operation failed",
     title: "Remote Agent",
     run: "Run",
     loadFailed: "Remote Agent tracking unavailable",
@@ -361,7 +373,7 @@ export const enUS: Translations = {
     status: {
       queued: "Queued",
       running: "Running remotely",
-      waiting_jobs: "Waiting for results",
+      waiting_jobs: "Waiting for computation",
       paused: "Paused",
       input_required: "Input required",
       unknown: "Needs confirmation",

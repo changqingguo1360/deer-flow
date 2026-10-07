@@ -35,7 +35,7 @@ import {
   useCancelBackgroundTask,
 } from "@/core/background-tasks";
 import { useMcpTasksEnabled } from "@/core/features";
-import { useFleetTasks, useCancelFleetRun } from "@/core/fleet/hooks";
+import { useFleetTasks, useFleetGoalOperation } from "@/core/fleet/hooks";
 import { isUnsettledFleetTask } from "@/core/fleet/presentation";
 import { useI18n } from "@/core/i18n/hooks";
 import { formatTimeAgo } from "@/core/utils/datetime";
@@ -49,7 +49,7 @@ export function ThreadBackgroundTasks({ threadId }: { threadId: string }) {
   });
   const cancelTask = useCancelBackgroundTask(threadId);
   const fleetQuery = useFleetTasks(threadId);
-  const cancelFleet = useCancelFleetRun(threadId);
+  const fleetOperation = useFleetGoalOperation(threadId);
   const fleetTasks = fleetQuery.data ?? [];
   const fleetActive = fleetTasks.filter(isUnsettledFleetTask).length;
   const tasks = mcpTasksEnabled ? (tasksQuery.data ?? []) : [];
@@ -115,10 +115,14 @@ export function ThreadBackgroundTasks({ threadId }: { threadId: string }) {
                   key={task.task_id}
                   task={task}
                   threadId={threadId}
-                  onCancel={(runId) => cancelFleet.mutate(runId)}
-                  isCancelling={
-                    cancelFleet.isPending &&
-                    cancelFleet.variables === task.current_run_id
+                  onOperation={(action, operation) =>
+                    fleetOperation.mutate({ action, ...operation })
+                  }
+                  isPending={fleetOperation.isPending}
+                  pendingAction={
+                    fleetOperation.variables?.taskId === task.task_id
+                      ? fleetOperation.variables.action
+                      : undefined
                   }
                 />
               ))}

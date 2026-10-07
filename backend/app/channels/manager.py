@@ -23,6 +23,7 @@ from app.channels import buzz_run_policy as _buzz_run_policy  # noqa: F401
 from app.channels import feishu_run_policy as _feishu_run_policy  # noqa: F401
 from app.channels.commands import KNOWN_CHANNEL_COMMANDS
 from app.channels.dedupe_store import InboundDedupeStore, MemoryInboundDedupeStore
+from app.channels.fleet_summary import read_fleet_summary
 from app.channels.message_bus import (
     INBOUND_FILE_CONTENT_KEY,
     PENDING_CLARIFICATION_METADATA_KEY,
@@ -2288,6 +2289,10 @@ class ChannelManager:
             else:
                 response_text = "(No response from agent)"
 
+        summary = await read_fleet_summary(self._gateway_url, thread_id, headers=_owner_headers(msg))
+        if summary:
+            response_text += "\n\n" + summary
+
         outbound = OutboundMessage(
             channel_name=msg.channel_name,
             chat_id=msg.chat_id,
@@ -2419,6 +2424,9 @@ class ChannelManager:
                 len(artifacts),
                 stream_error,
             )
+            summary = await read_fleet_summary(self._gateway_url, thread_id, headers=_owner_headers(msg))
+            if summary:
+                response_text += "\n\n" + summary
             await self.bus.publish_outbound(
                 OutboundMessage(
                     channel_name=msg.channel_name,
@@ -2485,6 +2493,10 @@ class ChannelManager:
         elif reply is None and command == "status":
             thread_id = await self._lookup_thread_id(msg)
             reply = f"Active thread: {thread_id}" if thread_id else "No active conversation."
+            if thread_id:
+                summary = await read_fleet_summary(self._gateway_url, thread_id, headers=_owner_headers(msg))
+                if summary:
+                    reply += "\n\n" + summary
         elif reply is None and command == "models":
             reply = await self._fetch_gateway("/api/models", "models", msg=msg)
         elif reply is None and command == "memory":
