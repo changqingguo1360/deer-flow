@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # C12 acceptance status
 
 C12 is locally accepted at source commit `8ac8c00a47864b03e84ca90c25a5921df412d3ac`. The production-image main and single concentrated fault case passed on 2026-10-06, then whole SPEC→QUALITY, final provenance review, Root source/evidence audit and static checks completed. The thin gate verified prior receipts; its future execution mode was not run in this slice. C01–C12 local implementation is complete; C→B→C remains incomplete. No production activation or ECS deployment is claimed.

@@ -1,6 +1,6 @@
 # ECS Fleet B → C → B/C 实施总览
 
-2026-10-07: B and C01–C12 have isolated local acceptance. C12 source is committed at `8ac8c00a`; BC01–BC04 have native local acceptance (BC03 `87e0d428`, BC04 `f24a88d7`); BC05 is locally accepted at `c153ad19` with an installed one-slot C→B→C main and one native boundary; BC06 is locally accepted at `8abe7af9` with its original waiting main and one concentrated generation boundary. BC07 is locally accepted at `097b789a` after three executed C runs, cross-run budget refusal and independent SPEC→QUALITY; BC08 is locally accepted at `d08f7763` after corrected native boundary and independent SPEC→QUALITY; BC09 is locally accepted at `be343091`; BC10 and final combined entrypoint qualification remain required. See [B acceptance](../../../docs/ecs-fleet-b-acceptance.md) and [C12 acceptance](../../../docs/ecs-fleet-c12-acceptance.md). Current verification follows the user’s main-first, minimal directly affected scope; historical broad runs keep their original status.
+2026-10-07：B01–B12、C01–C12、BC01–BC10已按顺序完成本地实施与验收。BC10源码 `06ae5f44`，current02镜像、main13真实双Worker跨节点闭环/同流程浏览器、boundary03唯一集中故障、combined03聚合及最终SPEC→QUALITY均通过。P0/P1/P2分级收尾完成，所有flags仍默认关闭。完整34项要求、原始资格、命令与路径映射见[三阶段交付](../../ecs-fleet-delivery.md)，BC10细节见[验收](../../ecs-fleet-bc10-acceptance.md)。无生产ECS/NAS或live模型验收。
 
 | 顺序 | OpenSpec change | Superpowers 计划 | 完成门槛 |
 |---|---|---|---|
@@ -93,12 +93,4 @@ OPENSPEC_TELEMETRY=0 openspec status --change add-ecs-remote-agent
 OPENSPEC_TELEMETRY=0 openspec status --change add-ecs-agent-job-continuations
 ```
 
-CLI status 的 artifact complete 仅表示 proposal/specs/design/tasks 文件齐备，tasks 中全部未勾选才是本次规划结束时的正确状态。规划校验本身不证明 B/C 能力已实现；功能测试及尚未交付项以实施进度中的实际证据为准。
-
-执行入口是 B 计划 B01。遇到真实节点/NAS/凭据未配置时先完成本地隔离测试，不擅自配置或部署生产 ECS。
-
-B and C tasks are checked from recorded local acceptance; BC01–BC09 are accepted. BC10 remains incomplete. Artifact completeness alone remains insufficient, and each acceptance retains its documented runtime scope.
-
-BC09 implementation has a passing native API main, captured-response DOM main and mandatory frontend check; the concentrated boundary and formal reviews have passed; BC09 is locally accepted at `be343091`. BC10 remains the mandatory fresh installed combined gate. [Current evidence](../../ecs-fleet-bc09-runtime.md).
-
-BC09 local acceptance: source `be343091`, all16 reviewed blobs verified, fresh SPEC→QUALITY Ready. [Evidence](../../../docs/ecs-fleet-bc09-acceptance.md). BC10 installed combined release remains required.
+CLI status的artifact complete只表示规划文件齐备；当前三份tasks已根据实际实施与验收完成，不能仅由CLI状态推断功能通过。历史master计划中的probe/node ID草图由后续实际源码接线计划及注册case替代，见交付记录。按用户要求不重跑未受影响的B/C gate，不扩展故障矩阵。源分支和worktree本地保留；规范archive是后续独立步骤，无push/merge/部署。

@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC02 acceptance status
 
 BC02 source/native boundary accepted. Final native explicit-await main and one normal-end boundary passed. Root qualified current23 hashes, actual rows and cleanup; Fresh whole-slice SPEC and QUALITY are Ready. BC03–BC10 remain required.

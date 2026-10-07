@@ -1,3 +1,7 @@
+## 2026-10-07 — B → C → combined local delivery complete
+
+B01–B12、C01–C12、BC01–BC10依序本地验收。BC10源码 `06ae5f447251fc799edf5ccaafa21adba9829091` 的九技术文件与最终审查freeze一致；current02安装资格、main13跨节点闭环/同浏览器、boundary03集中故障、combined03原聚合、最终独立SPEC→QUALITY及静态检查通过。P0/P1/P2状态、34项要求和历史路径/命令映射见[三阶段交付](../../ecs-fleet-delivery.md)及[BC10验收](../../ecs-fleet-bc10-acceptance.md)。此前的“pending”“尚未完成”和旧复验安排均是时间序列历史，不覆盖此当前状态；旧失败、scope及缺失RED不被回填。所有flags默认关闭，保留本地分支/worktree，无生产激活。
+
 ## 2026-10-07 — BC09 locally accepted
 
 BC09 source `be343091cd16aae604dd689f445cc0f0d082f504` matches all16 reviewed technical blobs. Native API and controlled DOM/IM main, one concentrated boundary, five affected original DOM tests and mandatory frontend/Python checks passed. Fresh independent SPEC→QUALITY Ready. [Acceptance](../../ecs-fleet-bc09-acceptance.md) retains exact native/controlled/source-only qualifications. BC10 fresh installed combined gate remains required; older sections below are historical.

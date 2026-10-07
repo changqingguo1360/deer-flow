@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # C08 workspace / checkpoint 验收
 
 日期：2026-10-06。状态：源码与运行证据已通过 Root 验收，最终 SPEC→QUALITY 均无发现；此文档随单个 C08 slice 提交。

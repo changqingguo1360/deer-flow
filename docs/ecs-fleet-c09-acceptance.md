@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # C09 isolated local acceptance — 2026-10-06
 
 C09 implements remote interrupt, rollback, keyed resume and safe physical-stop reconciliation. Public remote activation stays closed until C10–C12 and C→B→C finish.

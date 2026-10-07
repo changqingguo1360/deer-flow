@@ -33,7 +33,7 @@
 - 目标 worktree：`~/.codex/worktrees/deerflow2/personal-agent-ecs`；不改主 checkout。
 - 具体文件与 TDD 步骤见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
 - Postgres、NAS、worker 容器和现有 DeerFlow runtime 受影响；默认 feature flags 关闭，已有 local 路径保持兼容。
-- 仅规划已完成，任务清单全部未实施；不得 archive 或写 IMPLEMENTED 标记。
+- BC01–BC10已完成本地实施、审查与验收，BC10源码提交 `06ae5f44`；证据、历史资格与实际命令映射见 [三阶段交付](../../../docs/ecs-fleet-delivery.md)。IMPLEMENTED表示本地实现完成，archive是后续单独的规范归档动作。
 
 ## BC01 implementation discovery — 2026-10-06
 

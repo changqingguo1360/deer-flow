@@ -3,7 +3,7 @@
 B durable jobs share the Fleet control plane with the later C remote Agent runner.
 C01–C12 are locally accepted, including normal startup, the original production image,
 task visibility and admission drain. Real operator activation was not performed;
-C→B→C continuations remain pending. All feature flags default to false. The local B runtime, worker/Compose matrix and full regression are accepted; see
+C→B→C continuations have local installed acceptance at `06ae5f44`; see [BC10 evidence and limits](../ecs-fleet-bc10-acceptance.md). All feature flags default to false. The local B runtime, worker/Compose matrix and full regression are accepted; see
 [B acceptance](../ecs-fleet-b-acceptance.md) for counts and scope.
 
 ## Components and identities
@@ -138,7 +138,7 @@ node or delete rows to make capacity appear free.
 
 ## Staged combined rollout and rollback
 
-BC10 installed combined verification is still pending; this procedure is an operator
+BC10 installed combined verification passed locally; this procedure is an operator
 runbook, not evidence of production activation. Keep all three feature flags off by
 default. After approving image digests, installed source compatibility, private node
 credentials and PostgreSQL/Redis/NAS readiness, enable `jobs_enabled` first, then
@@ -236,7 +236,7 @@ unknown execution, replays durable stopped proof and never starts the job again.
 
 The test matrix includes installed Gateway startup and full local Compose daemon acceptance.
 Session-admin node management and final full regression are included in local B acceptance. The delivery roadmap and implementation evidence
-remain authoritative for B completion. C is locally accepted; continuations remain pending.
+remain authoritative for B completion. C and continuations are locally accepted at their recorded scopes; see [delivery record](../ecs-fleet-delivery.md).
 
 
 ## Session administrator node management

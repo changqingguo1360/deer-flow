@@ -1,9 +1,9 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08 已本地验收（源码 `d08f7763`）；BC09 已本地验收（源码 `be343091`）；BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08 已本地验收（源码 `d08f7763`）；BC09 已本地验收（源码 `be343091`）；BC10已本地验收，源码 `06ae5f44`。各阶段先主干，再一个必要集中边界，无全量重跑。
 
-交付优先级已按用户要求调整为 **P0 核心主干可演示 → P1 可靠性验收 → P2 发布完善**，详见 [BC10 分级计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)。P0已交付；P1的current02镜像资格、main13跨节点主干/同流程浏览器、boundary03唯一集中故障、combined03原聚合检查均已通过。最终SPEC→QUALITY均Ready，无关键阻塞；P1本地交付收尾，P2全面文档后置。完整task10保持未完成；最新证据见[BC10验收记录](../../../docs/ecs-fleet-bc10-acceptance.md)。
+交付优先级已按用户要求调整为 **P0 核心主干可演示 → P1 可靠性验收 → P2 发布完善**，详见 [BC10 分级计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)。P0已交付；P1的current02镜像资格、main13跨节点主干/同流程浏览器、boundary03唯一集中故障、combined03原聚合检查均已通过。最终SPEC→QUALITY均Ready，无关键阻塞；P1本地提交 `06ae5f44`；P2必要文档和34项追踪同步完成。P2文档及完整task10交付账目也已同步；最新证据见[BC10验收记录](../../../docs/ecs-fleet-bc10-acceptance.md)。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -88,9 +88,11 @@ BC09 主干与唯一集中边界通过，独立 SPEC→QUALITY Ready；源码 `b
 
 ## 10. BC10 组合端到端和运维交付验收
 
-按[当前安装组合计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)推进：current02两份安装镜像完整源码资格通过；main13主干1passed65.331s、同流程真实页面1passed26.776s；boundary03唯一集中分区/取消/重启边界1passed153.18s；原combined03聚合case1passed5.56s。真实STOP/资源释放及重复副作用/双写/泄漏0、无skip、自有清理均已核实。修复历史缓存误触发取消及恢复覆盖已取消终态/预算的实际缺陷。原B/Cgate保持历史范围，不冒称当前完整重跑。九技术文件/静态收据已冻结；最终SPEC→QUALITY均Ready；P1可靠性验收通过，完整BC10的P2文档及提交账目仍待完成。历史失败及限制见[运行记录](../../../docs/ecs-fleet-bc10-runtime.md)。
+按[当前安装组合计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)推进：current02两份安装镜像完整源码资格通过；main13主干1passed65.331s、同流程真实页面1passed26.776s；boundary03唯一集中分区/取消/重启边界1passed153.18s；原combined03聚合case1passed5.56s。真实STOP/资源释放及重复副作用/双写/泄漏0、无skip、自有清理均已核实。修复历史缓存误触发取消及恢复覆盖已取消终态/预算的实际缺陷。原B/Cgate保持历史范围，不冒称当前完整重跑。九技术文件/静态收据已冻结；最终SPEC→QUALITY均Ready；P1可靠性验收通过，完整BC10的P2文档及提交账目已同步完成。历史失败及限制见[运行记录](../../../docs/ecs-fleet-bc10-runtime.md)。
 
-- [ ] 10.1 写并运行 backend/tests/fleet/test_bc10_fleet_unified_task_experience.py，确认 BC10 行为测试 RED。
-- [ ] 10.2 完成计划列出的接口、事务和部署接线；满足 `Unified release gate demonstrates C B C execution`。
-- [ ] 10.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 10.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 10.1 写并运行 backend/tests/fleet/test_bc10_fleet_unified_task_experience.py，保存main08历史缓存准入及boundary01取消终态/预算的真实产品RED；fixture/setup失败不算产品RED。
+- [x] 10.2 完成计划列出的接口、事务和部署接线；满足 `Unified release gate demonstrates C B C execution`。
+- [x] 10.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 10.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+
+BC10最终源码 `06ae5f447251fc799edf5ccaafa21adba9829091` 九文件与审查freeze一致。main13/boundary03/combined03各原case 1passed/0skip，最终SPEC→QUALITY均Ready。实际node IDs、argv/cwd、原证据scope、缺失历史RED和原计划路径映射见[三阶段交付](../../../docs/ecs-fleet-delivery.md)。旧slice段落中的后继pending仅表示该slice当时的状态，不作为当前待办。

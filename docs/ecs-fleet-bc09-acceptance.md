@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC09 local acceptance
 
 BC09 is locally accepted at source `be343091cd16aae604dd689f445cc0f0d082f504`. Fresh independent SPEC and QUALITY returned Ready with no Critical/Important findings. Root verified all16 reviewed technical blobs in the commit against `final-source-01`. B, C01–C12 and BC01–BC08 retain their previous scopes; BC10 remains the mandatory fresh installed combined release gate.

@@ -364,7 +364,7 @@ See `docs/` directory for detailed documentation:
 - [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
 
 
-## Optional ECS Fleet (in development)
+## Optional ECS Fleet (locally accepted; flags off)
 
 `packages/ecs-fleet` owns the optional `deerflow_ecs_fleet` extension and its private
 `fleet_` tables/locked migration chain. Never register these models on host Base or
@@ -397,6 +397,6 @@ C08 local acceptance (0018): [contracts](../docs/ecs-fleet-c08-runtime.md).
 C09 STOP/cancellation: [contracts](../docs/ecs-fleet-c09-runtime.md).
 C10 routing/queued admission uses original UoW callbacks and shared reservations:
 [C10](../docs/ecs-fleet-c10-runtime.md); [C11 summaries/drain](../docs/ecs-fleet-c11-runtime.md).
-BC09 owned UI/IM: [projection](../docs/ecs-fleet-bc09-runtime.md). C12/BC01–08 accepted; BC10 required. Flags off.
+BC09 owned UI/IM: [projection](../docs/ecs-fleet-bc09-runtime.md). C12/BC01–BC10 locally accepted; see the delivery record for preserved verification scopes. Flags off.
 
-Fleet history reads must remain observational: optional `_persist_run_history_metadata_background` uses the original atomic non-superseding thread reservation and skips remote bindings. Do not route this cache through the human checkpoint participant, which can cancel awaited jobs. Intentional checkpoint writes retain `reserve_checkpoint_write`. The installed combined main and concentrated fault now pass; final BC10 SPEC/QUALITY also pass at the local P1 scope; P2 documentation closeout follows ([current evidence](../docs/ecs-fleet-bc10-acceptance.md)). `FleetTaskRecovery.reconcile` must preserve canonical terminal tasks (succeeded/failed/cancelled/timed_out) under its locked task read: stale historical workspace pairs cannot replace a terminal winner or rewrite its budget reason.
+Fleet history reads must remain observational: optional `_persist_run_history_metadata_background` uses the original atomic non-superseding thread reservation and skips remote bindings. Do not route this cache through the human checkpoint participant, which can cancel awaited jobs. Intentional checkpoint writes retain `reserve_checkpoint_write`. The installed combined main and concentrated fault now pass; final BC10 SPEC/QUALITY also pass at the local scope ([three-stage delivery](../docs/ecs-fleet-delivery.md)) ([current evidence](../docs/ecs-fleet-bc10-acceptance.md)). `FleetTaskRecovery.reconcile` must preserve canonical terminal tasks (succeeded/failed/cancelled/timed_out) under its locked task read: stale historical workspace pairs cannot replace a terminal winner or rewrite its budget reason.

@@ -1,3 +1,7 @@
+> Current delivery — 2026-10-07: B→C→C/B continuations are locally accepted. [Full requirement and artifact mapping](ecs-fleet-delivery.md), [BC10 source `06ae5f44` and runtime limits](ecs-fleet-bc10-acceptance.md). Earlier per-slice qualification statements below retain their original scope; they do not mean those later slices are still unimplemented. Default flags remain off.
+>
+> `FleetTaskRecovery.reconcile` reads the task under lock and returns for succeeded/failed/cancelled/timed_out. Historical prior-generation workspace pairs must never replace an already terminal winner or change its budget reason. Accepted-work STOP reconciliation and capacity accounting remain separate physical-authority paths.
+
 # ECS Fleet development contracts
 
 `packages/ecs-fleet` owns the optional `deerflow_ecs_fleet` package. Fleet tables use
@@ -33,8 +37,7 @@ its physical copy/fsync/control-marker writer through repeated cancellation.
 The Node waits for that writer before stopped reporting and daemon flock/client
 release; publication-only joins do not own preparation. Stop every owned residual before reporting recovery failure;
 missing journals or a stop RPC failure must not leave other owned containers running.
-Remote Agent and continuations are pending; consult the root delivery roadmap before
-enabling or advertising Fleet execution. Dependency installation remains operator
+B, C and continuations have recorded local acceptance; consult the [delivery record](ecs-fleet-delivery.md) and root roadmap for exact evidence and production limitations before enabling Fleet execution. Dependency installation remains operator
 controlled through the extension manager; do not add an unconditional host dependency.
 
 `app/fleet/runtime.py` binds the core `deerflow.mcp.tasks.fleet_runtime` submitter
@@ -220,8 +223,7 @@ backend/profile/version summary. Memory stores reject participation; existing Lo
 store calls retain their signature. Input uses the deerflow-normalized-input-v1
 state/command envelope, preserving normalized message fields, plain strings and
 Command graph/update/resume/goto without lossy string conversion. C04 consumes
-the paired decoder. C10 public routing remains pending, and the Gateway activation
-guard is unchanged. C03 ownership implementation is locally verified below.
+the paired decoder. C10 public routing is now locally accepted; it retains original operator/profile authorization and defaults-off admission. This C02 section describes the earlier admission foundation. C03 ownership implementation is locally verified below.
 
 
 ## C03 locally verified ownership foundation
@@ -243,8 +245,7 @@ neither Fleet nor app. Trusted store_only plans require a valid nonlocal label.
 The node-bearer claim endpoint accepts kind=agent plus WorkerCompatibility;
 default job requests and grants preserve B wire compatibility. Attempt renewal
 dispatches by persisted kind and checks node ownership before revealing availability.
-Agent start/stopped remain unavailable pending runner/stop integration; no independent
-Agent read/reconcile endpoint or physical-stop capacity release is claimed here.
+At the historical C03 foundation scope, start/stopped were not yet integrated; C04–C12 and BC10 now qualify the original Agent execution and physical STOP integration. This foundation evidence alone is not a process STOP proof.
 Raw github_token is now rejected in LaunchSpec, matching the existing runtime-only
 credential field; Local execution is unchanged. Future runner credential resolution
 must use out-of-band references. Gateway agents_enabled remains fail closed.
@@ -428,8 +429,7 @@ actual daemon inspect/stopped must trigger production physical-stop recovery.
 This is a safe seal-omission injection, not a SIGKILL or arbitrary-crash claim.
 Native receipts do not establish Linux installed-entry acceptance. SOURCE SPEC
 and SOURCE QUALITY reviews must precede formal C07 image builds; public remote
-admission and continuation flags remain closed. C07 is locally accepted; C09–C12
-and B/C continuations remain pending. See [C07 acceptance](ecs-fleet-c07-acceptance.md).
+admission and continuation flags remain closed. C07 remains locally accepted at its original scope; later C09–C12 and BC10 are also locally accepted, without relabeling the original C07 execution. See [C07 acceptance](ecs-fleet-c07-acceptance.md).
 
 Installed C07 and C04 neighbors share the original strict two-model runtime
 bindings (`model-1` and `child`) and declared model/MCP secret references. The
@@ -527,7 +527,7 @@ they do not by themselves establish whole C08 acceptance.
 
 The f0011 migration stores immutable historical child owner links and sealed wait-group membership. Host BoundJobParent injects the original execution authority into FleetJobService/WaitGroups; parent user/thread/run/task/generation never come from model arguments. Use original task-first capability locks and sorted child jobs, then validate again after real SQL flush on the same transaction. Historical links reference immutable launch identity, allowing later generation changes. Membership/policy/key/owner cannot mutate; later proof/state transitions remain available for BC02/BC03.
 
-The private Runner registers the bound Fleet driver and scoped submission carrier from approved operator plugin configuration. It does not start Gateway reconcilers or migrations. The native loaded ToolNode/PG main is verified; full installed yield/continuation is still pending. Preserve Local detached B when no remote context is active, while rejecting an unbound remote caller. See [BC01 runtime](ecs-fleet-bc01-runtime.md) and [acceptance](ecs-fleet-bc01-acceptance.md) for actual current scope.
+The private Runner registers the bound Fleet driver and scoped submission carrier from approved operator plugin configuration. It does not start Gateway reconcilers or migrations. The native loaded ToolNode/PG main is verified; full installed yield/continuation is now qualified by BC10 at its separate local scope. Preserve Local detached B when no remote context is active, while rejecting an unbound remote caller. See [BC01 runtime](ecs-fleet-bc01-runtime.md) and [acceptance](ecs-fleet-bc01-acceptance.md) for actual current scope.
 
 
 ## BC02 cooperative yield
@@ -540,7 +540,7 @@ The original workspace publisher and terminal SQL participant pair the exact fin
 
 BC03 is locally accepted after native qualification and independent SPEC→QUALITY, including a repaired summary bounds defect and fresh rechecks. FleetContinuations uses the original RunManager admission UoW. Shared neutral host entry locks goal/task/group before core thread/run; sorted child jobs precede jointly sorted nodes, reservations and attempts. Exact accepted parent/source/STOP/release, legitimate child manifests/STOP/release, current generation/run/cancellation and fresh database-clock budget/deadline checks precede one atomic run/placement/spec/current_run/budget/group receipt commit. Existing receipts recover even when new admission flags are disabled.
 
-The deterministic hidden HumanMessage frames bounded child data as untrusted. Mandatory result references are reserved before optional details spend canonical JSON UTF-8 bytes; omitted details are marked and included paths stay exact. New awaited admission is capped at128 per original parent before input resolution/staging under the original task lock; receipt/dedupe reuse and detached behavior remain intact. The input codec thaws frozen tuples. Same-generation yielded-final source requires the precise dispatched receipt while paused generation−1 checks remain. Service scans advance/wrap a keyset cursor. Native restore/publication/STOP and128metadata/fixturecap2 are qualified; production installed and delivery/product work remain BC04–BC10. Preserve unverified larger historical groups rather than dropping members. See [runtime](ecs-fleet-bc03-runtime.md) and [acceptance](ecs-fleet-bc03-acceptance.md).
+The deterministic hidden HumanMessage frames bounded child data as untrusted. Mandatory result references are reserved before optional details spend canonical JSON UTF-8 bytes; omitted details are marked and included paths stay exact. New awaited admission is capped at128 per original parent before input resolution/staging under the original task lock; receipt/dedupe reuse and detached behavior remain intact. The input codec thaws frozen tuples. Same-generation yielded-final source requires the precise dispatched receipt while paused generation−1 checks remain. Service scans advance/wrap a keyset cursor. Native restore/publication/STOP and128metadata/fixturecap2 are qualified; later BC04–BC10 delivery/product work is separately locally accepted, including the BC10 installed gate. Preserve unverified larger historical groups rather than dropping members. See [runtime](ecs-fleet-bc03-runtime.md) and [acceptance](ecs-fleet-bc03-acceptance.md).
 
 ## BC04 exclusive result delivery
 
@@ -621,6 +621,6 @@ Original `FleetTaskSummaries` now reads at most21 related rows and exposes20 job
 
 The existing frontend card uses original task cancel/resume endpoints through the shared CSRF/auth fetcher. Logical operation IDs survive retries; pending actions disable duplicates,409 refreshes state, and the UI does not infer goal completion or STOP from core success or HTTP success. Only nontruncated settled current waiting lineage offers resume. Existing IM final/status appends the same owned projection through a dependency-neutral reader, combined20related-record and4096-byte limits; absent optional route and empty projection preserve Local/B behavior. Metadata and provider delivery policies remain original.
 
-Native main passed5.96s, captured-response DOM main and mandatory frontend check passed, and affected old panel tests passed5. These prove native API and controlled UI/IM only; the concentrated boundary and independent SPEC→QUALITY also passed, and all16 reviewed blobs match source `be343091`. Fresh installed combined C→B→C/partition/cancel/restart is still BC10. See [runtime evidence](ecs-fleet-bc09-runtime.md).
+Native main passed5.96s, captured-response DOM main and mandatory frontend check passed, and affected old panel tests passed5. These prove native API and controlled UI/IM only; the concentrated boundary and independent SPEC→QUALITY also passed, and all16 reviewed blobs match source `be343091`. Fresh installed combined C→B→C/partition/cancel/restart has passed BC10; the native/controlled BC09 evidence retains its original scope. See [runtime evidence](ecs-fleet-bc09-runtime.md).
 
-BC09 local acceptance: source `be343091`, all16 reviewed blobs verified, fresh SPEC→QUALITY Ready. [Evidence](ecs-fleet-bc09-acceptance.md). BC10 installed combined release remains required.
+BC09 local acceptance: source `be343091`, all16 reviewed blobs verified, fresh SPEC→QUALITY Ready. [Evidence](ecs-fleet-bc09-acceptance.md). BC10 installed combined release passed locally; see [current acceptance](ecs-fleet-bc10-acceptance.md).

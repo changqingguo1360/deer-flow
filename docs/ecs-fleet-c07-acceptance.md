@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # C07 committed remote events acceptance
 
 C07 is accepted locally on 2026-10-03 after sequential whole SOURCE and final runtime SPEC/QUALITY reviews and independent Root verification. This slice implements durable remote event delivery and replay. C08–C12 and B/C continuations remain outstanding; Gateway remote admission stays closed. No production ECS deployment is reported. The existing cumulative 120-second cleanup deadline is unchanged.

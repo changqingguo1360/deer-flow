@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC08 local acceptance
 
 BC08 is locally accepted at source `d08f776375cd70776d0d0feda6a820a7eca65755`. Fresh independent SPEC and QUALITY are Ready with no Critical/Important findings. Root verified all14 committed Python blobs against final-source-02. The native main and corrected sole concentrated boundary retain the exact scopes below. B, C01–C12 and BC01–BC07 keep their recorded acceptance scopes; BC09–BC10 and the final installed combined entrypoint remain required.

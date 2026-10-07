@@ -1,3 +1,7 @@
+## Current implementation receipt — 2026-10-07
+
+B01–B12, C01–C12 and BC01–BC10 have completed local acceptance in that order. [Requirement/artifact/command mapping](../../ecs-fleet-delivery.md) and [BC10 source receipt](../../ecs-fleet-bc10-acceptance.md) govern current completion. The dated planning templates and their unchecked sketch steps below are retained as history, not an active backlog. Actual execution used the later source-audited plans and registered node IDs; placeholder probe/node IDs are not relabeled as executed. Missing initial B01–B03 RED history remains an explicit historical limitation. Default flags stay off; local branches/worktree are retained without push, merge or production activation.
+
 # B：持久 Job 与共用 Fleet 基础 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Use superpowers:subagent-driven-development only if the user explicitly chooses delegation. Steps use checkbox (`- [x]`) syntax for tracking.

@@ -12,13 +12,13 @@
 
 ## 分级交付（2026-10-07 用户要求调整）
 
-P0 可演示主干已交付，本地提交 `be92d9cf`。接下来按 P1 可靠性验收、P2 发布完善依次收尾，分别汇报完成状态。原 BC10 完整验收要求保留，P0 完成不代表 BC10 或生产发布已验收。
+P0 可演示主干已交付，本地提交 `be92d9cf`。P1可靠性验收与P2必要文档同步随后均已完成，源码提交 `06ae5f44`。原 BC10 完整验收要求保留，P0 完成不代表 BC10 或生产发布已验收。
 
 | 级别 | 范围 | 完成标准 | 当前安排 |
 | --- | --- | --- | --- |
 | P0 核心可用 | 修复已证实的镜像及模型配置缺口，运行一条真实双节点 C→B→C 主干及同流程页面 | B 结果被 C 接收并完成同一任务；正常路径真实 STOP、资源释放、无重复执行有证据；必要变更检查及简短运行说明 | 已完成；保留现有证据，不重复扩大主干测试 |
-| P1 可靠性验收 | 完整镜像源码一致性；一个集中断网、取消、重启恢复场景；聚合验收证据；最终 SPEC/QUALITY 审查 | 原 BC10 必要故障与恢复要求有真实证据，修复影响可靠性的缺陷 | 已通过；镜像、主干、唯一故障、聚合及独立SPEC→QUALITY均通过，本级本地提交收尾，不扩展测试矩阵 |
-| P2 发布完善 | 剩余 README、模块指南、进度/发布文档全面同步，运行维护材料整理 | 文档与最终能力及限制一致 | 后置；生产 ECS 部署需另行授权 |
+| P1 可靠性验收 | 完整镜像源码一致性；一个集中断网、取消、重启恢复场景；聚合验收证据；最终 SPEC/QUALITY 审查 | 原 BC10 必要故障与恢复要求有真实证据，修复影响可靠性的缺陷 | 已完成；源码 `06ae5f44`，镜像/主干/故障/聚合及独立SPEC→QUALITY通过 |
+| P2 发布完善 | 剩余 README、模块指南、进度/发布文档全面同步，运行维护材料整理 | 文档与最终能力及限制一致 | 已完成必要文档及34项追踪；生产 ECS 部署不在本轮范围 |
 
 ### P1 收尾顺序与范围上限
 
@@ -66,9 +66,9 @@ No missing environment, unregistered fixture or setup error counts as product RE
 - [x] **Step3 — Real browser and aggregate main evidence.** Same owned flow through actual Next.js/authenticated Gateway, named Playwright artifact and aggregate collector. Record native/browser/source distinctions and actual selection/skips. If servers must remain alive for browser, freeze that orchestration in Step1; do not rebuild/reexecute the main just because post-test capture was omitted.
 - [x] **Step4 — One concentrated necessary fault boundary.** Freeze exact partition/cancel/restart/STOP-quarantine fixture after main GREEN. Author owns handles and natural cleanup; no matrix. Fix only material failures and rerun only affected selector.
 - [x] **Step5 — Freeze/static/operation manual.** Configured actual-path Ruff/check-format/Python3.12 for changed files, targeted frontend format and real frontend check if affected, diff whitespace/strict OpenSpec/guidance checks. Freeze full source/image/member/receipt mapping. Explicitly account for every required artifact and gate; no false fresh-execution or skipped-case claims.
-- [ ] **Step6 — Fresh SPEC then QUALITY and local commit.** Independent review of final source and raw installed/browser/fault evidence. Minimal fixes and affected validation only. Root commits exact reviewed blobs, verifies them, records acceptance and checks OpenSpec10 from real evidence. The overall goal remains active until its full requirement-by-requirement completion audit passes.
+- [x] **Step6 — Fresh SPEC then QUALITY and local commit.** Independent review of final source and raw installed/browser/fault evidence. Minimal fixes and affected validation only. Root commits exact reviewed blobs, verifies them, records acceptance and checks OpenSpec10 from real evidence. The overall goal remains active until its full requirement-by-requirement completion audit passes.
 
-## Current state
+## Historical execution state (preserved; current completion above)
 
 P0 已通过 main09 的真实双节点 C→B→C 和同流程浏览器检查：主干1passed79.84s，浏览器1passed43.56s；重复副作用、线程双写、容量泄漏均为0，真实 STOP/持久释放及自有清理完成。必要静态检查通过，见 [P0 交付记录](../../ecs-fleet-bc10-p0.md)。
 
@@ -81,3 +81,5 @@ B、C01–C12、BC01–BC09 保留已记录的验收范围。P1 两份当前镜�
 P1 最新收尾：原 task_recovery 终态覆盖缺陷已最小修复，current02两镜像各870安装成员/758当前模块、Worker68及supervisor匹配；同主干main13 1passed65.331s、同浏览器1passed26.776s；唯一boundary03 1passed153.18s，真实409→STOP/释放→200、取消/预算重启不变、重复副作用/双写/泄漏0及自有清理均经Root独立核验。boundary-only目标修正不影响main13正常路径，有AST资格对比。已删除被替代旧镜像两份；当前仅聚合证据/source qualification已通过（combined03原case 1passed5.56s/skip0，Root独立重算一致），仅最终SPEC→QUALITY与本地提交待完成，P2文档后置。任务10不提前勾选。
 
 P1最终审查已通过：独立SPEC与QUALITY均Ready，无Critical/Important阻塞；二者核验冻结九技术文件、安装成员及原始运行证据，并各自重算纯collector。P1本地交付记录见[验收报告](../../ecs-fleet-bc10-acceptance.md)。P2全面文档及最终完整OpenSpec账目收尾仍保留，Step6完整阶段记录不提前勾选。
+
+P2完整文档及交付账目同步完成：源码提交 `06ae5f44` 已逐字节核对九文件；README、模块指南、部署/恢复/开发文档、roadmap/progress与OpenSpec同步。原B/C与BC01–BC09证据保留各自scope；完整需求、artifact及实际命令映射见[三阶段交付](../../ecs-fleet-delivery.md)。所有flags默认关闭，未push/merge/激活生产。

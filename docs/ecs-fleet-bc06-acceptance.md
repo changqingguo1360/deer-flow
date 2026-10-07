@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC06 local acceptance
 
 BC06 is locally accepted at source `8abe7af9f9b4683f055ba577ee9b0b6cac686a45`. Independent SPEC and QUALITY are Ready. Root verified that all23 committed Python sources match the reviewed final fingerprints. B, C01–C12 and BC01–BC06 retain their recorded acceptance scopes; BC07–BC10 and the final installed combined entrypoint remain required. No push, operator activation or ECS deployment is claimed.

@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC01 acceptance status
 
 BC01 source/native foundation accepted after independent SPEC→QUALITY review and current-source/evidence verification. Final native main and one concentrated boundary case passed. The explicit source commit is `ce92de4a`, with acceptance receipt `62784b46`. BC02–BC10 remain required.

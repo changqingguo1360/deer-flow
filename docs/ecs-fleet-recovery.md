@@ -1,10 +1,6 @@
 # ECS Fleet 未知执行对账
 
-持久 job/worker 与完整远程 Agent 已分别完成本地验收，组合等待续跑已推进至 BC09。
-范围与证据见 [B 验收](ecs-fleet-b-acceptance.md)、[C12 验收](ecs-fleet-c12-acceptance.md)
-和 [BC09 验收](ecs-fleet-bc09-acceptance.md)。当前仍需完成 BC10 的安装后组合验证；
-生产 ECS/NAS 部署尚未验收。以下接口已有本地真实 PostgreSQL、HTTP 和 Docker 验证，
-BC10 将进一步验证组合执行中的断连、停机证明与人工解除隔离。
+持久 job/worker、完整远程 Agent 及组合等待续跑已依序完成本地验收，BC10源码提交 `06ae5f44`。范围见 [三阶段交付](ecs-fleet-delivery.md) 和 [BC10验收](ecs-fleet-bc10-acceptance.md)。组合故障真实证明无STOP时409、有原Worker journal STOP和容量释放后200，并保留failed结果。Gateway完整app/runtime/lifespan重建后，已取消目标和预算不被恢复扫描改写。生产ECS/NAS及真实模型服务验收不在这次本地交付范围。
 
 ## 处理顺序
 

@@ -1,6 +1,6 @@
 # BC10 联合交付验收
 
-2026-10-07：**P0 核心闭环与 P1 可靠性验收已通过。** 当前镜像、真实主干、唯一集中故障、原有证据聚合及最终独立 SPEC→QUALITY 均通过，无关键审查阻塞。P2 全面文档同步及完整交付账目仍待收尾；不把本地验收称为生产部署。
+2026-10-07：**P0 核心闭环与 P1 可靠性验收已通过。** 当前镜像、真实主干、唯一集中故障、原有证据聚合及最终独立 SPEC→QUALITY 均通过，无关键审查阻塞。P2 必要文档同步及完整交付账目已完成；不把本地验收称为生产部署。
 
 ## 当前证据与范围
 
@@ -34,4 +34,4 @@
 
 P0、P1已通过；P1聚合原case 1 passed，5.56秒，skip0，Root与两位独立审查者重算结果一致。最终九技术文件冻结清单及静态收据位于 `.local/fleet-evidence/bc10/p1-final-closeout/`，两份最终审查记录位于 `root-final/bc10-final-spec-review.json` 和 `root-final/bc10-final-quality-review.json`。本级只做原主干和唯一集中故障，未增加场景或重跑完整B/Cgate。
 
-P2全面文档同步后置，不阻塞P1交付。原OpenSpec task10在全部要求和交付账目核实前保持未完成。后续状态以本记录与[执行计划](superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)为准，诊断历史见[运行记录](ecs-fleet-bc10-runtime.md)。
+P2文档同步及完整OpenSpec账目已完成，task10依据真实证据勾选。组合源码提交 `06ae5f447251fc799edf5ccaafa21adba9829091`，九审查字节与提交一致；[三阶段交付](ecs-fleet-delivery.md)列明34项要求及原计划路径/命令映射。后续状态以本记录与[执行计划](superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)为准，诊断历史见[运行记录](ecs-fleet-bc10-runtime.md)。

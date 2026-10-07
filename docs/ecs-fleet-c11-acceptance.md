@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # C11 local acceptance
 
 C11 source is frozen against C10 baseline `74003058d607e1f389d3cbf071c15ba44aa0c4f6`.

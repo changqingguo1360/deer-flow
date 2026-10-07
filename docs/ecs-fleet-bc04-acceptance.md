@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC04 本地原生验收记录
 
 BC04 已完成本地原生验收。最终主干 main-final-2 和集中边界 boundary-3 已通过；Root 已核对7个修改Python文件与两次执行前source-map一致。独立 SPEC→QUALITY 均 Ready；源码提交 `f24a88d7142e83a4a57077a1cafaa4411c067d42` 的全部7个 reviewed Python blobs 已核对；OpenSpec 4.1–4.4 据实际资格和历史限制更新。BC05–BC10 和完整安装入口 C→B→C 尚未交付。

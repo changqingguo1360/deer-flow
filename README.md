@@ -1571,8 +1571,7 @@ Your unwavering commitment and expertise have been the driving force behind Deer
 
 ## ECS Fleet development status
 
-The optional `backend/packages/ecs-fleet` package is under development for durable
-jobs followed by remote Agent execution. Current foundations include independent
+The optional `backend/packages/ecs-fleet` package now has local acceptance for durable jobs, full remote Agent execution and C→B→C continuations. See the [three-stage delivery record](docs/ecs-fleet-delivery.md) for evidence and deployment limitations. Current foundations include independent
 Postgres migrations, worker credential/session isolation, atomic capacity accounting
 and staged job tracking. The worker client, private restart journal and local Docker
 watchdog are tested through real HTTP/containers, including Gateway loss and a lost
@@ -1604,7 +1603,7 @@ available; see the [deployment guide](docs/deployment/ecs-fleet.md). Local tests
 two host worker processes, image entry/Docker control and two actual Compose daemons
 through verified HTTPS. Session administrators can register nodes, restrict their job
 profiles, issue/revoke node credentials and drain/disable retained execution safely.
-The explicit local B matrix passes 259 tests without skips, with full backend
+The original isolated B matrix passed 259 tests without skips, with its recorded full backend
 regression and blocking-I/O checks passing; see the [B acceptance report](docs/ecs-fleet-b-acceptance.md). Production ECS deployment is not performed. C01 adds private immutable launch descriptions,
 Agent task/placement persistence, worker snapshot compatibility checks and actual host
 persistence prerequisites. C02 adds a trusted execution-backend contract and atomic
@@ -1646,21 +1645,21 @@ are complete. See
 C12 is locally accepted: normal startup, the production-image main and one concentrated
 fault case passed, with independent reviews and a verified source commit. See [C12 runtime boundaries](docs/ecs-fleet-c12-runtime.md).
 All Fleet flags default to disabled; no real operator configuration was activated.
-C→B→C is in progress: BC01 child ownership, BC02 cooperative yield, BC03
+C→B→C is locally accepted; its earlier slices provide the following qualified evidence: BC01 child ownership, BC02 cooperative yield, BC03
 exactly-one native continuation, BC04 exclusive result delivery, and BC05 shared scheduling are locally accepted
 after independent reviews.
 BC03 restores the accepted source on another node and retains bounded child results.
-BC05 qualified an installed one-slot Agent → job → Agent path and one native scheduling boundary. Remaining aggregate behavior and the final combined entrypoint gate remain BC07–BC10.
+BC05 qualified an installed one-slot Agent → job → Agent path and one native scheduling boundary. BC07–BC10 subsequently completed the aggregate behavior and final installed combined entrypoint gate.
 BC06 has passed its native authenticated main, including a newer user generation and explicit continuation without resubmitting child jobs; its concentrated boundary and independent reviews passed after a handoff correction (source `8abe7af9`). See [BC06 current scope](docs/ecs-fleet-bc06-runtime.md).
-BC07’s native main now executes three successive Agent runs with two intervening child groups; cumulative run, job and measured token charges survive generation changes. Focused cross-run token/job refusal checks and the recorded recovery boundary have passed. BC07 is locally accepted at `097b789a` after independent SPEC and QUALITY; BC08–BC10 and the installed combined gate remain required. See [BC07 acceptance](docs/ecs-fleet-bc07-acceptance.md).
-BC08’s native main and one concentrated boundary have passed: scheduled goals keep later occurrences queued across restart, including a later Local run on a fresh thread. A once task completes after its goal resolves; an authenticated cancellation of a stopped waiting goal also releases the blocker. Local fast completion also preserves the once task’s terminal outcome before launch bookkeeping. BC08 is locally accepted at `d08f7763` after independent SPEC and QUALITY; BC09–10 remain required. See [BC08 acceptance](docs/ecs-fleet-bc08-acceptance.md).
+BC07’s native main now executes three successive Agent runs with two intervening child groups; cumulative run, job and measured token charges survive generation changes. Focused cross-run token/job refusal checks and the recorded recovery boundary have passed. BC07 is locally accepted at `097b789a` after independent SPEC and QUALITY; BC08–BC10 subsequently passed at their documented local scopes. See [BC07 acceptance](docs/ecs-fleet-bc07-acceptance.md).
+BC08’s native main and one concentrated boundary have passed: scheduled goals keep later occurrences queued across restart, including a later Local run on a fresh thread. A once task completes after its goal resolves; an authenticated cancellation of a stopped waiting goal also releases the blocker. Local fast completion also preserves the once task’s terminal outcome before launch bookkeeping. BC08 is locally accepted at `d08f7763` after independent SPEC and QUALITY; BC09–10 subsequently passed at their documented local scopes. See [BC08 acceptance](docs/ecs-fleet-bc08-acceptance.md).
 
-BC09 now displays “Waiting for computation” independently of the completed run, with related jobs, accepted result IDs and run history. Goal cancel/resume uses the existing generation-fenced task API; completed cancellation remains visible. Existing IM final/status replies use the same bounded owned summary. The native API main, captured-response DOM main and frontend check have passed; the concentrated boundary and independent SPEC/QUALITY have passed; BC09 is locally accepted at `be343091`. See [BC09 current scope](docs/ecs-fleet-bc09-runtime.md). The final installed combined gate remains BC10.
+BC09 now displays “Waiting for computation” independently of the completed run, with related jobs, accepted result IDs and run history. Goal cancel/resume uses the existing generation-fenced task API; completed cancellation remains visible. Existing IM final/status replies use the same bounded owned summary. The native API main, captured-response DOM main and frontend check have passed; the concentrated boundary and independent SPEC/QUALITY have passed; BC09 is locally accepted at `be343091`. See [BC09 current scope](docs/ecs-fleet-bc09-runtime.md). The final installed BC10 gate has also passed; see [BC10 acceptance](docs/ecs-fleet-bc10-acceptance.md).
 
 See [BC03 boundaries](docs/ecs-fleet-bc03-runtime.md), [BC04 delivery](docs/ecs-fleet-bc04-runtime.md), [BC05 scope](docs/ecs-fleet-bc05-acceptance.md), the
 [delivery roadmap](docs/superpowers/plans/2026-10-01-ecs-fleet-roadmap.md) and
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).
 
-BC09 local acceptance: source `be343091`, all16 reviewed blobs verified, fresh SPEC→QUALITY Ready. [Evidence](docs/ecs-fleet-bc09-acceptance.md). BC10 installed combined release remains required.
+BC09 local acceptance: source `be343091`, all16 reviewed blobs verified, fresh SPEC→QUALITY Ready. [Evidence](docs/ecs-fleet-bc09-acceptance.md). BC10 installed combined release passed locally at `06ae5f44`.
 
-BC10 P0 now demonstrates the same durable C→B→C goal across two stock Docker workers, with authenticated waiting/completion UI, accepted results and confirmed STOP/resource release. Viewing history no longer supersedes a waiting Fleet task through optional metadata caching. The current image pair, installed main, same-flow browser, concentrated partition/cancel/restart boundary and evidence aggregate have passed locally. Restart recovery now preserves cancelled task and budget state. Final independent SPEC/QUALITY also passed; P1 local reliability acceptance is complete, with comprehensive documentation synchronization following as P2. Production ECS activation is outside this acceptance. See [current evidence and limits](docs/ecs-fleet-bc10-acceptance.md) and [P0 delivery](docs/ecs-fleet-bc10-p0.md).
+BC10 P0 now demonstrates the same durable C→B→C goal across two stock Docker workers, with authenticated waiting/completion UI, accepted results and confirmed STOP/resource release. Viewing history no longer supersedes a waiting Fleet task through optional metadata caching. The current image pair, installed main, same-flow browser, concentrated partition/cancel/restart boundary and evidence aggregate have passed locally. Restart recovery now preserves cancelled task and budget state. Final independent SPEC/QUALITY also passed; P1 local reliability acceptance is complete; P2 documentation synchronization records the completed local B→C→combined delivery. Production ECS activation is outside this acceptance. See [current evidence and limits](docs/ecs-fleet-bc10-acceptance.md) and [P0 delivery](docs/ecs-fleet-bc10-p0.md).

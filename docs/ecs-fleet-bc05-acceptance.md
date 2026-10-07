@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC05 local acceptance
 
 BC05 is locally accepted. The installed main and single concentrated boundary have passed; independent SPEC and QUALITY are ready. Accepted source commit `c153ad1951fcf1f8edaa5f5a4a0483d9228c3346` matches all 22 reviewed participant blobs. BC06–BC10 remain required. No deployment or operator activation is implied.

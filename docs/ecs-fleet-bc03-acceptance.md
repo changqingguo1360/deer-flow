@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # BC03 native acceptance
 
 Status: locally accepted. Final native qualification and fresh independent SPEC→QUALITY rechecks are Ready. Accepted source commit `87e0d42876db67c01afc58c37a359afc28a22175`; all14 current reviewed blobs and3 assertion-only blobs independently match that commit. BC04–BC10 and installed production C→B→C remain required.

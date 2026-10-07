@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # C10 local acceptance — 2026-10-06
 
 C10 authorized routing and Scheduler capacity tickets have passed local acceptance. B and C01–C09 remain accepted; C11, C12 and C→B→C remain incomplete. Public remote Agent startup remains closed. This acceptance covers native mounted ASGI HTTP, PostgreSQL and original Node claim, not a new Docker Agent execution or production activation.

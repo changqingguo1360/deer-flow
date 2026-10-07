@@ -1,3 +1,5 @@
+> Historical slice acceptance: preserve original cases, counts, source/image identities and scope below. Current B→C→combined status is in [the delivery record](ecs-fleet-delivery.md); later completion does not turn this record into a fresh current full gate.
+
 # B local acceptance — 2026-10-02
 
 B runtime requirements pass isolated local PostgreSQL/Docker/NAS/Compose acceptance.
