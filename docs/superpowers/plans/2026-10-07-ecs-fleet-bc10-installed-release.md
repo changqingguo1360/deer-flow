@@ -10,6 +10,18 @@
 
 ---
 
+## 分级交付（2026-10-07 用户要求调整）
+
+当前以 P0 可演示主干作为下一次交付点；P1、P2 明确后置，不把全部发布工作绑在一次交付里。原 BC10 完整验收要求保留，P0 完成不代表 BC10 或生产发布已验收。
+
+| 级别 | 范围 | 完成标准 | 当前安排 |
+| --- | --- | --- | --- |
+| P0 核心可用 | 修复已证实的镜像及模型配置缺口，运行一条真实双节点 C→B→C 主干及同流程页面 | B 结果被 C 接收并完成同一任务；正常路径真实 STOP、资源释放、无重复执行有证据；必要变更检查及简短运行说明 | 本轮只推进这一级；完成即汇报可演示版本 |
+| P1 可靠性验收 | 一个集中断网、取消、重启恢复场景；聚合验收证据；最终 SPEC/QUALITY 审查 | 原 BC10 必要故障与恢复要求有真实证据，修复影响可靠性的缺陷 | P0 交付之后推进，不提前增加 case |
+| P2 发布完善 | 剩余 README、模块指南、进度/发布文档全面同步，运行维护材料整理 | 文档与最终能力及限制一致 | 后置；生产 ECS 部署需另行授权 |
+
+基本正确性、正常路径资源释放和必要代码检查属于 P0，不能为赶进度跳过。故障场景及完整发布资格未完成时必须明确标注，OpenSpec task10 不提前勾选。已通过且源码未受影响的 B/C 检查不重跑；不增加测试矩阵，不建立新一轮无关审查。
+
 ## Authority and ownership
 
 Feature checkout `/Users/wenbinwang/.codex/worktrees/deerflow2/personal-agent-ecs`, branch `feature/personal-agent-ecs`. BC09 source `be343091cd16aae604dd689f445cc0f0d082f504`, acceptance docs `329648e6c63abf88e8884305ae77991f7ee670f6`; all16 reviewed source blobs matched. B, C01–C12, BC01–BC09 retain their recorded local scopes. OpenSpec `add-ecs-agent-job-continuations` task10 / `Unified release gate demonstrates C B C execution` and original master BC10 define this gate; no native-only substitute or narrowing of the final goal.
@@ -40,7 +52,7 @@ No missing environment, unregistered fixture or setup error counts as product RE
 
 ## Steps
 
-- [ ] **Step1 — Design and freeze installed main.** Fresh author provides exact lifecycle, two-worker routing, image/current-source qualification, original auth/private stores and cleanup design. Root reviews design before fixtures/builds. Freeze fixture patch and configured static results before application.
+- [x] **Step1 — Design and freeze installed main.** Fresh author provides exact lifecycle, two-worker routing, image/current-source qualification, original auth/private stores and cleanup design. Root reviews design before fixtures/builds. Freeze fixture patch and configured static results before application.
 - [ ] **Step2 — Execute the installed main.** Author preflights genuine dependencies, builds only required source-qualified recipes and runs the single main node ID. Capture raw evidence before assertions, natural exit and exact owned cleanup. Correct demonstrated gaps minimally; main must pass before faults. No automatic second graph or broad test suite.
 - [ ] **Step3 — Real browser and aggregate main evidence.** Same owned flow through actual Next.js/authenticated Gateway, named Playwright artifact and aggregate collector. Record native/browser/source distinctions and actual selection/skips. If servers must remain alive for browser, freeze that orchestration in Step1; do not rebuild/reexecute the main just because post-test capture was omitted.
 - [ ] **Step4 — One concentrated necessary fault boundary.** Freeze exact partition/cancel/restart/STOP-quarantine fixture after main GREEN. Author owns handles and natural cleanup; no matrix. Fix only material failures and rerun only affected selector.
@@ -49,4 +61,8 @@ No missing environment, unregistered fixture or setup error counts as product RE
 
 ## Current state
 
-Planning only. BC09 is accepted; BC10 has no fixture application, image build, main/fault/browser execution or release acceptance. Nine unused old task image tags were removed after no-container-reference checks; BC05/C12/B-worker base/Redis remain available. Read-only prerequisite notes: `/private/tmp/bc10-prerequisite-notes.json`. No deployment or operator activation.
+P0 已通过 main09 的真实双节点 C→B→C 和同流程浏览器检查：主干1passed79.84s，浏览器1passed43.56s；重复副作用、线程双写、容量泄漏均为0，真实 STOP/持久释放及自有清理完成。必要静态检查通过，见 [P0 交付记录](../../ecs-fleet-bc10-p0.md)。
+
+P0 修正了配置、镜像依赖和读取历史误触发取消的问题。当前正常 Gateway 使用最新本地 router；保留的执行镜像内未使用的旧 Gateway router 尚未更新，因此完整当前镜像成员资格仍归 P1。上面的完整 BC10 步骤不会因 P0 演示通过而提前勾选。
+
+B、C01–C12、BC01–BC09 保留已记录的验收范围。P1 的一个集中故障验收、完整镜像/聚合证据和最终审查尚未执行，P2 文档全面同步后置。OpenSpec task10 保持未完成，无部署或 operator activation。

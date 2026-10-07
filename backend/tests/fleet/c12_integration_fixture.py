@@ -17,7 +17,7 @@ from .c04_integration_fixture import ControlDatabase, node_server
 
 
 @asynccontextmanager
-async def owned_database(evidence):
+async def owned_database(evidence, *, retention=None):
     base = make_url(os.environ["DEERFLOW_TEST_POSTGRES_URL"])
     schema = "c12_main_" + uuid.uuid4().hex
     host = base.set(drivername="postgresql+asyncpg").render_as_string(hide_password=False)
@@ -32,7 +32,9 @@ async def owned_database(evidence):
         yield ControlDatabase(engine, async_sessionmaker(engine, expire_on_commit=False), schema, runner, host, base.password or "", base.port or 5432)
     finally:
         await engine.dispose()
-        if proof["created"]:
+        if retention is not None and retention.get("live"):
+            proof["retained_for_unresolved_owned_execution"] = True
+        elif proof["created"]:
             async with admin.begin() as connection:
                 await connection.execute(text('DROP SCHEMA "' + schema + '" CASCADE'))
             proof["dropped"] = True
@@ -181,11 +183,11 @@ async def durable_state(db, run):
         )
 
 
-async def start_stock_node(*, directory, url, credential, private, image, nas, evidence):
+async def start_stock_node(*, directory, url, credential, private, image, nas, evidence, kind="agent", worker_image=None, worker_ref=None, worker_ca_file=None):
     """Launch the unmodified stock Node CLI with private local settings/journal."""
     import sys
 
-    directory.mkdir(parents=True, exist_ok=True)
+    directory.mkdir(mode=0o700 if worker_image is not None else 0o777, parents=True, exist_ok=True)
     operator = directory / "operator.json"
     token = directory / "credential"
     settings = directory / "settings.json"
@@ -194,7 +196,7 @@ async def start_stock_node(*, directory, url, credential, private, image, nas, e
     settings.write_text(
         json.dumps(
             {
-                "kind": "agent",
+                "kind": kind,
                 "agent_image": image,
                 "agent_config_file": str(operator),
                 "gateway_url": url,
@@ -208,13 +210,49 @@ async def start_stock_node(*, directory, url, credential, private, image, nas, e
             }
         )
     )
+    if worker_image is not None:
+        if not worker_ref:
+            raise ValueError("Installed worker requires an explicit owned container identity")
+        payload = json.loads(settings.read_text())
+        payload.update(gateway_url=url.replace("127.0.0.1", "host.docker.internal"), renew_seconds=10, safety_margin_seconds=5, poll_seconds=0.25)
+        settings.write_text(json.dumps(payload))
     for path in (operator, token, settings):
         path.chmod(0o600)
     env = dict(os.environ)
     env["PATH"] = str(__import__("pathlib").Path(os.environ["C12_DOCKER"]).parent) + os.pathsep + env["PATH"]
     env["PYTHONPATH"] = os.pathsep.join(str(__import__("pathlib").Path(item).resolve()) for item in sys.path if item)
     log = evidence.open("w")
-    process = await asyncio.create_subprocess_exec(sys.executable, "-m", "deerflow_ecs_fleet.worker", "--settings", str(settings), env=env, stdout=log, stderr=log)
+    argv = [sys.executable, "-m", "deerflow_ecs_fleet.worker", "--settings", str(settings)]
+    if worker_image is not None:
+        argv = [
+            os.environ["C12_DOCKER"],
+            "run",
+            "--pull=never",
+            "--name",
+            worker_ref,
+            "--restart=no",
+            "--user",
+            str(os.getuid()) + ":" + str(os.getgid()),
+            "--group-add",
+            str(0 if sys.platform == "darwin" else __import__("pathlib").Path(os.environ["FLEET_TEST_DOCKER_SOCKET"]).stat().st_gid),
+            "--env",
+            "HOME=/tmp",
+            "--mount",
+            "type=bind,src=" + os.environ["FLEET_TEST_DOCKER_SOCKET"] + ",dst=/var/run/docker.sock",
+            "--mount",
+            "type=bind,src=" + str(directory) + ",dst=" + str(directory),
+            "--mount",
+            "type=bind,src=" + str(nas) + ",dst=" + str(nas),
+            worker_image,
+            "--settings",
+            str(settings),
+        ]
+    if worker_image is not None and worker_ca_file is not None:
+        ca_file = directory / "gateway-ca.pem"
+        ca_file.write_bytes(worker_ca_file.read_bytes())
+        ca_file.chmod(0o600)
+        argv[2:2] = ["--env", "SSL_CERT_FILE=" + str(ca_file)]
+    process = await asyncio.create_subprocess_exec(*argv, env=env, stdout=log, stderr=log)
     return process, log
 
 

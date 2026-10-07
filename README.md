@@ -1662,3 +1662,5 @@ See [BC03 boundaries](docs/ecs-fleet-bc03-runtime.md), [BC04 delivery](docs/ecs-
 [implementation evidence](docs/superpowers/plans/2026-10-01-ecs-fleet-implementation-progress.md).
 
 BC09 local acceptance: source `be343091`, all16 reviewed blobs verified, fresh SPEC→QUALITY Ready. [Evidence](docs/ecs-fleet-bc09-acceptance.md). BC10 installed combined release remains required.
+
+BC10 P0 now demonstrates the same durable C→B→C goal across two stock Docker workers, with authenticated waiting/completion UI, accepted results and confirmed STOP/resource release. Viewing history no longer supersedes a waiting Fleet task through optional metadata caching. This is local demonstration scope; full image-source and fault/recovery release qualification remain pending. See [P0 delivery](docs/ecs-fleet-bc10-p0.md).

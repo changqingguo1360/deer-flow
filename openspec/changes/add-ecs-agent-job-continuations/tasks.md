@@ -3,6 +3,8 @@
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
 BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08 已本地验收（源码 `d08f7763`）；BC09 已本地验收（源码 `be343091`）；BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
+交付优先级已按用户要求调整为 **P0 核心主干可演示 → P1 可靠性验收 → P2 发布完善**，详见 [BC10 分级计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)。当前只推进 P0；P0 完成不等于 task10 完整验收，以下未完成项保持未勾选。
+
 ## 1. BC01 建立依赖与等待组持久模型
 
 - [x] 1.1 写并运行 backend/tests/fleet/test_bc01_fleet_agent_job_dependencies.py，确认 BC01 行为测试 RED。
@@ -86,7 +88,7 @@ BC09 主干与唯一集中边界通过，独立 SPEC→QUALITY Ready；源码 `b
 
 ## 10. BC10 组合端到端和运维交付验收
 
-按[当前安装组合计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)推进：实际双 stock worker / PG / Redis / NAS 主干与同一真实页面先行，之后唯一集中分区/取消/重启边界；聚合 gate 与操作手册保留。当前仅规划，未构建或执行。
+按[当前安装组合计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)推进：实际双 stock worker / PG / Redis / NAS 主干与同一真实页面先行，之后唯一集中分区/取消/重启边界；聚合 gate 与操作手册保留。P0 主干 main09 和同一真实页面已通过，实际 C→B→C 跨节点完成，STOP/资源释放有证据，重复副作用/双写/泄漏均为0；历史缓存误触发取消的问题已修复。见 [P0 交付记录](../../../docs/ecs-fleet-bc10-p0.md)。当前执行镜像内未使用的旧 Gateway router 尚未更新，完整镜像成员资格、集中故障和最终审查归 P1；P2 全面文档后置，BC10 尚未完整验收。
 
 - [ ] 10.1 写并运行 backend/tests/fleet/test_bc10_fleet_unified_task_experience.py，确认 BC10 行为测试 RED。
 - [ ] 10.2 完成计划列出的接口、事务和部署接线；满足 `Unified release gate demonstrates C B C execution`。

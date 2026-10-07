@@ -82,13 +82,15 @@ async def control_database(tmp_path):
 
 
 @asynccontextmanager
-async def node_server(app):
+async def node_server(app, *, ssl_certfile=None, ssl_keyfile=None, lifecycle_evidence=None):
+    import json
+
     import uvicorn
 
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     sock.listen()
-    server = uvicorn.Server(uvicorn.Config(app, log_level="error", lifespan="off"))
+    server = uvicorn.Server(uvicorn.Config(app, log_level="error", lifespan="off", ssl_certfile=ssl_certfile, ssl_keyfile=ssl_keyfile))
     task = asyncio.create_task(server.serve(sockets=[sock]))
     try:
         deadline = asyncio.get_running_loop().time() + 10
@@ -99,7 +101,7 @@ async def node_server(app):
             if asyncio.get_running_loop().time() >= deadline:
                 raise RuntimeError("Actual node HTTP server readiness timeout")
             await asyncio.sleep(0.01)
-        yield "http://127.0.0.1:" + str(sock.getsockname()[1])
+        yield ("https" if ssl_certfile else "http") + "://127.0.0.1:" + str(sock.getsockname()[1])
     finally:
         server.should_exit = True
         try:
@@ -108,6 +110,8 @@ async def node_server(app):
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
         sock.close()
+        if lifecycle_evidence is not None:
+            lifecycle_evidence.write_text(json.dumps({"tls": bool(ssl_certfile), "server_task_done": task.done(), "socket_closed": sock.fileno() == -1}))
 
 
 async def local_parity_run(db, private_payload, body, user, directory):

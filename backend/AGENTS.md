@@ -398,3 +398,5 @@ C09 STOP/cancellation: [contracts](../docs/ecs-fleet-c09-runtime.md).
 C10 routing/queued admission uses original UoW callbacks and shared reservations:
 [C10](../docs/ecs-fleet-c10-runtime.md); [C11 summaries/drain](../docs/ecs-fleet-c11-runtime.md).
 BC09 owned UI/IM: [projection](../docs/ecs-fleet-bc09-runtime.md). C12/BC01–08 accepted; BC10 required. Flags off.
+
+Fleet history reads must remain observational: optional `_persist_run_history_metadata_background` uses the original atomic non-superseding thread reservation and skips remote bindings. Do not route this cache through the human checkpoint participant, which can cancel awaited jobs. Intentional checkpoint writes retain `reserve_checkpoint_write`. The real combined P0 main is locally verified; full BC10 release scope remains pending ([P0 record](../docs/ecs-fleet-bc10-p0.md)).

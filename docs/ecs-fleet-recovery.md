@@ -1,7 +1,10 @@
 # ECS Fleet 未知执行对账
 
-ECS Fleet 仍在开发，生产 ECS/NAS 与完整 B 阶段交付门槛尚未验收。以下接口已通过本地
-真实 PostgreSQL、HTTP 和 Docker 测试；完整远程 Agent 与等待续跑尚未交付。
+持久 job/worker 与完整远程 Agent 已分别完成本地验收，组合等待续跑已推进至 BC09。
+范围与证据见 [B 验收](ecs-fleet-b-acceptance.md)、[C12 验收](ecs-fleet-c12-acceptance.md)
+和 [BC09 验收](ecs-fleet-bc09-acceptance.md)。当前仍需完成 BC10 的安装后组合验证；
+生产 ECS/NAS 部署尚未验收。以下接口已有本地真实 PostgreSQL、HTTP 和 Docker 验证，
+BC10 将进一步验证组合执行中的断连、停机证明与人工解除隔离。
 
 ## 处理顺序
 

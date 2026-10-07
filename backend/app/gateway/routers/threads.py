@@ -1519,8 +1519,14 @@ async def _persist_run_history_metadata_background(
     from deerflow.runtime.runs.worker import persist_run_history_metadata
 
     try:
-        async with reserve_checkpoint_write(request, thread_id, user_id=user_id):
-            from app.gateway.deps import get_run_event_store, get_run_manager
+        manager = get_run_manager(request)
+        # Read-through metadata caching cannot authorize human supersession.
+        # The original atomic reservation rejects active remote goals; under
+        # that reservation, completed remote bindings also retain their pair.
+        async with manager.reserve_thread_operation(thread_id, kind=ThreadOperationKind.checkpoint_write, user_id=user_id):
+            store = manager._store
+            if hasattr(store, "thread_execution_backend") and await store.thread_execution_backend(thread_id, user_id=user_id) not in {None, "local"}:
+                raise ConflictError("Remote history caching cannot replace its accepted checkpoint")
 
             authoritative_message_run_ids = dict(message_run_ids)
             authoritative_duration_run_ids = set(duration_run_ids)

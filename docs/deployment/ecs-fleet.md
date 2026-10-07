@@ -136,6 +136,33 @@ A forced Gateway/worker outage may leave unknown execution and quarantined capac
 Re-enable the ready service for reconciliation; do not replace its history with a fresh
 node or delete rows to make capacity appear free.
 
+## Staged combined rollout and rollback
+
+BC10 installed combined verification is still pending; this procedure is an operator
+runbook, not evidence of production activation. Keep all three feature flags off by
+default. After approving image digests, installed source compatibility, private node
+credentials and PostgreSQL/Redis/NAS readiness, enable `jobs_enabled` first, then
+`agents_enabled`, then `continuations_enabled`. Agents require jobs enabled;
+continuations require agents enabled. Check the matching stage before opening the next.
+
+The job-only disable sequence above must not be applied unchanged to combined mode.
+Setting jobs off while agents remain on is invalid configuration. Turning agents or
+continuations off prevents creation of a new continuation, so do not assume an existing
+waiting goal will finish after those flags close. First drain affected nodes, account for
+queued and running B/C work, and either complete waiting goals with the required service
+still available or cancel them through their original owned goal endpoint. Cancellation
+is intent; wait for actual STOP and released reservations before removing workers.
+After all accepted work is accounted for, close continuations, agents and jobs in that
+order. Keep the Fleet service available for required reads and reconciliation.
+
+Before a binary rollback, retain task/run/job/attempt history, wait groups and job links,
+accepted manifests and workspace/checkpoint pairs, operation receipts, unresolved
+reservations and private worker journals. Do not delete unresolved records to make a
+node ready. Unknown execution stays quarantined until genuine STOP evidence and the
+administrator review in [the recovery guide](../ecs-fleet-recovery.md). Restore or
+re-enable only a compatible runtime, preserving those records and flags closed until
+readiness is established.
+
 ## Upgrade and rollback
 
 Drain first, prove physical stop, then back up host/Fleet PostgreSQL records, immutable
