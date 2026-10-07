@@ -24,7 +24,7 @@ class FleetTaskRecovery:
     async def reconcile(self, task_id):
         async with self.sf.begin() as session:
             task = await session.get(AgentTaskRow, task_id, with_for_update=True)
-            if task is None or task.current_run_id is None:
+            if task is None or task.current_run_id is None or task.state in {"succeeded", "failed", "cancelled", "timed_out"}:
                 return
             run = await session.get(RunRow, task.current_run_id, with_for_update=True)
             placement = await session.get(RunPlacementRow, task.current_run_id, with_for_update=True)

@@ -7,10 +7,11 @@ import os
 import secrets
 import socket
 import sys
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 import pytest
@@ -21,7 +22,8 @@ from sqlalchemy import text
 from .c04_integration_fixture import node_server
 from .c07_integration_fixture import owned_redis
 from .c12_integration_fixture import login, normal_gateway, owned_database, private_configuration, response_json, start_stock_node
-from .test_bc_acceptance import collect_main
+from .test_bc_acceptance import collect_boundary, collect_main
+from .test_c09_stock_linux_partition import OwnedPartitionEndpoint
 
 ROOT = Path(__file__).resolve().parents[3]
 TABLES = (
@@ -42,6 +44,9 @@ TABLES = (
     "checkpoint_writes",
     "run_events",
     "fleet_event_outbox",
+    "fleet_task_operation_receipts",
+    "fleet_recovery_events",
+    "fleet_task_budgets",
 )
 
 
@@ -249,9 +254,131 @@ def local_worker_tls(directory):
     return ca_file, key_file
 
 
-@pytest.mark.live
-@pytest.mark.asyncio
-async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
+async def boundary_lifecycle(*, app, db, nas, driver, worker_refs, node_ids, processes, logs, endpoint, gateway_scope, open_gateway, client, thread_id, calls, evidence, docker):
+    """One original waiting goal: actual transport loss, durable review, cancel/replay."""
+    from app.gateway.fleet_auth import get_fleet_runtime
+
+    phases, actions = {}, []
+    configured_lease_seconds = get_fleet_runtime(app).config.lease_seconds
+    assert configured_lease_seconds == 120, "Original safety budget changed"
+
+    async def capture(name):
+        raw = await snapshot(db, nas, driver, worker_refs, thread_id=thread_id, calls=calls, evidence=evidence)
+        phases[name] = raw
+        save(evidence, "boundary-" + name + ".json", raw)
+        return raw
+
+    async def job_state():
+        async with db.engine.connect() as connection:
+            return dict(
+                (
+                    await connection.execute(
+                        text(
+                            "SELECT j.id AS job_id,j.state,a.id AS attempt_id,a.stopped_at,a.lease_expires_at,r.state AS reservation,r.released_at "
+                            "FROM fleet_jobs j JOIN fleet_attempts a ON a.id=j.active_attempt_id JOIN fleet_reservations r ON r.attempt_id=a.id"
+                        )
+                    )
+                )
+                .mappings()
+                .one()
+            )
+
+    async def running_observed():
+        path = evidence / "running-container-observations.json"
+        return path.is_file() and len(json.loads(path.read_text())) == 2
+
+    await bounded_wait(running_observed, seconds=15, processes=processes)
+    before = await capture("before-partition")
+    child = next(row for row in before["tables"]["fleet_attempts"] if row["kind"] == "job")
+    assert child["node_id"] == node_ids[1], "Partition must target the original child Worker"
+    for node_id in node_ids:
+        actions.append({"action": "authorized-drain", "result": await response_json(client, "PATCH", f"/api/fleet/machines/{node_id}", json={"admin_state": "draining"})})
+    await endpoint.disconnect()
+    actions.append({"action": "actual-tcp-partition", "transport": list(endpoint.rows)})
+
+    async def physical_stop():
+        observed = await driver.inspect(child["process_ref"])
+        return observed if observed and not observed["State"]["Running"] else False
+
+    await bounded_wait(physical_stop, seconds=140)
+    # A heartbeat error may stop earlier than watchdog expiry. Observe, do not
+    # claim a watchdog timeout or manufacture the missing server acknowledgement.
+    await asyncio.wait_for(processes[1].wait(), 30)
+    await capture("partition-local-stop")
+
+    async def quarantined():
+        row = await job_state()
+        return row if row["state"] == "unknown" and row["reservation"] == "quarantined" and row["stopped_at"] is None else False
+
+    await bounded_wait(quarantined, seconds=150)
+    unknown = await capture("quarantined-without-durable-stop")
+    resolve_body = {"expected_attempt_id": child["id"], "side_effects_reviewed": True, "note": "BC10 original uncertain child reviewed; no successful outcome or retry authorized."}
+    resolve_path = f"/api/fleet/recovery/jobs/{child['job_id']}/resolve"
+    refused = await client.post(resolve_path, json=resolve_body)
+    actions.append({"action": "resolve-without-durable-stop", "status": refused.status_code, "body": refused.json()})
+    after_refusal = await capture("after-refused-resolve")
+    assert refused.status_code == 409
+    for table in ("fleet_jobs", "fleet_attempts", "fleet_reservations", "fleet_recovery_events"):
+        assert unknown["tables"][table] == after_refusal["tables"][table], "Refused original recovery mutated execution facts"
+    await driver.checked("stop", "--time", "130", worker_refs[0], timeout=140)
+    await asyncio.wait_for(processes[0].wait(), 15)
+    await gateway_scope.aclose()
+    app, client, url, worker_url = await open_gateway("restarted-worker")
+    endpoint.upstream = urlsplit(worker_url)
+    await endpoint.connect()
+    await capture("gateway-restarted-before-journal-replay")
+    log = (evidence / "stock-original-journal-restart.log").open("w")
+    logs.append(log)
+    restarted = await asyncio.create_subprocess_exec(docker, "start", "--attach", worker_refs[1], stdout=log, stderr=log)
+    processes.append(restarted)
+    restart_observations = []
+
+    async def reconciled():
+        observed = await driver.inspect(worker_refs[1])
+        if observed and observed["State"]["Pid"] > 0:
+            restart_observations.append({"cli_pid": restarted.pid, "container": observed})
+        row = await job_state()
+        return row if row["stopped_at"] is not None and row["reservation"] == "released" and row["released_at"] is not None else False
+
+    await bounded_wait(reconciled, seconds=60)
+    # The original unknown-execution health fence may naturally exit bootstrap;
+    # physical STOP replay is not permission to claim or report success.
+    await asyncio.wait_for(restarted.wait(), 30)
+    actions.append({"action": "stock-journal-restart", "cli_pid": restarted.pid, "exit_code": restarted.returncode, "observations": restart_observations})
+    await capture("original-stop-replayed")
+    accepted = await client.post(resolve_path, json=resolve_body)
+    actions.append({"action": "resolve-after-original-stop", "status": accepted.status_code, "body": accepted.json()})
+    assert accepted.status_code == 200
+    await capture("manual-fail-stopped")
+    task = (await response_json(client, "GET", f"/api/threads/{thread_id}/agent-tasks"))[0]
+    cancel_body = {"expected_generation": task["generation"], "idempotency_key": secrets.token_hex(16)}
+    cancel_path = f"/api/threads/{thread_id}/agent-tasks/{task['task_id']}/cancel"
+    cancelled = await response_json(client, "POST", cancel_path, json=cancel_body)
+    actions.append({"action": "authenticated-parent-cancel", "body": cancel_body, "result": cancelled})
+    await capture("cancelled-before-gateway-restart")
+    await endpoint.disconnect()
+    await gateway_scope.aclose()
+    app, client, url, worker_url = await open_gateway("restarted-cancel")
+    replayed = await response_json(client, "POST", cancel_path, json=cancel_body)
+    actions.append({"action": "authenticated-cancel-replay-after-gateway-restart", "body": cancel_body, "result": replayed})
+    await capture("cancel-replayed-after-gateway-restart")
+    save(
+        evidence,
+        "boundary-observations.json",
+        {
+            "actions": actions,
+            "transport": endpoint.rows,
+            "phase_names": list(phases),
+            "configured_lease_seconds": configured_lease_seconds,
+            "scope": "Waiting-goal cancellation; no active C cancellation or successful fault continuation claimed",
+        },
+    )
+    derived = collect_boundary(evidence)
+    save(evidence, "boundary-derived.json", derived)
+    assert derived["duplicate_effects"] == derived["thread_double_writes"] == derived["capacity_leaks"] == 0
+
+
+async def installed_flow(tmp_path, monkeypatch, *, boundary=False):
     from deerflow_ecs_fleet.launch_spec import WorkerCompatibility
     from deerflow_ecs_fleet.worker.agent_containers import AgentContainers
 
@@ -277,6 +404,7 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
     worker_refs = ["bc10-worker-a-" + suffix, "bc10-worker-b-" + suffix]
     processes, logs, browser, next_process, observer = [], [], None, None, None
     retention = {"live": False}
+    endpoint = None
     async with owned_database(evidence, retention=retention) as db, original_child_provider(evidence) as (provider_url, calls, control), owned_redis(tmp_path / "redis") as (_, redis_port, redis_pid):
         private = private_configuration(db, provider_url)
         private["models"][0]["max_completion_tokens"] = 4096
@@ -309,17 +437,63 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
         plugin = {"name": "ecs-fleet", "package": "deerflow-ecs-fleet", "use": "deerflow_ecs_fleet:install", "required": True, "table_prefix": "fleet_", "config": fleet}
         private["plugins"] = host["plugins"] = [plugin]
         ca_file, key_file = local_worker_tls(tmp_path / "worker-tls")
-        async with normal_gateway(host) as (app, client, url), node_server(app, ssl_certfile=str(ca_file), ssl_keyfile=str(key_file), lifecycle_evidence=evidence / "worker-tls-lifecycle.json") as worker_url:
-            await login(client, email, password)
+        async with AsyncExitStack() as gateway_scope:
+            gateway_objects, gateway_identities = [], []
+
+            async def open_gateway(label):
+                app, client, url = await gateway_scope.enter_async_context(normal_gateway(host))
+                worker_url = await gateway_scope.enter_async_context(node_server(app, ssl_certfile=str(ca_file), ssl_keyfile=str(key_file), lifecycle_evidence=evidence / (label + "-tls-lifecycle.json")))
+                await login(client, email, password)
+                if boundary:
+                    from app.gateway.fleet_auth import get_fleet_runtime
+
+                    runtime = get_fleet_runtime(app)
+                    gateway_identities.append(
+                        {
+                            "label": label,
+                            "host_pid": os.getpid(),
+                            "app_identity": id(app),
+                            "runtime_identity": id(runtime),
+                            "run_manager_identity": id(app.state.run_manager),
+                            "service_identities": {name: id(getattr(runtime, name)) for name in ("jobs", "attempts", "scheduler", "reconciler")},
+                            "http_url": url,
+                            "tls_url": worker_url,
+                            "ready": runtime.ready,
+                            "previous_shutdown": [
+                                {
+                                    "app_identity": id(old_app),
+                                    "runtime_identity": id(old_runtime),
+                                    "ready": old_runtime.ready,
+                                    "client_closed": old_client.is_closed,
+                                    "continuation_tasks": len(old_runtime._continuation_tasks),
+                                    "reconciler_cleared": old_runtime.reconciler is None,
+                                }
+                                for old_app, old_runtime, old_client in gateway_objects
+                            ],
+                        }
+                    )
+                    gateway_objects.append((app, runtime, client))
+                    save(evidence, "boundary-gateway-identities.json", gateway_identities)
+                return app, client, url, worker_url
+
+            app, client, url, worker_url = await open_gateway("worker")
             try:
+                if boundary:
+                    endpoint = OwnedPartitionEndpoint(worker_url)
+                    await endpoint.connect()
                 for node_id in node_ids:
-                    await response_json(client, "POST", "/api/fleet/machines", json={"node_id": node_id, "name": node_id, "cpu_millis": 1000, "memory_mib": 2048, "agent_limit": 1, "profile_allowlist": ["remote", "batch-standard"]})
+                    await response_json(
+                        client,
+                        "POST",
+                        "/api/fleet/machines",
+                        json={"node_id": node_id, "name": node_id, "cpu_millis": 1000, "memory_mib": 2048, "agent_limit": 1, "profile_allowlist": ["remote"] if boundary and node_id == node_ids[0] else ["remote", "batch-standard"]},
+                    )
                 await response_json(client, "PATCH", f"/api/fleet/machines/{node_ids[1]}", json={"admin_state": "draining"})
                 for index, node_id in enumerate(node_ids):
                     credential = await response_json(client, "POST", f"/api/fleet/machines/{node_id}/credentials", json={"lifetime_seconds": 1200})
                     process, log = await start_stock_node(
                         directory=tmp_path / ("stock-" + str(index)),
-                        url=worker_url,
+                        url="https://127.0.0.1:" + str(endpoint.port) if boundary and index == 1 else worker_url,
                         credential=credential["token"],
                         private=private,
                         image=image,
@@ -338,29 +512,31 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
                         return await connection.scalar(text("SELECT count(*)=2 FROM fleet_nodes WHERE session_id IS NOT NULL AND health='online'"))
 
                 await bounded_wait(nodes_ready, seconds=60, processes=processes)
-                with socket.socket() as sock:
-                    sock.bind(("127.0.0.1", 0))
-                    frontend_port = sock.getsockname()[1]
-                frontend_url = f"http://127.0.0.1:{frontend_port}"
-                monkeypatch.setenv("GATEWAY_CORS_ORIGINS", frontend_url)
-                env = dict(os.environ)
-                for key in ("DEER_FLOW_AUTH_DISABLED", "NEXT_PUBLIC_BACKEND_BASE_URL", "NEXT_PUBLIC_LANGGRAPH_BASE_URL"):
-                    env.pop(key, None)
-                env.update(DEER_FLOW_INTERNAL_GATEWAY_BASE_URL=url, DEER_FLOW_TRUSTED_ORIGINS=frontend_url, DEER_FLOW_DEV_ALLOWED_ORIGINS=frontend_url, SKIP_ENV_VALIDATION="1")
-                next_log = (evidence / "next.log").open("w")
-                logs.append(next_log)
-                next_process = await asyncio.create_subprocess_exec(
-                    sys.executable, str(ROOT / "scripts/pnpm.py"), "dev", "--hostname", "127.0.0.1", "--port", str(frontend_port), cwd=ROOT / "frontend", env=env, stdout=next_log, stderr=next_log, start_new_session=True
-                )
+                frontend_url = None
+                if not boundary:
+                    with socket.socket() as sock:
+                        sock.bind(("127.0.0.1", 0))
+                        frontend_port = sock.getsockname()[1]
+                    frontend_url = f"http://127.0.0.1:{frontend_port}"
+                    monkeypatch.setenv("GATEWAY_CORS_ORIGINS", frontend_url)
+                    env = dict(os.environ)
+                    for key in ("DEER_FLOW_AUTH_DISABLED", "NEXT_PUBLIC_BACKEND_BASE_URL", "NEXT_PUBLIC_LANGGRAPH_BASE_URL"):
+                        env.pop(key, None)
+                    env.update(DEER_FLOW_INTERNAL_GATEWAY_BASE_URL=url, DEER_FLOW_TRUSTED_ORIGINS=frontend_url, DEER_FLOW_DEV_ALLOWED_ORIGINS=frontend_url, SKIP_ENV_VALIDATION="1")
+                    next_log = (evidence / "next.log").open("w")
+                    logs.append(next_log)
+                    next_process = await asyncio.create_subprocess_exec(
+                        sys.executable, str(ROOT / "scripts/pnpm.py"), "dev", "--hostname", "127.0.0.1", "--port", str(frontend_port), cwd=ROOT / "frontend", env=env, stdout=next_log, stderr=next_log, start_new_session=True
+                    )
 
-                async def frontend_ready():
-                    try:
-                        async with httpx.AsyncClient(timeout=5) as probe:
-                            return (await probe.get(frontend_url + "/login")).status_code == 200
-                    except httpx.HTTPError:
-                        return False
+                    async def frontend_ready():
+                        try:
+                            async with httpx.AsyncClient(timeout=5) as probe:
+                                return (await probe.get(frontend_url + "/login")).status_code == 200
+                        except httpx.HTTPError:
+                            return False
 
-                await bounded_wait(frontend_ready, seconds=180, processes=[next_process, *processes])
+                    await bounded_wait(frontend_ready, seconds=180, processes=[next_process, *processes])
                 await response_json(client, "POST", "/api/threads", json={"thread_id": thread_id})
 
                 async def observe_original_processes():
@@ -404,7 +580,7 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
                         "gateway_url": url,
                         "frontend_url": frontend_url,
                         "stock_cli_pids": [process.pid for process in processes],
-                        "next_pid": next_process.pid,
+                        "next_pid": next_process.pid if next_process else None,
                     },
                 )
 
@@ -442,6 +618,26 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
                     return control["child_started"].is_set()
 
                 await bounded_wait(child_started, seconds=60, processes=processes)
+                if boundary:
+                    await boundary_lifecycle(
+                        app=app,
+                        db=db,
+                        nas=nas,
+                        driver=driver,
+                        worker_refs=worker_refs,
+                        node_ids=node_ids,
+                        processes=processes,
+                        logs=logs,
+                        endpoint=endpoint,
+                        gateway_scope=gateway_scope,
+                        open_gateway=open_gateway,
+                        client=client,
+                        thread_id=thread_id,
+                        calls=calls,
+                        evidence=evidence,
+                        docker=docker,
+                    )
+                    return
                 tasks = await response_json(client, "GET", f"/api/threads/{thread_id}/agent-tasks")
                 task = tasks[0]
                 save(evidence, "waiting-owned-summary.json", task)
@@ -487,6 +683,11 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
             finally:
                 control["child_release"].set()
                 cleanup = {"worker_refs": worker_refs, "execution_refs": [], "errors": [], "remaining": [], "live_handles": []}
+                if endpoint is not None:
+                    try:
+                        await endpoint.disconnect()
+                    except Exception as error:
+                        cleanup["errors"].append({"phase": "partition-transport-close", "error_type": type(error).__name__})
                 try:
                     await snapshot(db, nas, driver, worker_refs, thread_id=thread_id, calls=calls, evidence=evidence)
                 except Exception as error:
@@ -531,7 +732,8 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
                             observed = await driver.inspect(ref)
                             if observed and observed["State"]["Running"]:
                                 raise RuntimeError("Original physical stop not observed")
-                            await driver.checked("rm", ref)
+                            if observed is not None:
+                                await driver.checked("rm", ref)
                         except Exception as error:
                             cleanup["errors"].append({"ref": ref, "phase": "execution-stop", "error_type": type(error).__name__})
                             retention["live"] = True
@@ -576,3 +778,15 @@ async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
                     for log in logs:
                         log.close()
                 assert not cleanup["errors"] and not cleanup["remaining"] and not cleanup["live_handles"], "Exact owned cleanup incomplete; retain original handles and receipt"
+
+
+@pytest.mark.live
+@pytest.mark.asyncio
+async def test_bc10_installed_two_stock_workers_main(tmp_path, monkeypatch):
+    await installed_flow(tmp_path, monkeypatch)
+
+
+@pytest.mark.live
+@pytest.mark.asyncio
+async def test_bc10_partition_cancel_restart_boundary(tmp_path, monkeypatch):
+    await installed_flow(tmp_path, monkeypatch, boundary=True)

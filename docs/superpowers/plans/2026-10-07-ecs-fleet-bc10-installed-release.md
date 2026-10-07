@@ -17,7 +17,7 @@ P0 可演示主干已交付，本地提交 `be92d9cf`。接下来按 P1 可靠�
 | 级别 | 范围 | 完成标准 | 当前安排 |
 | --- | --- | --- | --- |
 | P0 核心可用 | 修复已证实的镜像及模型配置缺口，运行一条真实双节点 C→B→C 主干及同流程页面 | B 结果被 C 接收并完成同一任务；正常路径真实 STOP、资源释放、无重复执行有证据；必要变更检查及简短运行说明 | 已完成；保留现有证据，不重复扩大主干测试 |
-| P1 可靠性验收 | 完整镜像源码一致性；一个集中断网、取消、重启恢复场景；聚合验收证据；最终 SPEC/QUALITY 审查 | 原 BC10 必要故障与恢复要求有真实证据，修复影响可靠性的缺陷 | 下一阶段；限定下列四项，不扩展测试矩阵 |
+| P1 可靠性验收 | 完整镜像源码一致性；一个集中断网、取消、重启恢复场景；聚合验收证据；最终 SPEC/QUALITY 审查 | 原 BC10 必要故障与恢复要求有真实证据，修复影响可靠性的缺陷 | 已通过；镜像、主干、唯一故障、聚合及独立SPEC→QUALITY均通过，本级本地提交收尾，不扩展测试矩阵 |
 | P2 发布完善 | 剩余 README、模块指南、进度/发布文档全面同步，运行维护材料整理 | 文档与最终能力及限制一致 | 后置；生产 ECS 部署需另行授权 |
 
 ### P1 收尾顺序与范围上限
@@ -64,16 +64,20 @@ No missing environment, unregistered fixture or setup error counts as product RE
 - [x] **Step1 — Design and freeze installed main.** Fresh author provides exact lifecycle, two-worker routing, image/current-source qualification, original auth/private stores and cleanup design. Root reviews design before fixtures/builds. Freeze fixture patch and configured static results before application.
 - [x] **Step2 — Execute the installed main.** Author preflights genuine dependencies, builds only required source-qualified recipes and runs the single main node ID. Capture raw evidence before assertions, natural exit and exact owned cleanup. Correct demonstrated gaps minimally; main must pass before faults. No automatic second graph or broad test suite.
 - [x] **Step3 — Real browser and aggregate main evidence.** Same owned flow through actual Next.js/authenticated Gateway, named Playwright artifact and aggregate collector. Record native/browser/source distinctions and actual selection/skips. If servers must remain alive for browser, freeze that orchestration in Step1; do not rebuild/reexecute the main just because post-test capture was omitted.
-- [ ] **Step4 — One concentrated necessary fault boundary.** Freeze exact partition/cancel/restart/STOP-quarantine fixture after main GREEN. Author owns handles and natural cleanup; no matrix. Fix only material failures and rerun only affected selector.
-- [ ] **Step5 — Freeze/static/operation manual.** Configured actual-path Ruff/check-format/Python3.12 for changed files, targeted frontend format and real frontend check if affected, diff whitespace/strict OpenSpec/guidance checks. Freeze full source/image/member/receipt mapping. Explicitly account for every required artifact and gate; no false fresh-execution or skipped-case claims.
+- [x] **Step4 — One concentrated necessary fault boundary.** Freeze exact partition/cancel/restart/STOP-quarantine fixture after main GREEN. Author owns handles and natural cleanup; no matrix. Fix only material failures and rerun only affected selector.
+- [x] **Step5 — Freeze/static/operation manual.** Configured actual-path Ruff/check-format/Python3.12 for changed files, targeted frontend format and real frontend check if affected, diff whitespace/strict OpenSpec/guidance checks. Freeze full source/image/member/receipt mapping. Explicitly account for every required artifact and gate; no false fresh-execution or skipped-case claims.
 - [ ] **Step6 — Fresh SPEC then QUALITY and local commit.** Independent review of final source and raw installed/browser/fault evidence. Minimal fixes and affected validation only. Root commits exact reviewed blobs, verifies them, records acceptance and checks OpenSpec10 from real evidence. The overall goal remains active until its full requirement-by-requirement completion audit passes.
 
 ## Current state
 
 P0 已通过 main09 的真实双节点 C→B→C 和同流程浏览器检查：主干1passed79.84s，浏览器1passed43.56s；重复副作用、线程双写、容量泄漏均为0，真实 STOP/持久释放及自有清理完成。必要静态检查通过，见 [P0 交付记录](../../ecs-fleet-bc10-p0.md)。
 
-P0 修正了配置、镜像依赖和读取历史误触发取消的问题。当前正常 Gateway 使用最新本地 router；保留的执行镜像内未使用的旧 Gateway router 尚未更新，因此完整当前镜像成员资格仍归 P1。上面的完整 BC10 步骤不会因 P0 演示通过而提前勾选。
+P0 修正了配置、镜像依赖和读取历史误触发取消的问题。P0 当时正常 Gateway 使用最新本地 router，执行镜像内未使用的旧 router 尚未更新；后续 P1 已完成完整镜像资格刷新。上面的完整 BC10 步骤不会因 P0 演示通过而提前勾选。
 
-B、C01–C12、BC01–BC09 保留已记录的验收范围。P1 两份当前镜像已完成完整源码资格核对：各870安装成员/758当前 Python 模块匹配，Worker 另外68执行模块及 supervisor 匹配；原 Worker-only resume 自然退出0。使用新镜像的同一 main10 已通过：主干1passed90.72s、同流程浏览器1passed50.60s，跨节点闭环及重复副作用/双写/泄漏0均经 Root 独立核验，自有清理完成。随后为复用主干环境提取了共享测试夹具，受影响的 main11 验证失败：Docker create 耗时约19秒，超过原15秒命令期限；清理时又对已不存在的容器执行 rm。该次不计为通过，保留未确认释放的容量记录及测试 schema。最小清理修正待核验，完成后只复验受影响主干，再执行一个集中故障场景。
+B、C01–C12、BC01–BC09 保留已记录的验收范围。P1 两份当前镜像已完成完整源码资格核对：各870安装成员/758当前 Python 模块匹配，Worker 另外68执行模块及 supervisor 匹配；原 Worker-only resume 自然退出0。使用新镜像的同一 main10 已通过：主干1passed90.72s、同流程浏览器1passed50.60s，跨节点闭环及重复副作用/双写/泄漏0均经 Root 独立核验，自有清理完成。随后为复用主干环境提取了共享测试夹具，受影响的 main11 验证失败：Docker create 耗时约19秒，超过原15秒命令期限；清理时又对已不存在的容器执行 rm。该次不计为通过，保留未确认释放的容量记录及测试 schema。最小清理修正已应用并通过配置静态检查；原 PostgreSQL 实例恢复后，原 Worker journal 真实重放 STOP，三份容量记录均已释放。失败 schema/unknown 历史保留；main12 同一主干1passed69.466s及浏览器1passed35.730s已通过；Root 独立核验跨节点闭环、重复副作用/双写/泄漏0、自有清理/schema/TLS关闭。唯一 boundary01 真实失败：重启恢复覆盖了已取消终态及预算原因。最小 canonical terminal guard 和原预算表 replay 检查已批准；该实际生产模块变更需刷新两份必要镜像源码资格，再同一 main13→boundary02。不增加 case/矩阵，不重跑原 B/C gate；聚合证据和最终审查仍待完成。
 
-分级后的剩余交付门槛：P0 已完成且保留原证据；P1 尚有共享夹具主干复验及失败现场收尾、一个集中故障验收、聚合证据核验、最终 SPEC/QUALITY 各一轮。P2 文档全面同步后置，不阻塞 P1 交付。OpenSpec task10 保持未完成，无部署或 operator activation。
+分级后的剩余交付门槛（以 main13 / boundary03 为准）：P0 已完成；P1 的当前镜像资格、真实主干、集中故障及自有资源清理均已通过，证据聚合也已通过，只剩最终 SPEC/QUALITY 各一轮及本地交付记录。无需再安排主干复验或故障场景。仅阻碍验收的具体缺陷进入本轮修复，其他改善后置 P2。P2 全面文档同步不阻塞 P1 交付。OpenSpec task10 保持未完成，直至其要求全部核实；生产部署或 operator activation 不纳入本轮。
+
+P1 最新收尾：原 task_recovery 终态覆盖缺陷已最小修复，current02两镜像各870安装成员/758当前模块、Worker68及supervisor匹配；同主干main13 1passed65.331s、同浏览器1passed26.776s；唯一boundary03 1passed153.18s，真实409→STOP/释放→200、取消/预算重启不变、重复副作用/双写/泄漏0及自有清理均经Root独立核验。boundary-only目标修正不影响main13正常路径，有AST资格对比。已删除被替代旧镜像两份；当前仅聚合证据/source qualification已通过（combined03原case 1passed5.56s/skip0，Root独立重算一致），仅最终SPEC→QUALITY与本地提交待完成，P2文档后置。任务10不提前勾选。
+
+P1最终审查已通过：独立SPEC与QUALITY均Ready，无Critical/Important阻塞；二者核验冻结九技术文件、安装成员及原始运行证据，并各自重算纯collector。P1本地交付记录见[验收报告](../../ecs-fleet-bc10-acceptance.md)。P2全面文档及最终完整OpenSpec账目收尾仍保留，Step6完整阶段记录不提前勾选。
