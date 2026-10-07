@@ -3,7 +3,7 @@
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
 BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08 已本地验收（源码 `d08f7763`）；BC09 已本地验收（源码 `be343091`）；BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
-交付优先级已按用户要求调整为 **P0 核心主干可演示 → P1 可靠性验收 → P2 发布完善**，详见 [BC10 分级计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)。当前只推进 P0；P0 完成不等于 task10 完整验收，以下未完成项保持未勾选。
+交付优先级已按用户要求调整为 **P0 核心主干可演示 → P1 可靠性验收 → P2 发布完善**，详见 [BC10 分级计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)。P0 已交付（本地提交 `be92d9cf`），当前推进 P1 的完整镜像源码资格、一个集中故障场景、聚合证据核验和最终 SPEC/QUALITY；P2 发布文档后置。P0 完成不等于 task10 完整验收，以下未完成项保持未勾选。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
