@@ -86,6 +86,8 @@ BC09 主干与唯一集中边界通过，独立 SPEC→QUALITY Ready；源码 `b
 
 ## 10. BC10 组合端到端和运维交付验收
 
+按[当前安装组合计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc10-installed-release.md)推进：实际双 stock worker / PG / Redis / NAS 主干与同一真实页面先行，之后唯一集中分区/取消/重启边界；聚合 gate 与操作手册保留。当前仅规划，未构建或执行。
+
 - [ ] 10.1 写并运行 backend/tests/fleet/test_bc10_fleet_unified_task_experience.py，确认 BC10 行为测试 RED。
 - [ ] 10.2 完成计划列出的接口、事务和部署接线；满足 `Unified release gate demonstrates C B C execution`。
 - [ ] 10.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
