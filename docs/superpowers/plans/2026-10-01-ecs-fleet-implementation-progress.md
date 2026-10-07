@@ -1,3 +1,7 @@
+## 2026-10-07 — BC09 locally accepted
+
+BC09 source `be343091cd16aae604dd689f445cc0f0d082f504` matches all16 reviewed technical blobs. Native API and controlled DOM/IM main, one concentrated boundary, five affected original DOM tests and mandatory frontend/Python checks passed. Fresh independent SPEC→QUALITY Ready. [Acceptance](../../ecs-fleet-bc09-acceptance.md) retains exact native/controlled/source-only qualifications. BC10 fresh installed combined gate remains required; older sections below are historical.
+
 ## 2026-10-07 — BC08 locally accepted
 
 BC08 source `d08f776375cd70776d0d0feda6a820a7eca65755` matches14 reviewed committed Python blobs. Main9.54s carries unchanged original main/Fleet semantics; corrected sole boundary13.61s naturally exited0 with both owned schemas dropped, including actual Local completion before bookkeeping without ownership loss and completed parent preserved through original bookkeeping. Actual-path Ruff check/format and Python3.12 compile passed; fresh independent SPEC→QUALITY Ready. [Acceptance](../../ecs-fleet-bc08-acceptance.md) records native/source-only qualifications and historical failures. B, C01–C12 and BC01–BC08 retain local acceptance; BC09–BC10 and final installed combined gate remain required. Older sections below are historical.
@@ -6442,3 +6446,9 @@ BC04 accepted source `f24a88d7142e83a4a57077a1cafaa4411c067d42`: one native main
 ### 2026-10-07 — BC05 shared scheduling local acceptance
 
 BC05 accepted source `c153ad1951fcf1f8edaa5f5a4a0483d9228c3346`: actual main-green-8 1passed38.76s and sole native boundary-2 1passed4.89s, natural0/owned-schemasdropped. Main has normal Gateway/authenticated TCP plus stock daemon components, three actual exited containers/SQL STOPrelease, original C→B→C result-reference flow. Boundary has competing FIFO/round-robin claims/reconstruction, active B quota/single-node fragmentation/serial unknown charge/ticket transfer and inactive SQL authority rejection. Native boundary was never start-authorized and has no physicalSTOP claim. Independent SPEC→QUALITY Ready; QUALITY reused an unrelated completed auditor after fresh-agent thread-limit errors, not the author/SPEC reviewer. All22 reviewed blobs match the source commit; 735 runtime image source matches are not tests. Main's original whole module remains exact current prefix through259; appended boundary separately qualified. Three old migrationheadtests maintained/not run. No broad suite/CLI/ECS/liveLLM/arbitrarycontentreasoning qualification. BC06–BC10 remain required; no push/operator activation. See [BC05 acceptance](../../ecs-fleet-bc05-acceptance.md).
+
+### 2026-10-07 — BC09 main verified
+
+BC09 actual native API main passed1 in5.96s with owned cleanup,2accepted child results, original queued resume and readable completed cancellation. Corrected captured-response DOM main naturally passed1/no skips, mandatory ESLint+tsc check exited0, and the two affected old panel files passed5/no skips. Genuine initial RED and subsequent query/fixture corrections remain documented without counting failed attempts as acceptance. One queued concentrated boundary is now being verified with no extra executor; formal SPEC→QUALITY and technical commit remain pending. OpenSpec9 unchecked; BC10 installed combined gate required. See [current scope](../../ecs-fleet-bc09-runtime.md).
+
+BC09 local acceptance: source `be343091`, all16 reviewed blobs verified, fresh SPEC→QUALITY Ready. [Evidence](../../../docs/ecs-fleet-bc09-acceptance.md). BC10 installed combined release remains required.

@@ -134,3 +134,7 @@ routes, writes the detailed result to `.next/performance-results.json`, and comp
 totals with `performance-budgets.json`. Fix route ownership or split points when a
 budget fails; do not raise a ceiling without documenting and reviewing the measured
 regression.
+
+## Fleet goal summaries
+
+`core/fleet` and the existing `ThreadBackgroundTasks` card distinguish durable goal state from core run status. Task operations use the shared authenticated fetcher and original task cancel/resume routes with displayed generation and an operation UUID retained for a logical retry. Pending actions cannot claim terminal cancellation or STOP. HTTP409 refetches owned state without automatic resubmission. Resume availability is conservative for settled current waiting lineage; server authority remains final. Related jobs/runs are bounded and historical generations are labeled. Fleet querying remains independent of the MCP task switch; preserve ordinary B cards. BC09 is locally accepted with native API and controlled DOM/IM; installed combined release remains BC10.

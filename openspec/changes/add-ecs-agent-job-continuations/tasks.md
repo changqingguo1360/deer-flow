@@ -1,7 +1,7 @@
 # B/C：等待、继续与统一产品交付 tasks
 
 前置：add-ecs-remote-agent 验收通过，B/C 独立执行均可用。详见 [Superpowers 计划](../../../docs/superpowers/plans/2026-10-01-ecs-fleet-bc-continuations.md)。
-BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08 已本地验收（源码 `d08f7763`）；BC09–BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
+BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4ab1f47eeac25e03544019bb7d619b23dd`、`c08b8014801c762c3d2a9157e90ca1462a6a35f3`；BC03 已完成本地原生验收，源码提交 `87e0d428`；BC04 已完成本地原生验收，源码提交 `f24a88d7`；BC05 已本地验收（源码 `c153ad19`）；BC06 已本地验收（源码 `8abe7af9`）；BC07 已本地验收（源码 `097b789a`）；BC08 已本地验收（源码 `d08f7763`）；BC09 已本地验收（源码 `be343091`）；BC10 尚未完成。各阶段先主干，再一个必要集中边界，无全量重跑。
 
 ## 1. BC01 建立依赖与等待组持久模型
 
@@ -77,10 +77,12 @@ BC01、BC02 已完成本地源码/原生验收，源码提交分别为 `ce92de4a
 
 按[当前实际接线计划](../../../docs/superpowers/plans/2026-10-07-ecs-fleet-bc09-unified-summary.md)推进：原 owned task projection 增加 bounded jobs/runs/accepted refs；现有前端任务卡提供 generation/idempotency 目标取消/继续和409刷新；既有 IM final/status 使用同一安全摘要，保留 Local/B/GitHub原策略。先实际 API+DOM 主干，再唯一必要集中边界；BC10完整安装组合仍必需。
 
-- [ ] 9.1 写并运行 backend/tests/fleet/test_bc09_fleet_unified_task_experience.py，确认 BC09 行为测试 RED。
-- [ ] 9.2 完成计划列出的接口、事务和部署接线；满足 `Distinguish run completion from goal completion`。
-- [ ] 9.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
-- [ ] 9.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+- [x] 9.1 写并运行 backend/tests/fleet/test_bc09_fleet_unified_task_experience.py，确认 BC09 行为测试 RED。
+- [x] 9.2 完成计划列出的接口、事务和部署接线；满足 `Distinguish run completion from goal completion`。
+- [x] 9.3 行为测试 GREEN，执行相邻回归和真实集成前提检查。
+- [x] 9.4 同步实际能力文档、格式检查并提交该 slice；保存验收证据。
+
+BC09 主干与唯一集中边界通过，独立 SPEC→QUALITY Ready；源码 `be343091cd16aae604dd689f445cc0f0d082f504` 的16 reviewed blobs一致。native/controlled UI/IM 范围和历史资格见[验收](../../../docs/ecs-fleet-bc09-acceptance.md)；BC10安装组合仍必需。
 
 ## 10. BC10 组合端到端和运维交付验收
 
