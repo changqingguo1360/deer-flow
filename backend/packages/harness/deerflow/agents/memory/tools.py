@@ -22,6 +22,7 @@ import logging
 from langchain.tools import tool
 
 from deerflow.agents.memory.manager import get_memory_manager
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.types import Runtime
 
@@ -79,6 +80,8 @@ def memory_search_tool(
             category=category,
         )
         return json.dumps({"results": results, "count": len(results)}, ensure_ascii=False)
+    except OwnershipRejected:
+        raise
     except Exception as exc:
         logger.exception("memory_search_tool failed")
         return json.dumps({"error": str(exc)})
@@ -147,6 +150,8 @@ def memory_add_tool(
         return json.dumps({"fact_id": fact_id, "status": "added"})
     except ValueError as exc:
         return json.dumps({"error": str(exc)})
+    except OwnershipRejected:
+        raise
     except Exception as exc:
         logger.exception("memory_add_tool failed")
         return json.dumps({"error": str(exc)})
@@ -201,6 +206,8 @@ def memory_update_tool(
         return json.dumps({"error": f"Fact not found: {fact_id}"})
     except ValueError as exc:
         return json.dumps({"error": str(exc)})
+    except OwnershipRejected:
+        raise
     except Exception as exc:
         logger.exception("memory_update_tool failed")
         return json.dumps({"error": str(exc)})
@@ -232,6 +239,8 @@ def memory_delete_tool(runtime: Runtime, fact_id: str) -> str:
         return json.dumps({"error": f"Fact not found: {fact_id}"})
     except ValueError as exc:
         return json.dumps({"error": str(exc)})
+    except OwnershipRejected:
+        raise
     except Exception as exc:
         logger.exception("memory_delete_tool failed")
         return json.dumps({"error": str(exc)})

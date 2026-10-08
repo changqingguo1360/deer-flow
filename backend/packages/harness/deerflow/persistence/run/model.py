@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, DateTime, Index, String, Text, text
+from sqlalchemy import JSON, Boolean, DateTime, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from deerflow.persistence.base import Base
@@ -74,3 +74,15 @@ class RunRow(Base):
             postgresql_where=text("status IN ('pending', 'running')"),
         ),
     )
+
+
+class ThreadExecutionBindingRow(Base):
+    """Server-owned routing survives run deletion and extension removal."""
+
+    __tablename__ = "thread_execution_bindings"
+    user_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    thread_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    backend: Mapped[str] = mapped_column(String(64), nullable=False)
+    parent_thread_id: Mapped[str | None] = mapped_column(String(64))
+    source_workspace: Mapped[dict | None] = mapped_column(JSON)
+    recovery_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))

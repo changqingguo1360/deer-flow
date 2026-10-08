@@ -24,6 +24,8 @@ from deerflow_extension_api import ExtensionRuntimeDeps
 from deerflow.extensions.loader import Diagnostic
 from deerflow.extensions.policy import project_host_policy
 from deerflow.extensions.registry import LoadedExtensions
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, current_remote_mutation_context
+from deerflow.runtime.execution.mutation_transactions import BoundMutationTransactions
 
 logger = logging.getLogger(__name__)
 
@@ -562,6 +564,8 @@ def include_contributed_routers(app: Any, extensions: LoadedExtensions) -> list[
             for route in routes:
                 owners.append((route, source))
                 mounted.append(f"{source} -> {route.path}")
+        except OwnershipRejected:
+            raise
         except Exception as exc:
             message = f"router could not be mounted; continuing without it: {exc}"
             diagnostics.append(Diagnostic.error(source, message))
@@ -578,16 +582,26 @@ async def start_services(
     session_factory: Any | None,
     *,
     attempted_services: list[tuple[str, Any]] | None = None,
+    mutation_capability: Any | None = None,
+    sync_session_factory: Any | None = None,
 ) -> list[Diagnostic]:
     """Start extension services in registration order, failing open per item."""
     diagnostics: list[Diagnostic] = []
+    if mutation_capability is not None:
+        if current_remote_mutation_context() != mutation_capability.context:
+            raise OwnershipRejected("Extension startup lost original context")
+        preflight_remote_extensions(extensions)
+    elif current_remote_mutation_context() is not None:
+        raise OwnershipRejected("Remote extensions require bound transactions")
     if not extensions.services:
         return diagnostics
 
     deps = ExtensionRuntimeDeps(
         app_store=extensions.app_store,
         policy=project_host_policy(app_config),
-        session_factory=session_factory,
+        session_factory=session_factory if mutation_capability is None else None,
+        terminal_operations=_TerminalExtensionOperations(session_factory, mutation_capability) if mutation_capability is not None else None,
+        mutation_transactions=BoundMutationTransactions(mutation_capability, operation="extension.write", session_factory=session_factory, sync_session_factory=sync_session_factory) if mutation_capability is not None else None,
     )
     for entry in extensions.services:
         source, service = entry
@@ -604,6 +618,8 @@ async def start_services(
             message = "service start() raised CancelledError; continuing without it"
             diagnostics.append(Diagnostic.error(source, message))
             logger.exception("Extension %s: %s", source, message)
+        except OwnershipRejected:
+            raise
         except Exception as exc:
             message = f"service start() failed; continuing without it: {exc}"
             diagnostics.append(Diagnostic.error(source, message))
@@ -616,13 +632,20 @@ async def stop_services(
     timeout_seconds: float = DEFAULT_STOP_TIMEOUT_SECONDS,
     *,
     service_entries: tuple[tuple[str, Any], ...] | list[tuple[str, Any]] | None = None,
+    deadline: float | None = None,
 ) -> list[Diagnostic]:
     """Stop services in reverse order with an independent budget per item."""
     diagnostics: list[Diagnostic] = []
+    ownership_errors = []
     entries = extensions.services if service_entries is None else service_entries
     for source, service in reversed(entries):
         cancellation_count = _cancellation_count()
-        timeout = asyncio.timeout(timeout_seconds)
+        limit = timeout_seconds
+        if deadline is not None:
+            import time
+
+            limit = min(limit, max(0.0, deadline - time.monotonic()))
+        timeout = asyncio.timeout(limit)
         try:
             async with timeout:
                 await service.stop()
@@ -641,8 +664,43 @@ async def stop_services(
             message = "service stop() raised CancelledError; continuing shutdown"
             diagnostics.append(Diagnostic.error(source, message))
             logger.exception("Extension %s: %s", source, message)
+        except OwnershipRejected as exc:
+            ownership_errors.append(exc)
         except Exception as exc:
             message = f"service stop() failed; continuing shutdown: {exc}"
             diagnostics.append(Diagnostic.error(source, message))
             logger.exception("Extension %s: %s", source, message)
+    if ownership_errors:
+        raise ownership_errors[0]
     return diagnostics
+
+
+def preflight_remote_extensions(extensions):
+    """Check all activated contributions before the first service effect.
+
+    Missing declarations are unsupported. A transactional declaration is an
+    operator trust contract to use bound transactions, never a file/SDK fence.
+    """
+    for bucket in ("middleware_contributors", "task_lifecycle", "system_model_observers", "agent_assembly_observers", "context_compaction_observers", "services", "routers"):
+        for source, contributor in getattr(extensions, bucket):
+            if getattr(contributor, "remote_state_mode", "unsupported") not in {"stateless", "transactional"}:
+                raise OwnershipRejected("Extension contributor does not support remote fenced state: " + source)
+
+
+class _TerminalExtensionOperations:
+    """A closed host-owned operation, never an authorized SQL session."""
+
+    def __init__(self, session_factory, capability):
+        from deerflow.runtime.events.store.db import DbRunEventStore
+
+        self._events = DbRunEventStore(session_factory, mutation_capability=capability)
+
+    async def record_task_stop(self, *, task_id, outcome):
+        return await self._events.record_extension_task_stop(task_id=task_id, outcome=outcome)
+
+
+def bind_remote_extensions(extensions, capability):
+    from dataclasses import replace
+
+    preflight_remote_extensions(extensions)
+    return replace(extensions, mutation_context=capability.context)

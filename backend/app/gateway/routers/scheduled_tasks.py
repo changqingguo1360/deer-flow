@@ -19,6 +19,7 @@ from app.gateway.deps import (
 )
 from deerflow.config.agents_config import AGENT_NAME_PATTERN, load_agent_config
 from deerflow.persistence.scheduled_tasks import ActiveScheduledTaskMutationConflict
+from deerflow.runtime.execution.preference import ExecutionPreference
 from deerflow.scheduler.schedules import (
     MAX_INTERVAL_SECONDS,
     normalize_cron_expression,
@@ -102,6 +103,7 @@ async def _ensure_task_mutable(task: dict[str, Any], repo) -> None:
 
 
 class ScheduledTaskCreateRequest(BaseModel):
+    execution: ExecutionPreference = Field(default_factory=ExecutionPreference)
     thread_id: ThreadId | None = None
     context_mode: str = "fresh_thread_per_run"
     assistant_id: str | None = Field(default=None, min_length=1)
@@ -113,6 +115,7 @@ class ScheduledTaskCreateRequest(BaseModel):
 
 
 class ScheduledTaskUpdateRequest(BaseModel):
+    execution: ExecutionPreference | None = None
     context_mode: str | None = None
     thread_id: ThreadId | None = None
     assistant_id: str | None = Field(default=None, min_length=1)
@@ -179,16 +182,17 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
             detail=(f"once schedule must be at least {config.scheduler.min_once_delay_seconds} seconds in the future"),
         )
 
-    assistant_id = await resolve_scheduled_task_assistant_id(
-        body.assistant_id,
-        user_id=str(user.id),
-    )
+    from app.fleet.routing import validate_execution_preference
+
+    validate_execution_preference(request.app, body.execution, str(user.id))
+    assistant_id = await resolve_scheduled_task_assistant_id(body.assistant_id, user_id=str(user.id))
     return await repo.create(
         task_id=f"task-{uuid.uuid4().hex}",
         user_id=str(user.id),
         thread_id=body.thread_id,
         context_mode=body.context_mode,
         assistant_id=assistant_id,
+        execution=body.execution.model_dump(mode="json"),
         title=body.title,
         prompt=body.prompt,
         schedule_type=body.schedule_type,
@@ -225,6 +229,10 @@ async def update_scheduled_task(task_id: str, request: Request, body: ScheduledT
         raise HTTPException(status_code=404, detail="Scheduled task not found")
     await _ensure_task_mutable(existing, repo)
 
+    if body.execution is not None:
+        from app.fleet.routing import validate_execution_preference
+
+        validate_execution_preference(request.app, body.execution, str(user.id))
     updates = body.model_dump(exclude_none=True)
     if "assistant_id" in updates:
         updates["assistant_id"] = await resolve_scheduled_task_assistant_id(

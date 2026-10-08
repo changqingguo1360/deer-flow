@@ -699,6 +699,10 @@ def build_middlewares(
         middlewares.append(SafetyFinishReasonMiddleware.from_config(safety_config))
 
     # ClarificationMiddleware should always be last
+    from deerflow.runtime.execution.yield_control import YieldMiddleware, current_yield
+
+    if current_yield() is not None:
+        middlewares.insert(0, YieldMiddleware())
     middlewares.append(ClarificationMiddleware())
 
     # Extension contributions are merged only here, once the full stack exists.
@@ -764,6 +768,7 @@ def assemble_lead_agent(
     config: RunnableConfig,
     *,
     app_config: AppConfig | None = None,
+    expected_model_name: str | None = None,
 ) -> LeadAgentAssembly:
     """Return the compiled lead graph together with its assembly descriptor.
 
@@ -798,7 +803,9 @@ def assemble_lead_agent(
     # configurable key must not recompile the channel table either).
     freeze_checkpoint_snapshot_frequency(runtime_app_config.database.checkpoint_delta.snapshot_frequency)
     inject_checkpoint_mode(config, mode)
-    return _assemble_lead_agent(config, app_config=runtime_app_config)
+    if expected_model_name is None:
+        return _assemble_lead_agent(config, app_config=runtime_app_config)
+    return _assemble_lead_agent(config, app_config=runtime_app_config, expected_model_name=expected_model_name)
 
 
 def _make_lead_agent(config: RunnableConfig, *, app_config: AppConfig):
@@ -875,7 +882,7 @@ def _complete_assembly(
     return LeadAgentAssembly(graph=graph, descriptor=descriptor)
 
 
-def _assemble_lead_agent(config: RunnableConfig, *, app_config: AppConfig) -> LeadAgentAssembly:
+def _assemble_lead_agent(config: RunnableConfig, *, app_config: AppConfig, expected_model_name: str | None = None) -> LeadAgentAssembly:
     # Lazy import to avoid circular dependency
     from deerflow.tools import get_available_tools
     from deerflow.tools.builtins import setup_agent, update_agent
@@ -942,6 +949,8 @@ def _assemble_lead_agent(config: RunnableConfig, *, app_config: AppConfig) -> Le
     # Phase 3: enforce model:use authorization. On deny, fall back to the first
     # allowed model (graceful) rather than crashing the run (RFC §9).
     model_name = _authorize_model_name(model_name, context=cfg, app_config=resolved_app_config)
+    if expected_model_name is not None and model_name != expected_model_name:
+        raise ValueError("Actual execution model differs from trusted launch binding")
 
     model_config = resolved_app_config.get_model_config(model_name)
 

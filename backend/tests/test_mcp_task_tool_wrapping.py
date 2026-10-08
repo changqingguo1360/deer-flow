@@ -201,3 +201,30 @@ async def test_tool_reload_rejects_task_server_runtime_config_drift() -> None:
             await get_mcp_tools()
     finally:
         set_mcp_task_config_snapshot(None)
+
+
+@pytest.mark.asyncio
+async def test_local_toolnode_preserves_original_submit_runtime_and_public_schema():
+    from langchain_core.messages import AIMessage
+    from langgraph.graph import MessagesState, StateGraph
+    from langgraph.prebuilt import ToolNode
+
+    submitter = FakeSubmitter()
+    set_mcp_task_submitter(submitter)
+    try:
+        tool = _configure_task_tools_for_server([_tool("submit_report"), _tool("get_report_status"), _tool("cancel_report")], server_name="reports", server_config=_server_config(), tool_name_prefix=False)[0]
+        assert tool.tool_call_schema.model_json_schema()["properties"] == _SubmitArgs.model_json_schema()["properties"]
+        graph = StateGraph(MessagesState, context_schema=dict)
+        graph.add_node("tools", ToolNode([tool]))
+        graph.set_entry_point("tools")
+        graph.set_finish_point("tools")
+        result = await graph.compile().ainvoke(
+            {"messages": [AIMessage(content="", tool_calls=[{"name": tool.name, "id": "Local-original-call", "args": {"topic": "MCP"}, "type": "tool_call"}])]},
+            context={"user_id": "Local-user", "thread_id": "Local-thread", "run_id": "Local-run"},
+        )
+        request = submitter.calls[0]["request"]
+        assert (request.user_id, request.thread_id, request.run_id, request.tool_call_id) == ("Local-user", "Local-thread", "Local-run", "Local-original-call")
+        assert "mcp-task-local-1" in result["messages"][-1].content
+        assert request.arguments == {"topic": "MCP"}
+    finally:
+        set_mcp_task_submitter(None)

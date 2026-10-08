@@ -82,22 +82,22 @@ def _stub_runtime_middleware_imports(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
         sys.modules,
         "deerflow.agents.middlewares.thread_data_middleware",
-        _module("deerflow.agents.middlewares.thread_data_middleware", ThreadDataMiddleware=FakeMiddleware),
+        _module("deerflow.agents.middlewares.thread_data_middleware", ThreadDataMiddleware=type("FakeThreadDataMiddleware", (FakeMiddleware,), {})),
     )
     monkeypatch.setitem(
         sys.modules,
         "deerflow.sandbox.middleware",
-        _module("deerflow.sandbox.middleware", SandboxMiddleware=FakeMiddleware),
+        _module("deerflow.sandbox.middleware", SandboxMiddleware=type("FakeSandboxMiddleware", (FakeMiddleware,), {})),
     )
     monkeypatch.setitem(
         sys.modules,
         "deerflow.agents.middlewares.dangling_tool_call_middleware",
-        _module("deerflow.agents.middlewares.dangling_tool_call_middleware", DanglingToolCallMiddleware=FakeMiddleware),
+        _module("deerflow.agents.middlewares.dangling_tool_call_middleware", DanglingToolCallMiddleware=type("FakeDanglingToolCallMiddleware", (FakeMiddleware,), {})),
     )
     monkeypatch.setitem(
         sys.modules,
         "deerflow.agents.middlewares.sandbox_audit_middleware",
-        _module("deerflow.agents.middlewares.sandbox_audit_middleware", SandboxAuditMiddleware=FakeMiddleware),
+        _module("deerflow.agents.middlewares.sandbox_audit_middleware", SandboxAuditMiddleware=type("FakeSandboxAuditMiddleware", (FakeMiddleware,), {})),
     )
 
 
@@ -126,29 +126,29 @@ def test_build_subagent_runtime_middlewares_threads_app_config_to_llm_middleware
     monkeypatch.setitem(
         sys.modules,
         "deerflow.agents.middlewares.thread_data_middleware",
-        _module("deerflow.agents.middlewares.thread_data_middleware", ThreadDataMiddleware=FakeMiddleware),
+        _module("deerflow.agents.middlewares.thread_data_middleware", ThreadDataMiddleware=type("FakeThreadDataMiddleware", (FakeMiddleware,), {})),
     )
     monkeypatch.setitem(
         sys.modules,
         "deerflow.sandbox.middleware",
-        _module("deerflow.sandbox.middleware", SandboxMiddleware=FakeMiddleware),
+        _module("deerflow.sandbox.middleware", SandboxMiddleware=type("FakeSandboxMiddleware", (FakeMiddleware,), {})),
     )
     monkeypatch.setitem(
         sys.modules,
         "deerflow.agents.middlewares.dangling_tool_call_middleware",
-        _module("deerflow.agents.middlewares.dangling_tool_call_middleware", DanglingToolCallMiddleware=FakeMiddleware),
+        _module("deerflow.agents.middlewares.dangling_tool_call_middleware", DanglingToolCallMiddleware=type("FakeDanglingToolCallMiddleware", (FakeMiddleware,), {})),
     )
     monkeypatch.setitem(
         sys.modules,
         "deerflow.agents.middlewares.sandbox_audit_middleware",
-        _module("deerflow.agents.middlewares.sandbox_audit_middleware", SandboxAuditMiddleware=FakeMiddleware),
+        _module("deerflow.agents.middlewares.sandbox_audit_middleware", SandboxAuditMiddleware=type("FakeSandboxAuditMiddleware", (FakeMiddleware,), {})),
     )
     monkeypatch.setitem(
         sys.modules,
         "deerflow.agents.middlewares.input_sanitization_middleware",
         _module(
             "deerflow.agents.middlewares.input_sanitization_middleware",
-            InputSanitizationMiddleware=FakeMiddleware,
+            InputSanitizationMiddleware=type("FakeInputSanitizationMiddleware", (FakeMiddleware,), {}),
             neutralize_untrusted_tags=lambda value: value,
         ),
     )

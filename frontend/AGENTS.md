@@ -67,6 +67,27 @@ The frontend is a stateful chat application. Users create **threads** (conversat
 
 More specific `AGENTS.md` files under `src/` contain the frontend sections split from this file.
 
+### Background task presentation
+
+`core/background-tasks/fleet.ts` centralizes task card labels and active/cancellation
+precedence. The API's optional `execution_uncertain` flag maps Fleet input_required to
+“需要确认” / “Needs confirmation”; ordinary MCP input requests keep their normal label.
+Pending cancellation stays active until a terminal status arrives. Preserve degraded
+tracking separately, and never add public RunStatus values for these presentation states.
+Fleet worker/operator deployment is documented in `../docs/deployment/ecs-fleet.md`;
+administrative machine actions remain outside the thread task UI. A task card label
+or cancellation request cannot prove physical stop. Pure mapping tests live in the node project; actual card/details/cancel interactions live
+in `thread-background-tasks.dom.test.tsx` with happy-dom.
+
+Remote Agent goals use the separate `core/fleet/` summary contract and
+`FleetTaskSummary` in the existing `ThreadBackgroundTasks` panel. Owner/thread-scoped
+queries remain enabled independently of the MCP/B switch. Cancellation uses the
+original owned run endpoint. Keep recovery, cancellation intent, durable STOP and
+held resources distinct; terminal run status cannot prove task completion or release.
+The public read and admission-drain boundary is documented in
+[the C11 runtime guide](../docs/ecs-fleet-c11-runtime.md). Preserve existing B cards
+and use compact mapping/DOM tests for affected presentation behavior.
+
 ## Code Style
 
 - **Imports**: Enforced ordering (builtin → external → internal → parent → sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.
@@ -130,6 +151,12 @@ routes, writes the detailed result to `.next/performance-results.json`, and comp
 totals with `performance-budgets.json`. Fix route ownership or split points when a
 budget fails; do not raise a ceiling without documenting and reviewing the measured
 regression.
+
+## Fleet goal summaries
+
+`core/fleet` and the existing `ThreadBackgroundTasks` card distinguish durable goal state from core run status. Task operations use the shared authenticated fetcher and original task cancel/resume routes with displayed generation and an operation UUID retained for a logical retry. Pending actions cannot claim terminal cancellation or STOP. HTTP409 refetches owned state without automatic resubmission. Resume availability is conservative for settled current waiting lineage; server authority remains final. Related jobs/runs are bounded and historical generations are labeled. Fleet querying remains independent of the MCP task switch; preserve ordinary B cards. BC09 is locally accepted with native API and controlled DOM/IM; installed combined BC10 release is also locally accepted.
+
+`tests/e2e/fleet-continuation.spec.ts` observes one real installed C→B→C goal through the normal authenticated Gateway/Next flow, including waiting/completion and accepted result IDs. It requires the pinned Playwright browser and the backend-owned fixture; invoke host pnpm through `scripts/pnpm.py`. The current installed main and same-flow real browser pass; final BC10 SPEC/QUALITY also pass at the local scope ([three-stage delivery](../docs/ecs-fleet-delivery.md)) ([scope](../docs/ecs-fleet-bc10-acceptance.md)).
 
 Chat archive is a thread metadata flag (`deerflow_archived === true`), independent
 of run status. Sidebar and Chats explicitly request the Gateway's optional

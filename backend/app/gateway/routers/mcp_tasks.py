@@ -35,6 +35,7 @@ def _list_item(record: dict[str, Any], *, threshold: int) -> dict[str, Any]:
         "error": _short_error(record.get("error")),
         "tracking_degraded": _tracking_degraded(record, threshold=threshold),
         "cancel_requested": record.get("cancel_requested_at") is not None,
+        "execution_uncertain": (record.get("driver_name") == "fleet" and record.get("status") == "input_required" and isinstance(record.get("input_required"), dict) and record["input_required"].get("reason") == "execution_unknown"),
     }
 
 

@@ -42,7 +42,8 @@ from app.gateway.deps import get_current_user, get_feedback_repo, get_run_event_
 from app.gateway.internal_auth import get_trusted_internal_owner_user_id
 from app.gateway.pagination import trim_run_message_page
 from app.gateway.run_models import RunCreateRequest
-from app.gateway.services import build_checkpoint_state_accessor, build_thread_checkpoint_state_accessor, sse_consumer, start_run, wait_for_run_completion
+from app.gateway.services import build_checkpoint_state_accessor, build_thread_checkpoint_state_accessor, prepare_sse_subscription, should_wait_for_run_stream, sse_consumer, start_run, wait_for_run_completion
+from app.gateway.thread_admission import require_thread_mutation_admission
 from app.gateway.utils import sanitize_log_param
 from deerflow.agents.middlewares.dynamic_context_middleware import strip_injected_user_message_id_suffix
 from deerflow.authz.sandbox_authz import safe_app_config_async
@@ -908,6 +909,7 @@ async def prepare_regenerate_run(
     request: Request,
 ) -> RegeneratePrepareResponse:
     """Prepare input and checkpoint for regenerating the latest assistant turn."""
+    await require_thread_mutation_admission(request, thread_id)
     return await _prepare_regenerate_payload(thread_id, body.message_id, request)
 
 
@@ -919,6 +921,7 @@ async def prepare_edit_regenerate_run(
     request: Request,
 ) -> EditRegeneratePrepareResponse:
     """Prepare input and checkpoint for editing then rerunning the latest user turn."""
+    await require_thread_mutation_admission(request, thread_id)
     return await _prepare_edit_regenerate_payload(thread_id, body.human_message_id, body.replacement_text, request)
 
 
@@ -974,14 +977,10 @@ async def stream_run(
             detail=f"Run {record.run_id} is not active on this worker and cannot be streamed",
         )
 
+    reused = bool(getattr(record, "idempotency_reused", False))
+    prepared_subscription = await prepare_sse_subscription(bridge, record, request)
     return StreamingResponse(
-        sse_consumer(
-            bridge,
-            record,
-            request,
-            run_mgr,
-            emit_gap_on_missing_stream=record.idempotency_reused,
-        ),
+        sse_consumer(bridge, record, request, run_mgr, prepared_subscription=prepared_subscription, emit_gap_on_missing_stream=reused),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1022,14 +1021,12 @@ async def wait_run(
     # change this request's checkpoint-vs-status decision.
     reused = bool(getattr(record, "idempotency_reused", False))
 
-    # Reused/hydrated records have no local task. Wait on the bridge when this
-    # worker can observe it; otherwise return durable status rather than
-    # serializing whatever checkpoint happens to exist.
-    if getattr(record, "store_only", False) and not getattr(bridge, "supports_cross_process", False):
+    if getattr(record, "store_only", False) and not getattr(bridge, "supports_cross_process", False) and not await should_wait_for_run_stream(bridge, record):
         record = await _refresh_store_backed_run(run_mgr, record)
         return {"status": record.status.value, "error": record.error}
 
-    if record.task is not None or getattr(record, "store_only", False):
+    completed = True
+    if await should_wait_for_run_stream(bridge, record):
         completed = await wait_for_run_completion(bridge, record, request, run_mgr)
     else:
         completed = True
@@ -1162,6 +1159,10 @@ async def cancel_run(
         CancelOutcome.requested,
         CancelOutcome.taken_over,
     ):
+        if wait:
+            physically_stopped = await run_mgr.wait_execution_stopped(run_id, disconnected=request.is_disconnected)
+            if physically_stopped is not None:
+                return Response(status_code=204 if physically_stopped else 202)
         if wait and record.task is not None:
             try:
                 await record.task
@@ -1200,10 +1201,11 @@ async def join_run(thread_id: ThreadId, run_id: str, request: Request) -> Stream
     if record.store_only and not bridge.supports_cross_process:
         raise HTTPException(status_code=409, detail=f"Run {run_id} is not active on this worker and cannot be streamed")
 
+    prepared_subscription = await prepare_sse_subscription(bridge, record, request)
     return StreamingResponse(
         # Joins are read-only observation: the creator's cancel-on-disconnect
         # policy must not fire because an observer closed their connection.
-        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False),
+        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False, prepared_subscription=prepared_subscription),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -1252,6 +1254,8 @@ async def _stream_existing_run(
     if record.store_only and action is None and not bridge.supports_cross_process:
         raise HTTPException(status_code=409, detail=f"Run {run_id} is not active on this worker and cannot be streamed")
 
+    prepared_subscription = await prepare_sse_subscription(bridge, record, request)
+
     # Cancel if an action was requested (stop-button / interrupt flow)
     if action is not None:
         outcome = await run_mgr.cancel(run_id, action=action)
@@ -1265,6 +1269,10 @@ async def _stream_existing_run(
             if outcome == CancelOutcome.lease_valid_elsewhere:
                 await _raise_lease_valid_elsewhere(run_id, run_mgr, record)
             raise HTTPException(status_code=409, detail=_cancel_conflict_detail(run_id, record))
+        if wait:
+            physically_stopped = await run_mgr.wait_execution_stopped(run_id, disconnected=request.is_disconnected)
+            if physically_stopped is not None:
+                return Response(status_code=204 if physically_stopped else 202)
         if outcome == CancelOutcome.requested and record.store_only and not bridge.supports_cross_process:
             # The request is durable, but this bridge cannot observe the
             # owner's stream. Returning 202 is safer than hanging forever on
@@ -1291,7 +1299,7 @@ async def _stream_existing_run(
         # require_cancel_permission_when_action), and an action-less join is
         # read-only observation — the creator's cancel-on-disconnect policy
         # must not fire because a joiner closed their connection.
-        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False),
+        sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False, prepared_subscription=prepared_subscription),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

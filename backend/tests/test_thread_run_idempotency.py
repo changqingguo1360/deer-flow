@@ -50,7 +50,7 @@ def _make_client(monkeypatch, user: User, admissions: dict[str, RunRecord]) -> T
     monkeypatch.setattr(thread_runs, "start_run", fake_start_run)
     app = make_authed_test_app(user_factory=lambda: user)
     app.include_router(thread_runs.router)
-    app.state.stream_bridge = MagicMock(stream_exists=AsyncMock(return_value=False))
+    app.state.stream_bridge = MagicMock(stream_exists=AsyncMock(return_value=False), is_remote=AsyncMock(return_value=False), prepare=None, supports_cross_process=False)
     app.state.run_manager = MagicMock()
     return TestClient(app)
 

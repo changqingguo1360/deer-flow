@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
+from deerflow.runtime.execution.preference import ExecutionPreference
 from deerflow.runtime.stream_modes import RunStreamMode, UnsupportedStreamModeError, normalize_stream_modes
 from deerflow.utils.thread_id import validate_thread_id
 
@@ -15,6 +16,8 @@ class RunCreateRequest(BaseModel):
     """Validated run request used by both HTTP and internal launch paths."""
 
     model_config = ConfigDict(extra="forbid")
+
+    execution: ExecutionPreference = Field(default_factory=ExecutionPreference)
 
     assistant_id: str | None = Field(default=None, description="Agent / assistant to use")
     input: dict[str, Any] | None = Field(default=None, description="Graph input (e.g. {messages: [...]})")

@@ -38,7 +38,9 @@ class SandboxProvider(ABC):
         this method so those blocking operations run in a worker thread instead
         of stalling the event loop.
         """
-        return await asyncio.to_thread(self.acquire, thread_id, user_id=user_id)
+        from deerflow.runtime.execution.workspace_boundary import run_native_writer
+
+        return await run_native_writer(self.acquire, thread_id, user_id=user_id)
 
     def sync_agent_skills(
         self,

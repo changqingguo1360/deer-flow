@@ -69,3 +69,19 @@ Extensions are optional only in the fallback *search* mode (priority 3-4 above):
 - `middlewares` - Zero-argument `AgentMiddleware` class paths for lead and subagent runtime extension. `config.yaml -> extensions` can override these fields after validation; overrides are replace-per-field, not list concatenation.
 
 Gateway API endpoints and `DeerFlowClient` methods can modify MCP servers and skill state at runtime; their `extensions_config.json` writes use the shared atomic replacement helper, while `middlewares` remains an operator-controlled config-file extension point.
+
+
+### Trusted frozen extensions snapshot (C04 locally verified)
+
+`extensions_config_scope(config)` and `get_scoped_extensions_config()` carry a
+trusted private ExtensionsConfig through one remote execution context. The default
+is None; ordinary Local readers retain file hot reload and API writers retain
+their existing atomic file mutation path. Do not globally redefine
+`ExtensionsConfig.from_file()` or copy a private MCP snapshot into public
+AppConfig, ToolRuntime or process-wide caches.
+
+The host runner owns bootstrap validation and constructs private infrastructure
+resources separately from the sanitized graph configuration. Model authentication
+uses the model credential scope; MCP discovery, toolset gating and skill enabled
+state consult the frozen extensions scope. This plumbing does not implement the
+later C05/C06 durable write fences or enable remote Agent admission.

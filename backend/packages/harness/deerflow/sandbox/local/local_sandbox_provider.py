@@ -4,6 +4,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.runtime.execution.workspace_boundary import native_writer
 from deerflow.sandbox.local.local_sandbox import LocalSandbox, PathMapping
 from deerflow.sandbox.sandbox import Sandbox
 from deerflow.sandbox.sandbox_provider import SandboxProvider
@@ -83,6 +84,7 @@ class LocalSandboxProvider(SandboxProvider):
             # an isolation boundary by accident.
             return False
 
+    @native_writer
     def __init__(self, max_cached_threads: int = DEFAULT_MAX_CACHED_THREAD_SANDBOXES):
         """Initialize the local sandbox provider with static path mappings.
 
@@ -434,6 +436,7 @@ class LocalSandboxProvider(SandboxProvider):
 
         return [mapping for mapping in mappings if not conflicts(mapping)]
 
+    @native_writer
     def acquire(self, thread_id: str | None = None, *, user_id: str | None = None) -> str:
         """Return a sandbox id scoped to *thread_id* (or the generic singleton).
 

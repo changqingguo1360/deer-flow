@@ -24,6 +24,7 @@ from deerflow.authz.sandbox_authz import (
 from deerflow.config import get_app_config
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX
 from deerflow.constants import DEFAULT_SKILLS_CONTAINER_PATH
+from deerflow.runtime.execution.workspace_boundary import native_writer, settled_workspace_activity, workspace_tool_call
 from deerflow.runtime.secret_context import read_active_secrets
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.sandbox.exceptions import (
@@ -261,9 +262,9 @@ def _is_disabled_skill_path(path: str, *, user_id: str | None = None) -> bool:
             category = matching.category.value
 
         if category == "public":
-            from deerflow.config.extensions_config import ExtensionsConfig
+            from deerflow.config.extensions_config import ExtensionsConfig, get_scoped_extensions_config
 
-            ext_config = ExtensionsConfig.from_file()
+            ext_config = get_scoped_extensions_config() or ExtensionsConfig.from_file()
             return not ext_config.is_skill_enabled(skill_name, category)
         else:
             # CUSTOM / LEGACY: use per-user state
@@ -539,9 +540,9 @@ def _get_mcp_allowed_paths() -> list[str]:
     """Get the list of allowed paths from MCP config for file system server."""
     allowed_paths = []
     try:
-        from deerflow.config.extensions_config import get_extensions_config
+        from deerflow.config.extensions_config import get_extensions_config, get_scoped_extensions_config
 
-        extensions_config = get_extensions_config()
+        extensions_config = get_scoped_extensions_config() or get_extensions_config()
 
         for _, server in extensions_config.mcp_servers.items():
             if not server.enabled:
@@ -1493,6 +1494,7 @@ def _resolve_runtime_thread_id(runtime: Runtime) -> str | None:
     return thread_id
 
 
+@native_writer
 def ensure_sandbox_initialized(runtime: Runtime | None = None) -> Sandbox:
     """Ensure sandbox is initialized, acquiring lazily if needed.
 
@@ -1659,6 +1661,7 @@ async def ensure_sandbox_initialized_async(runtime: Runtime | None = None) -> Sa
     return sandbox
 
 
+@settled_workspace_activity
 async def _run_sync_tool_after_async_sandbox_init(
     func: Callable[..., str] | None,
     runtime: Runtime,
@@ -1672,7 +1675,11 @@ async def _run_sync_tool_after_async_sandbox_init(
             if func is None:
                 return "Error: Tool implementation not available"
 
-            return await run_sync_lifecycle_operation(func, runtime, *args)
+            from deerflow.runtime.execution.workspace_boundary import current_workspace_controller, run_native_writer
+
+            if current_workspace_controller() is None:
+                return await run_sync_lifecycle_operation(func, runtime, *args)
+            return await run_native_writer(func, runtime, *args)
     except SandboxError as e:
         return f"Error: {e}"
     except Exception as e:
@@ -1703,6 +1710,7 @@ def _execute_bash_command(
     return sandbox.execute_command(command, env=env, timeout=timeout)
 
 
+@native_writer
 def ensure_thread_directories_exist(runtime: Runtime | None) -> None:
     """Ensure thread data directories (workspace, uploads, outputs) exist.
 
@@ -2004,6 +2012,8 @@ def _lark_cli_env_from_runtime(runtime: Runtime, command: str, *, sandbox_paths:
 
 
 @tool("bash", parse_docstring=True)
+@workspace_tool_call
+@native_writer
 def bash_tool(runtime: Runtime, command: str, description: str = "") -> str:
     """Execute a bash command in the configured execution environment.
 
@@ -2111,6 +2121,7 @@ bash_tool.coroutine = _bash_tool_async
 
 
 @tool("ls", parse_docstring=True)
+@native_writer
 def ls_tool(runtime: Runtime, path: str, description: str = "") -> str:
     """List the contents of a directory up to 2 levels deep in tree format.
 
@@ -2179,6 +2190,7 @@ ls_tool.coroutine = _ls_tool_async
 
 
 @tool("glob", parse_docstring=True)
+@native_writer
 def glob_tool(
     runtime: Runtime,
     pattern: str,
@@ -2259,6 +2271,7 @@ glob_tool.coroutine = _glob_tool_async
 
 
 @tool("grep", parse_docstring=True)
+@native_writer
 def grep_tool(
     runtime: Runtime,
     pattern: str,
@@ -2392,6 +2405,7 @@ def read_current_file_content(runtime: Runtime | None, path: str) -> str:
 
 
 @tool("read_file", parse_docstring=True)
+@native_writer
 def read_file_tool(
     runtime: Runtime,
     path: str,
@@ -2487,6 +2501,7 @@ def _effective_write_file_max_bytes() -> int:
 
 
 @tool("write_file", parse_docstring=True)
+@native_writer
 def write_file_tool(
     runtime: Runtime,
     path: str,
@@ -2586,6 +2601,7 @@ write_file_tool.coroutine = _write_file_tool_async
 
 
 @tool("str_replace", parse_docstring=True)
+@native_writer
 def str_replace_tool(
     runtime: Runtime,
     path: str,

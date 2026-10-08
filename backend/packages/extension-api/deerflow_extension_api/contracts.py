@@ -157,6 +157,14 @@ class MiddlewareContributor(Protocol):
 # --- Extension services ----------------------------------------------------
 
 
+class RemoteStateMode(StrEnum):
+    """Operator-trusted contribution declaration; absent means unsupported."""
+
+    UNSUPPORTED = "unsupported"
+    STATELESS = "stateless"
+    TRANSACTIONAL = "transactional"
+
+
 @dataclass(frozen=True)
 class ExtensionRuntimeDeps:
     """Host capabilities bound after Gateway infrastructure is ready."""
@@ -164,6 +172,10 @@ class ExtensionRuntimeDeps:
     app_store: ExtensionData | None = None
     policy: HostPolicySnapshot = field(default_factory=HostPolicySnapshot)
     session_factory: Any | None = None
+    # Adapted remote contributions receive active-only bound transactions.
+    # Local hosts continue to provide the historical session_factory.
+    mutation_transactions: Any | None = None
+    terminal_operations: Any | None = None
 
 
 class ExtensionService(Protocol):

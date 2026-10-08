@@ -38,7 +38,22 @@ class ScheduledTaskService:
         queue_timeout_seconds: int = 3600,
         multi_instance: bool = False,
         run_lease_grace_seconds: int = 10,
+        execution_admission=None,
+        aggregate_completion_pending=None,
+        aggregate_completion_outcome=None,
     ) -> None:
+        self._execution_admission = execution_admission
+        aggregate = getattr(execution_admission, "scheduled_agent_tasks", None)
+        pending = aggregate_completion_pending or (aggregate.suppress_parent_completion if aggregate is not None else None)
+        outcome = aggregate_completion_outcome or (aggregate.completion_outcome if aggregate is not None else None)
+        for repository in (task_repo, task_run_repo):
+            if pending is not None:
+                repository.aggregate_completion_pending = pending
+            if outcome is not None:
+                repository.aggregate_completion_outcome = outcome
+        if execution_admission is not None:
+            task_repo.execution_retirement = execution_admission.retire_waiting
+            task_run_repo.execution_retirement = execution_admission.retire_waiting
         self._task_repo = task_repo
         self._task_run_repo = task_run_repo
         self._launch_run = launch_run
@@ -54,6 +69,8 @@ class ScheduledTaskService:
         self._skip_next_lease_reconciliation = False
 
     async def run_once(self, *, now: datetime) -> None:
+        if self._execution_admission is not None:
+            await self._execution_admission.reconcile()
         if self._multi_instance:
             if self._skip_next_lease_reconciliation:
                 self._skip_next_lease_reconciliation = False
@@ -252,6 +269,7 @@ class ScheduledTaskService:
             now=now,
             lease_seconds=self._lease_seconds,
             global_max_concurrent_runs=self._max_concurrent_runs,
+            **({"execution_admission": self._execution_admission.reserve} if self._execution_admission is not None else {}),
         )
         if claimed is None:
             return self._queued_result(task_run_id, execution_thread_id)
@@ -268,10 +286,12 @@ class ScheduledTaskService:
                 assistant_id=task.get("assistant_id"),
                 prompt=task["prompt"],
                 owner_user_id=task.get("user_id"),
+                **({"execution": task.get("execution"), "execution_ticket": claimed.get("_execution_ticket"), "execution_lease_owner": self._lease_owner} if self._execution_admission is not None else {}),
                 metadata={
                     "scheduled_task_id": task["id"],
                     "scheduled_task_run_id": task_run_id,
                     "scheduled_trigger": trigger,
+                    "scheduled_context_mode": task.get("context_mode", "fresh_thread_per_run"),
                 },
             )
             launch_succeeded = True
@@ -544,6 +564,7 @@ class ScheduledTaskService:
             run_id=record.run_id,
             error=error,
             finished_at=datetime.now(UTC),
+            **({"completion_task_id": task_id} if getattr(self._task_run_repo, "_mutation_capability", None) is not None else {}),
         )
 
         task = await self._task_repo.get(task_id, user_id=user_id)
@@ -551,7 +572,14 @@ class ScheduledTaskService:
             return
 
         updates: dict[str, Any] = {"last_error": error}
-        if task["schedule_type"] == "once":
+        pending, outcome = (
+            await self._task_repo.completion_policy(task_id, occurrence_id=task_run_id, run_id=record.run_id)
+            if getattr(self._task_repo, "aggregate_completion_pending", None) is not None or getattr(self._task_repo, "aggregate_completion_outcome", None) is not None
+            else (False, None)
+        )
+        if task["schedule_type"] == "once" and outcome is not None:
+            updates = outcome
+        elif task["schedule_type"] == "once" and not pending:
             # The single occurrence is consumed either way (the run did launch,
             # so re-arming risks duplicate side effects), but an interrupt ends
             # as "cancelled", not "failed".
@@ -561,11 +589,24 @@ class ScheduledTaskService:
                 updates["status"] = "cancelled"
             else:
                 updates["status"] = "failed"
-        await self._task_repo.update(task_id, user_id=user_id, updates=updates)
+        await self._task_repo.update(
+            task_id,
+            user_id=user_id,
+            updates=updates,
+            **(
+                {"completion_run_id": record.run_id, "completion_occurrence_id": task_run_id}
+                if getattr(self._task_repo, "_mutation_capability", None) is not None
+                or getattr(self._task_repo, "aggregate_completion_pending", None) is not None
+                or getattr(self._task_repo, "aggregate_completion_outcome", None) is not None
+                else {}
+            ),
+        )
 
     async def start(self) -> None:
         if self._task is not None:
             return
+        if self._execution_admission is not None:
+            await self._execution_admission.reconcile()
         restart_error = _RESTART_RECOVERY_ERROR
         if self._multi_instance:
             await self._reconcile_active_state(now=datetime.now(UTC))

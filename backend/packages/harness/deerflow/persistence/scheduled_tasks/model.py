@@ -15,6 +15,7 @@ class ScheduledTaskRow(Base):
     user_id: Mapped[str] = mapped_column(String(64), index=True)
     thread_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
     context_mode: Mapped[str] = mapped_column(String(32), default="fresh_thread_per_run")
+    execution: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     assistant_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     title: Mapped[str] = mapped_column(String(255))
     prompt: Mapped[str] = mapped_column(Text)

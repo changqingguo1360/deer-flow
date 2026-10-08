@@ -210,3 +210,58 @@ be used by new producers.
   emit middleware events because those runs have no parent run journal.
 - Journal attribution, token accounting, and external tracing metadata still
   depend on manual instrumentation at several LLM call sites.
+
+
+## Optional remote stream frames
+
+`stream.frame` in category `stream` records the actual SSE frame as a structured
+`{"event": name, "data": value}` envelope. Event names preserve subgraph namespace
+suffixes. These rows are excluded from message-history projections. Private
+attempt identity and delivery state belong in Fleet tables, never public content
+or metadata. The event row and private pointer commit in the original writer
+transaction; Redis receives only committed run/attempt/sequence delivery hints.
+
+For `events` and `debug` frames (including namespace suffixes), the full envelope's
+UTF-8 size uses the same `json.dumps(default=str, ensure_ascii=False)` serializer
+as DbRunEventStore, including its default spaces and envelope overhead. Frames
+over `max_trace_content` reject before either persistence or publication; no
+JSON truncation or metadata bypass is allowed. `values`, `messages-tuple` and
+`updates` retain their payload without a new global 10240-byte transport limit.
+
+Remote cursors are canonical `fleet.v1.<run-base64url>.<attempt-base64url>.<seq>`
+with unpadded UTF-8 base64url components and a positive decimal bigint sequence.
+An absent cursor requests complete history for the accepted original identity.
+Malformed, foreign, stale or deleted cursors return HTTP 400 before any SSE
+headers. A retained cursor or cursorless request returns HTTP 410 with detail
+`Remote stream history is unavailable` if a matching original private SSE
+pointer after the consumed cursor has lost its matching public `stream.frame`.
+This applies to active and sealed runs. A deleted public event cannot be
+recreated from its pointer. Retention at or before a retained consumed cursor
+does not block resuming the remaining tail; semantic journal sequence gaps
+are valid and do not imply missing stream history.
+
+Preparation validates all remaining matching history once before headers.
+During a subscription, the reader selects at most128 original private pointers
+before left-joining public frames, so a missing host frame occupies its pointer
+slot rather than being skipped by pagination. Pre-yield existence checks only
+cover the current prefetched pointer window and one exact original authority
+pointer; they do not repeatedly scan the entire remaining history or hydrate
+launch payloads. A mapping change closes the original subscription before its
+next cached frame is emitted.
+
+Retention within the current prefetched page closes it with EOF and no synthetic
+END. Missing frames in a later page are detected when that page is fetched;
+healthy earlier pages may still be delivered. Reconnection reports 410 when its cursor remains valid, or
+400 if that cursor itself was deleted. A real seal with no frames still allows
+END. A sealed run emits END only after an empty pointer page and a matching
+consumed seal highwater. The existence checks read pointer identity/sequence and
+host row matching, not the full event payload. Publisher target lookup remains separate: a missing
+host frame is not acknowledged or reconstructed.
+The optional private sequence floor preserves monotonic allocation after host
+retention. Local cursor and gap rules remain unchanged.
+
+A durable private seal stores the final pointer sequence after live original
+record finalizing clears and SQL is terminal. The reader drains frames through
+that sequence before emitting the existing idless `end` with data null. Trusted
+accepted physical-stop observations can separately recover an omitted seal;
+unknown/quarantined or unproven stops never imply END and never restart an Agent.

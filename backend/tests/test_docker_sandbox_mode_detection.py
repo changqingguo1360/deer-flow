@@ -119,20 +119,40 @@ def _seed_env_examples(tmp_root: Path) -> None:
     (frontend / ".env.example").write_text("# test\n", encoding="utf-8")
 
 
-def _run_docker_sh(tmp_root: Path, body: str) -> None:
-    """Run docker.sh against a temp checkout, stubbing the real Compose version probe.
+def _owned_shell_boundary(tmp_root: Path) -> str:
+    """Keep cleanup owned by this fixture; fail on any external container CLI."""
+    scripts = tmp_root / "scripts"
+    tools = tmp_root / "bin"
+    scripts.mkdir(exist_ok=True)
+    tools.mkdir(exist_ok=True)
+    cleanup = scripts / "cleanup-containers.sh"
+    cleanup.write_text(f"#!/bin/bash\nset -eu\nprintf '%s\\n' \"$@\" >> '{tmp_root / 'cleanup-invoke.txt'}'\n", encoding="utf-8")
+    for name in ("docker", "container"):
+        executable = tools / name
+        executable.write_text(f"#!/bin/bash\nprintf '%s\\n' \"$*\" >> '{tmp_root / 'forbidden-external-cli.txt'}'\nexit 97\n", encoding="utf-8")
+        executable.chmod(0o700)
+    return f"SCRIPT_DIR='{scripts}'\nexport PATH='{tools}':\"$PATH\""
 
-    Keep SCRIPT_DIR at the real scripts/ directory so stop's cleanup-containers.sh
-    path still resolves; only PROJECT_ROOT / DOCKER_DIR are redirected.
-    """
+
+def _assert_owned_shell_boundary(tmp_root: Path) -> None:
+    assert not (tmp_root / "forbidden-external-cli.txt").exists()
+    marker = tmp_root / "cleanup-invoke.txt"
+    if marker.exists():
+        assert marker.read_text(encoding="utf-8").splitlines() == ["deer-flow-sandbox"]
+
+
+def _run_docker_sh(tmp_root: Path, body: str) -> None:
+    """Run the real entry point with owned cleanup and Compose test doubles."""
     command = f"""
 source '{SCRIPT_PATH}'
 PROJECT_ROOT='{tmp_root}'
 DOCKER_DIR='{tmp_root}'
+{_owned_shell_boundary(tmp_root)}
 require_compose_version() {{ :; }}
 {body}
 """
-    subprocess.check_call([BASH_EXECUTABLE, "-lc", command])
+    subprocess.check_call([BASH_EXECUTABLE, "-lc", command], timeout=15)
+    _assert_owned_shell_boundary(tmp_root)
 
 
 @pytest.mark.parametrize("docker_command", ["logs --gateway", "stop", "restart"])
@@ -264,6 +284,7 @@ def test_require_compose_version_falls_back_to_hyphenated_binary():
 source '{SCRIPT_PATH}'
 PROJECT_ROOT='{tmp_root}'
 DOCKER_DIR='{tmp_root}'
+{_owned_shell_boundary(tmp_root)}
 docker() {{
   if [ "$1" = compose ]; then
     echo "docker: unknown command" >&2
@@ -287,11 +308,14 @@ stop
             capture_output=True,
             text=True,
             encoding="utf-8",
+            timeout=15,
         )
 
         assert result.returncode == 0, result.stdout + result.stderr
         assert marker.is_file(), "stop never invoked docker-compose for the compose operation"
         assert "down" in marker.read_text(encoding="utf-8")
+        _assert_owned_shell_boundary(tmp_root)
+        assert (tmp_root / "cleanup-invoke.txt").read_text().splitlines() == ["deer-flow-sandbox"]
 
 
 def test_require_compose_version_rejects_old_hyphenated_binary():
@@ -316,3 +340,21 @@ require_compose_version
 
     assert result.returncode == 1, result.stdout + result.stderr
     assert "too old" in result.stdout
+
+
+def test_stop_fixture_uses_owned_cleanup_and_never_container_cli(tmp_path):
+    _seed_compose_file(tmp_path)
+    sentinel = tmp_path / "forbidden-container-cli.txt"
+    _run_docker_sh(
+        tmp_path,
+        f"""
+COMPOSE_CMD=capture_compose
+capture_compose() {{ :; }}
+docker() {{ printf '%s\\n' "$*" >> '{sentinel}'; return 97; }}
+container() {{ printf '%s\\n' "$*" >> '{sentinel}'; return 97; }}
+export -f docker container
+stop
+""",
+    )
+    assert not sentinel.exists(), "test fixture called inherited container CLI sentinel"
+    assert (tmp_path / "cleanup-invoke.txt").read_text().splitlines() == ["deer-flow-sandbox"]

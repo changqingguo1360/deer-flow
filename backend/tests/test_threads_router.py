@@ -67,6 +67,9 @@ class _PermissiveThreadMetaStore(MemoryThreadMetaStore):
 
 class _ThreadTestRunManager:
     def __init__(self):
+        from deerflow.runtime.runs.store.memory import MemoryRunStore
+
+        self._store = MemoryRunStore()
         self.reservations: list[tuple[str, dict]] = []
 
     async def list_by_thread(self, _thread_id: str, *, user_id=None, limit: int = 100) -> list:
@@ -1623,10 +1626,11 @@ def test_get_thread_history_fast_path_skips_runs_already_in_checkpoint_metadata(
         return {}
 
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         reserve_thread_operation=app.state.run_manager.reserve_thread_operation,
     )
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(f"/api/threads/{thread_id}/history", json={"limit": 10})
@@ -1674,10 +1678,11 @@ def test_get_thread_history_backfills_exact_mapping_when_durations_already_exist
         return []
 
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         reserve_thread_operation=app.state.run_manager.reserve_thread_operation,
     )
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(f"/api/threads/{thread_id}/history", json={"limit": 10})
@@ -1734,10 +1739,11 @@ def test_get_thread_history_preserves_boundary_fallback_after_complete_partial_l
         ]
 
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         reserve_thread_operation=app.state.run_manager.reserve_thread_operation,
     )
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(f"/api/threads/{thread_id}/history", json={"limit": 10})
@@ -1823,10 +1829,11 @@ def test_get_thread_history_caches_complete_boundary_attribution() -> None:
         ]
 
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         reserve_thread_operation=app.state.run_manager.reserve_thread_operation,
     )
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(f"/api/threads/{thread_id}/history", json={"limit": 10})
@@ -1919,7 +1926,7 @@ def test_get_thread_history_revalidates_boundary_fallback_after_reservation() ->
             yield
 
     app.state.run_manager = RunManager()
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(
@@ -2007,7 +2014,7 @@ def test_get_thread_history_revalidates_exact_attribution_after_reservation() ->
             yield
 
     app.state.run_manager = RunManager()
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(
@@ -2086,7 +2093,7 @@ def test_get_thread_history_recomputes_duration_after_reservation() -> None:
             yield
 
     app.state.run_manager = RunManager()
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(
@@ -2139,10 +2146,11 @@ def test_get_thread_history_backfills_legacy_durations_with_exact_event_run_id()
 
     reservation_owner = app.state.run_manager
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         reserve_thread_operation=reservation_owner.reserve_thread_operation,
     )
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(f"/api/threads/{thread_id}/history", json={"limit": 10})
@@ -2223,6 +2231,7 @@ def test_get_thread_history_finds_ai_event_beyond_ten_thousand_newer_events() ->
     event_store.find_latest_ai_message_run_ids = AsyncMock(wraps=event_store.find_latest_ai_message_run_ids)
 
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         reserve_thread_operation=app.state.run_manager.reserve_thread_operation,
     )
@@ -2283,11 +2292,12 @@ def test_get_thread_history_sizes_initial_run_page_to_required_attributions() ->
         return message_run_ids
 
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         get=get_mock,
         reserve_thread_operation=app.state.run_manager.reserve_thread_operation,
     )
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(f"/api/threads/{thread_id}/history", json={"limit": 10})
@@ -2335,11 +2345,12 @@ def test_get_thread_history_fetches_exact_run_older_than_default_run_page() -> N
         return {"ai-1": exact_run.run_id}
 
     app.state.run_manager = SimpleNamespace(
+        _store=app.state.run_manager._store,
         list_by_thread=list_by_thread,
         get=get,
         reserve_thread_operation=app.state.run_manager.reserve_thread_operation,
     )
-    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids)
+    app.state.run_event_store = SimpleNamespace(find_latest_ai_message_run_ids=find_latest_ai_message_run_ids, get_message_seqs=AsyncMock(return_value={}))
 
     with TestClient(app) as client:
         response = client.post(f"/api/threads/{thread_id}/history", json={"limit": 10})

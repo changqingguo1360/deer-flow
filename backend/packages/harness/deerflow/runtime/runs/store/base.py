@@ -110,6 +110,8 @@ def run_is_before_cursor(
 
 
 class RunStore(abc.ABC):
+    supports_admission_participants = False
+
     @abc.abstractmethod
     async def put(
         self,
@@ -201,6 +203,12 @@ class RunStore(abc.ABC):
         lightweight stores may return ``None`` when they cannot report rowcount.
         """
         pass
+
+    async def get_owned_execution(self, run_id, *, user_id, thread_id, owner_worker_id, execution_backend):
+        raise RuntimeError("Owned executor attachment requires a SQL run store")
+
+    async def start_owned_run(self, run_id, *, user_id, thread_id, owner_worker_id, execution_backend):
+        raise RuntimeError("Owned executor startup requires a SQL run store")
 
     @abc.abstractmethod
     async def start_run(self, run_id: str) -> bool:

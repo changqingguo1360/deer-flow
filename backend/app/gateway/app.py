@@ -25,6 +25,12 @@ from app.gateway.routers import (
     console,
     features,
     feedback,
+    fleet_agent_tasks,
+    fleet_artifacts,
+    fleet_inputs,
+    fleet_management,
+    fleet_nodes,
+    fleet_recovery,
     github_webhooks,
     input_polish,
     integrations,
@@ -336,6 +342,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     task_repo=app.state.scheduled_task_repo,
                     task_run_repo=app.state.scheduled_task_run_repo,
                     launch_run=lambda **kwargs: launch_scheduled_thread_run(app=app, **kwargs),
+                    execution_admission=getattr(app.state, "fleet_scheduler_tickets", None),
                     poll_interval_seconds=startup_config.scheduler.poll_interval_seconds,
                     lease_seconds=startup_config.scheduler.lease_seconds,
                     max_concurrent_runs=startup_config.scheduler.max_concurrent_runs,
@@ -370,13 +377,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         mcp_tasks_config = getattr(startup_config, "mcp_tasks", McpTasksConfig())
         mcp_task_repo = getattr(app.state, "mcp_task_repo", None)
         app.state.mcp_tasks_available = False
+        from app.fleet.runtime import install_fleet_tools, validate_fleet_task_runtime
+        from deerflow.mcp.tasks.fleet_runtime import set_fleet_job_submitter
+
         set_mcp_task_submitter(None)
+        set_fleet_job_submitter(None)
         set_mcp_task_config_snapshot(task_extensions_config)
         validate_mcp_task_runtime_configuration(
             mcp_tasks_config=mcp_tasks_config,
             extensions_config=task_extensions_config,
             repository_available=mcp_task_repo is not None,
         )
+        validate_fleet_task_runtime(app, enabled=mcp_tasks_config.enabled, repository_available=mcp_task_repo is not None)
         if mcp_task_repo is not None:
             mcp_task_drivers = McpTaskDriverRegistry()
             if configured_task_toolset_count(task_extensions_config):
@@ -384,6 +396,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     ORDINARY_MCP_TASK_DRIVER,
                     OrdinaryMcpTaskDriver(McpTaskToolCaller(task_extensions_config)),
                 )
+            from app.fleet.job_tracking import register_fleet_driver
+
+            register_fleet_driver(app, mcp_task_drivers)
             mcp_task_service = McpTaskService(
                 repository=mcp_task_repo,
                 drivers=mcp_task_drivers,
@@ -407,6 +422,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             if mcp_tasks_config.enabled:
                 await mcp_task_service.start()
                 set_mcp_task_submitter(mcp_task_service)
+                install_fleet_tools(app, mcp_task_service)
                 app.state.mcp_tasks_available = True
 
         from app.subagent_batches import SubagentBatchService
@@ -458,6 +474,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             except Exception:
                 logger.exception("Failed to stop scheduled task service")
 
+        from deerflow.mcp.tasks.fleet_runtime import set_fleet_job_submitter
+
+        set_fleet_job_submitter(None)
         if getattr(app.state, "mcp_task_service", None) is not None:
             app.state.mcp_tasks_available = False
             try:
@@ -765,10 +784,16 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # runs at import time, and lifespan still performs strict config loading
     # before serving.
     try:
-        configured_plugins = get_app_config().plugins
+        extension_host_config = get_app_config()
+        configured_plugins = extension_host_config.plugins
     except FileNotFoundError:
         logger.debug("config.yaml not found while constructing Gateway app; loading no extensions for this app instance")
         configured_plugins = []
+        extension_host_config = None
+
+    from app.fleet.runtime import validate_fleet_plugin_configuration
+
+    validate_fleet_plugin_configuration(configured_plugins, host_config=extension_host_config)
 
     try:
         loaded_extensions, extension_diagnostics = load_extensions(configured_plugins)
@@ -785,6 +810,11 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Include routers
     # Models API is mounted at /api/models
+    app.include_router(fleet_management.router)
+    app.include_router(fleet_nodes.router)
+    app.include_router(fleet_artifacts.router)
+    app.include_router(fleet_inputs.router)
+    app.include_router(fleet_recovery.router)
     app.include_router(models.router)
 
     # Features API is mounted at /api/features
@@ -798,6 +828,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Durable MCP tasks are scoped to their owning thread.
     app.include_router(mcp_tasks.router)
+    app.include_router(fleet_agent_tasks.router)
     app.include_router(subagent_batches.router)
 
     # Memory API is mounted at /api/memory

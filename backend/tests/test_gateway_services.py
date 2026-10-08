@@ -2186,6 +2186,7 @@ def test_start_run_uses_internal_owner_header_for_persistence(_stub_app_config):
             app=SimpleNamespace(state=state),
         )
         body = SimpleNamespace(
+            execution={},
             assistant_id="lead_agent",
             input={"messages": [{"role": "human", "content": "hi"}]},
             metadata={},
@@ -2275,6 +2276,7 @@ def test_start_run_stamps_internal_owner_guardrail_attribution(_stub_app_config)
             app=SimpleNamespace(state=state),
         )
         body = SimpleNamespace(
+            execution={},
             assistant_id="lead_agent",
             input={"messages": [{"role": "human", "content": "hi"}]},
             metadata={},
@@ -2357,6 +2359,7 @@ def test_start_run_session_caller_anti_forgery(_stub_app_config):
             app=SimpleNamespace(state=state),
         )
         body = SimpleNamespace(
+            execution={},
             assistant_id="lead_agent",
             input={"messages": [{"role": "human", "content": "hi"}]},
             metadata={},
@@ -2419,12 +2422,13 @@ def test_launch_scheduled_thread_run_marks_context_non_interactive(_stub_app_con
     async def _scenario():
         captured: dict[str, object] = {}
 
-        async def fake_start_run(body, thread_id, request, *, idempotency_key=None):
+        async def fake_start_run(body, thread_id, request, *, idempotency_key=None, trusted_schedule_id=None, trusted_schedule_mode="reuse_thread", execution_ticket=None, execution_lease_owner=None):
             captured["body"] = body
             captured["thread_id"] = thread_id
             captured["context"] = body.context
             captured["metadata"] = body.metadata
             captured["idempotency_key"] = idempotency_key
+            captured["trusted_schedule_id"] = trusted_schedule_id
             captured["if_not_exists"] = body.if_not_exists
             captured["on_completion"] = body.on_completion
             return SimpleNamespace(run_id="run-1", thread_id=thread_id)
@@ -2454,6 +2458,7 @@ def test_launch_scheduled_thread_run_marks_context_non_interactive(_stub_app_con
         "scheduled_task_run_id": "task-run-1",
     }
     assert captured["idempotency_key"] == "scheduled-task:task-run-1"
+    assert captured["trusted_schedule_id"] == "task-1"
     assert captured["if_not_exists"] == "create"
     assert captured["on_completion"] is None
     assert result == {"run_id": "run-1", "thread_id": "thread-scheduled"}
@@ -2479,7 +2484,7 @@ def test_launch_scheduled_thread_run_uses_configured_recursion_limit(_stub_app_c
     async def _scenario():
         captured: dict[str, object] = {}
 
-        async def fake_start_run(body, thread_id, request, *, idempotency_key=None):
+        async def fake_start_run(body, thread_id, request, *, idempotency_key=None, trusted_schedule_id=None, trusted_schedule_mode="reuse_thread", execution_ticket=None, execution_lease_owner=None):
             assert idempotency_key is None
             captured["config"] = body.config
             return SimpleNamespace(run_id="run-1", thread_id=thread_id)
@@ -2521,7 +2526,7 @@ def test_launch_scheduled_thread_run_recursion_limit_is_clamped_to_ceiling(_stub
     async def _scenario():
         captured: dict[str, object] = {}
 
-        async def fake_start_run(body, thread_id, request, *, idempotency_key=None):
+        async def fake_start_run(body, thread_id, request, *, idempotency_key=None, trusted_schedule_id=None, trusted_schedule_mode="reuse_thread", execution_ticket=None, execution_lease_owner=None):
             assert idempotency_key is None
             captured["config"] = body.config
             return SimpleNamespace(run_id="run-1", thread_id=thread_id)
@@ -2554,7 +2559,7 @@ def test_launch_scheduled_thread_run_falls_back_when_config_unloadable(_stub_app
     async def _scenario():
         captured: dict[str, object] = {}
 
-        async def fake_start_run(body, thread_id, request, *, idempotency_key=None):
+        async def fake_start_run(body, thread_id, request, *, idempotency_key=None, trusted_schedule_id=None, trusted_schedule_mode="reuse_thread", execution_ticket=None, execution_lease_owner=None):
             assert idempotency_key is None
             captured["config"] = body.config
             return SimpleNamespace(run_id="run-1", thread_id=thread_id)
@@ -2637,11 +2642,13 @@ def test_launch_mcp_task_notification_run_hides_internal_prompt(_stub_app_config
             *,
             idempotency_key=None,
             require_existing_thread=False,
+            trusted_schedule_id=None,
         ):
             captured["body"] = body
             captured["thread_id"] = thread_id
             captured["request"] = request
             captured["idempotency_key"] = idempotency_key
+            captured["trusted_schedule_id"] = trusted_schedule_id
             captured["require_existing_thread"] = require_existing_thread
             return SimpleNamespace(run_id="run-notification", thread_id=thread_id)
 

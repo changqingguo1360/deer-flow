@@ -10,6 +10,7 @@ Starlette runs when a client drops the connection — against the production
 consumer.
 """
 
+import ast
 import asyncio
 import inspect
 from types import SimpleNamespace
@@ -103,9 +104,27 @@ def test_join_routes_wire_sse_consumer_as_observers():
     from app.gateway.routers import runs as runs_router
     from app.gateway.routers import thread_runs
 
+    for module, expected in [
+        (thread_runs, {"stream_run": True, "join_run": False, "_stream_existing_run": False}),
+        (runs_router, {"stateless_stream": True}),
+    ]:
+        tree = ast.parse(inspect.getsource(module))
+        all_calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "sse_consumer"]
+        assert len(all_calls) == len(expected)
+        for handler_name, creator in expected.items():
+            handler = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef) and node.name == handler_name)
+            calls = [node for node in ast.walk(handler) if node in all_calls]
+            assert len(calls) == 1, handler_name
+            call = calls[0]
+            assert [ast.unparse(arg) for arg in call.args] == ["bridge", "record", "request", "run_mgr"]
+            assert all(keyword.arg is not None for keyword in call.keywords), "Dynamic keywords could override observer policy"
+            policy = [keyword.value for keyword in call.keywords if keyword.arg == "apply_on_disconnect"]
+            if creator:
+                assert not policy, f"{handler_name} must retain the creator default"
+            else:
+                assert len(policy) == 1 and isinstance(policy[0], ast.Constant) and policy[0].value is False, handler_name
+
     thread_runs_source = inspect.getsource(thread_runs)
-    # join_run + the shared existing-run stream implementation
-    assert thread_runs_source.count("sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False)") == 2
     # stream_run — creating retry opts into missing-stream gap; first create does not
     assert "emit_gap_on_missing_stream=record.idempotency_reused" in thread_runs_source
 

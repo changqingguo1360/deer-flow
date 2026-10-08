@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from deerflow_extension_api import (
@@ -35,6 +35,7 @@ class LoadedExtensions:
     """
 
     app_store: ExtensionData
+    mutation_context: Any = field(default=None, repr=False, compare=False, kw_only=True)
     middleware_contributors: tuple[tuple[str, MiddlewareContributor], ...] = ()
     task_lifecycle: tuple[tuple[str, TaskLifecycleContributor], ...] = ()
     system_model_observers: tuple[tuple[str, SystemModelCallObserver], ...] = ()

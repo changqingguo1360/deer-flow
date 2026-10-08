@@ -254,7 +254,7 @@ async def test_scheduled_launcher_binds_a_trace_context(_stub_app_config, launch
     from app.gateway.services import launch_scheduled_thread_run
 
     await launch_scheduled_thread_run(
-        app=SimpleNamespace(),
+        app=SimpleNamespace(state=SimpleNamespace()),
         thread_id="thread-sched",
         assistant_id="lead_agent",
         prompt="Summarize thread",
@@ -274,7 +274,7 @@ async def test_mcp_notification_launcher_binds_a_trace_context(_stub_app_config,
 
     for attempt in (1, 2):
         await launch_mcp_task_notification_run(
-            app=SimpleNamespace(),
+            app=SimpleNamespace(state=SimpleNamespace()),
             thread_id="thread-mcp",
             assistant_id="lead_agent",
             owner_user_id="user-1",
@@ -297,7 +297,7 @@ async def test_launcher_keeps_the_requesting_trace(_stub_app_config, launcher_tr
 
     with request_trace_context("gateway-request-1"):
         await launch_scheduled_thread_run(
-            app=SimpleNamespace(),
+            app=SimpleNamespace(state=SimpleNamespace()),
             thread_id="thread-sched",
             assistant_id="lead_agent",
             prompt="Summarize thread",

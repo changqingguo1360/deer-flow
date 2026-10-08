@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from deerflow.mcp.tasks import ATTENTION_TASK_STATUSES, POLLABLE_TASK_STATUSES, TERMINAL_TASK_STATUSES
 from deerflow.persistence.mcp_tasks.model import McpTaskRow
 from deerflow.persistence.thread_meta.model import ThreadMetaRow
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, reject_remote_operation, validate_mutation, validate_mutation_after_sql
 from deerflow.utils.time import coerce_iso
 
 _POLLABLE_STATUS_VALUES = tuple(status.value for status in POLLABLE_TASK_STATUSES)
@@ -93,8 +94,21 @@ def _is_remote_task_unique_conflict(exc: IntegrityError) -> bool:
 class McpTaskRepository:
     """Durable source of truth for long-running MCP task lifecycle state."""
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, mutation_capability=None) -> None:
         self._sf = session_factory
+        self._mutation_capability = mutation_capability
+        self._notification_policy = None
+
+    def bind_notification_policy(self, policy) -> None:
+        """Bind an operator-owned SQL policy without importing optional providers."""
+        self._notification_policy = policy
+
+    async def permits_notification(self, task_id, *, user_id, thread_id) -> bool:
+        policy = self._notification_policy
+        if policy is None:
+            return True
+        async with self._sf() as session:
+            return await policy.permits(session, task_id=task_id, user_id=user_id, thread_id=thread_id)
 
     @staticmethod
     def _row_to_dict(row: McpTaskRow) -> dict[str, Any]:
@@ -154,6 +168,11 @@ class McpTaskRepository:
         )
         _record_event_if_changed(row, tracking_degraded=False, now=now)
         async with self._sf() as session:
+            if self._mutation_capability is not None and run_id is None:
+                raise OwnershipRejected("MCP tracking requires original run")
+            if self._mutation_capability is not None:
+                await session.begin()
+            await validate_mutation(self._mutation_capability, session, "mcp.create", user_id=user_id, thread_id=thread_id, run_id=run_id)
             matching_thread = select(ThreadMetaRow.incarnation).where(
                 ThreadMetaRow.thread_id == thread_id,
                 or_(ThreadMetaRow.user_id == user_id, ThreadMetaRow.user_id.is_(None)),
@@ -169,14 +188,45 @@ class McpTaskRepository:
                 row.thread_incarnation = (await session.execute(matching_thread.with_for_update(read=True))).scalar_one_or_none()
             session.add(row)
             try:
+                await validate_mutation_after_sql(self._mutation_capability, session, "mcp.create", user_id=user_id, thread_id=thread_id, run_id=run_id)
                 await session.commit()
             except IntegrityError as exc:
                 await session.rollback()
+                if self._mutation_capability is not None:
+                    async with session.begin():
+                        await validate_mutation(self._mutation_capability, session, "mcp.create", user_id=user_id, thread_id=thread_id, run_id=run_id)
                 if _is_remote_task_unique_conflict(exc):
                     raise DuplicateMcpRemoteTaskError(f"Remote MCP task {remote_task_id!r} is already tracked for server {server_name!r} by this user") from exc
                 raise
             await session.refresh(row)
             return self._row_to_dict(row)
+
+    async def create_idempotent(self, **values) -> dict[str, Any]:
+        """Opt-in boundary for drivers that own a stable tracking identity.
+
+        Never overwrite a persisted row, including its cancellation intent.
+        A unique conflict can only return the same owner/run/handle binding.
+        """
+        try:
+            return await self.create(**values)
+        except (IntegrityError, DuplicateMcpRemoteTaskError):
+            if self._mutation_capability is not None:
+                async with self._sf() as session:
+                    await session.begin()
+                    await validate_mutation(self._mutation_capability, session, "mcp.create", user_id=values["user_id"], thread_id=values["thread_id"], run_id=values["run_id"])
+                    row = await session.get(McpTaskRow, values["task_id"], with_for_update=True)
+                    if row is not None and (row.user_id, row.thread_id, row.run_id) != (values["user_id"], values["thread_id"], values["run_id"]):
+                        raise OwnershipRejected("MCP duplicate tracking original target rejected")
+                    await validate_mutation(self._mutation_capability, session, "mcp.create", user_id=values["user_id"], thread_id=values["thread_id"], run_id=values["run_id"])
+                    existing = self._row_to_dict(row) if row is not None else None
+            else:
+                existing = await self.get(values["task_id"], user_id=values["user_id"])
+            if existing is None:
+                raise
+            for key in ("thread_id", "run_id", "server_name", "driver_name", "remote_task_id"):
+                if existing.get(key) != values[key]:
+                    raise DuplicateMcpRemoteTaskError("Tracking identity belongs to another execution") from None
+            return existing
 
     async def get(self, task_id: str, *, user_id: str) -> dict[str, Any] | None:
         async with self._sf() as session:
@@ -212,6 +262,7 @@ class McpTaskRepository:
         lease_seconds: int,
         limit: int,
     ) -> list[dict[str, Any]]:
+        reject_remote_operation(self._mutation_capability)
         lease_expires_at = now + timedelta(seconds=lease_seconds)
         stmt = (
             select(McpTaskRow)
@@ -255,6 +306,7 @@ class McpTaskRepository:
         next_poll_at: datetime | None,
         polled_at: datetime,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             stmt = (
                 select(McpTaskRow)
@@ -299,6 +351,7 @@ class McpTaskRepository:
         error: str,
         tracking_degraded_after_errors: int = 3,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             stmt = select(McpTaskRow).where(McpTaskRow.id == task_id, McpTaskRow.lease_owner == lease_owner).with_for_update()
             row = (await session.execute(stmt)).scalar_one_or_none()
@@ -329,6 +382,9 @@ class McpTaskRepository:
     ) -> dict[str, Any] | None:
         """Persist a user-scoped cancellation request without exposing the remote id."""
         async with self._sf() as session:
+            if self._mutation_capability is not None:
+                await session.begin()
+            await validate_mutation(self._mutation_capability, session, "mcp.cancel", user_id=user_id, thread_id=thread_id)
             stmt = (
                 select(McpTaskRow)
                 .where(
@@ -339,6 +395,9 @@ class McpTaskRepository:
                 .with_for_update()
             )
             row = (await session.execute(stmt)).scalar_one_or_none()
+            if self._mutation_capability is not None and (row is None or row.run_id != self._mutation_capability.context.run_id):
+                raise OwnershipRejected("MCP cancellation original target rejected")
+            await validate_mutation(self._mutation_capability, session, "mcp.cancel", user_id=user_id, thread_id=thread_id)
             if row is None:
                 return None
             if row.status not in _TERMINAL_STATUS_VALUES and row.cancel_requested_at is None:
@@ -352,6 +411,7 @@ class McpTaskRepository:
                 row.lease_owner = None
                 row.lease_expires_at = None
                 row.updated_at = requested_at
+                await validate_mutation_after_sql(self._mutation_capability, session, "mcp.cancel", user_id=user_id, thread_id=thread_id)
                 await session.commit()
             return self._row_to_dict(row)
 
@@ -364,6 +424,7 @@ class McpTaskRepository:
         limit: int,
         task_id: str | None = None,
     ) -> list[dict[str, Any]]:
+        reject_remote_operation(self._mutation_capability)
         stmt = select(McpTaskRow).where(
             McpTaskRow.cancel_requested_at.is_not(None),
             McpTaskRow.status.not_in(_TERMINAL_STATUS_VALUES),
@@ -399,6 +460,7 @@ class McpTaskRepository:
         input_required: dict[str, Any] | None,
         completed_at: datetime,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         if status not in _TERMINAL_STATUS_VALUES:
             raise ValueError("A cancellation response must report a terminal task status")
         async with self._sf() as session:
@@ -441,6 +503,7 @@ class McpTaskRepository:
         next_cancel_at: datetime,
         error: str,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             update(McpTaskRow)
             .where(McpTaskRow.id == task_id, McpTaskRow.lease_owner == lease_owner)
@@ -466,6 +529,7 @@ class McpTaskRepository:
         limit: int,
         tracking_degraded_after_errors: int,
     ) -> list[dict[str, Any]]:
+        reject_remote_operation(self._mutation_capability)
         statuses = ("pending", "claimed", "retry", "dispatched")
         stmt = (
             select(McpTaskRow)
@@ -479,6 +543,8 @@ class McpTaskRepository:
             .limit(limit)
             .with_for_update(skip_locked=True)
         )
+        if self._notification_policy is not None:
+            stmt = stmt.where(self._notification_policy.predicate(McpTaskRow))
         async with self._sf() as session:
             rows = list((await session.execute(stmt)).scalars())
             expires_at = now + timedelta(seconds=lease_seconds)
@@ -510,6 +576,7 @@ class McpTaskRepository:
         run_id: str,
         now: datetime,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             update(McpTaskRow)
             .where(
@@ -544,6 +611,7 @@ class McpTaskRepository:
         replace_with_latest: bool,
         count_failure: bool = False,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         values: dict[str, Any] = {
             "notification_status": "pending" if replace_with_latest else "retry",
             "notification_error": error,
@@ -576,6 +644,7 @@ class McpTaskRepository:
         error: str | None,
         now: datetime,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             stmt = (
                 select(McpTaskRow)
@@ -624,6 +693,7 @@ class McpTaskRepository:
         count_failure: bool = False,
     ) -> bool:
         """Release unexpected notification work without changing its phase."""
+        reject_remote_operation(self._mutation_capability)
         values: dict[str, Any] = {
             "notification_error": error,
             "next_notification_at": next_notification_at,
@@ -657,6 +727,7 @@ class McpTaskRepository:
         now: datetime,
     ) -> bool:
         """Stop one failed snapshot, preserving any newer event for delivery."""
+        reject_remote_operation(self._mutation_capability)
         base_filters = (
             McpTaskRow.id == task_id,
             McpTaskRow.notification_lease_owner == lease_owner,
@@ -715,6 +786,7 @@ class McpTaskRepository:
         now: datetime,
     ) -> bool:
         """Release a notification lease while its Agent run is still active."""
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             update(McpTaskRow)
             .where(

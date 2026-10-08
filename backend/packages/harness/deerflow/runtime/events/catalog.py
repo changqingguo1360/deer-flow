@@ -55,6 +55,8 @@ class RunEventPattern:
         return f"{self.prefix}{suffix}"
 
 
+STREAM_FRAME_EVENT = RunEventDefinition("stream.frame", "stream")
+
 RUN_START_EVENT = RunEventDefinition("run.start", "trace")
 RUN_END_EVENT = RunEventDefinition("run.end", "outputs")
 RUN_ERROR_EVENT = RunEventDefinition("run.error", "error")
@@ -114,4 +116,5 @@ FIXED_RUN_EVENT_DEFINITIONS = (
     *JOURNAL_RUN_EVENT_DEFINITIONS,
     *SUBAGENT_RUN_EVENT_DEFINITIONS,
     *WORKSPACE_RUN_EVENT_DEFINITIONS,
+    STREAM_FRAME_EVENT,
 )

@@ -9,6 +9,7 @@ import tempfile
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Literal
 
@@ -732,3 +733,23 @@ def set_extensions_config(config: ExtensionsConfig) -> None:
     """
     global _extensions_config
     _extensions_config = config
+
+
+# A trusted worker may construct clients from an in-memory private snapshot.
+# This is deliberately separate from the public/global config cache.
+_scoped_extensions_config: ContextVar[ExtensionsConfig | None] = ContextVar("deerflow_private_extensions_config", default=None)
+
+
+@contextmanager
+def extensions_config_scope(config: ExtensionsConfig):
+    if not isinstance(config, ExtensionsConfig):
+        raise TypeError("Trusted ExtensionsConfig required")
+    token = _scoped_extensions_config.set(config)
+    try:
+        yield
+    finally:
+        _scoped_extensions_config.reset(token)
+
+
+def get_scoped_extensions_config() -> ExtensionsConfig | None:
+    return _scoped_extensions_config.get()

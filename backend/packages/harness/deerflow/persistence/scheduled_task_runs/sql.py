@@ -12,6 +12,7 @@ from deerflow.persistence.run import RunRepository
 from deerflow.persistence.run.model import RunRow
 from deerflow.persistence.scheduled_task_runs.model import ScheduledTaskRunRow
 from deerflow.persistence.scheduled_tasks.model import ScheduledTaskRow
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, reject_remote_operation
 from deerflow.scheduler.schedules import next_run_at as compute_next_run_at
 from deerflow.utils.time import coerce_iso
 
@@ -59,8 +60,15 @@ class ScheduledTaskRunRepository:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         run_repository: RunRepository | None = None,
+        mutation_capability=None,
+        aggregate_completion_pending=None,
+        aggregate_completion_outcome=None,
     ) -> None:
+        self.execution_retirement = None
+        self.aggregate_completion_pending = aggregate_completion_pending
+        self.aggregate_completion_outcome = aggregate_completion_outcome
         self._sf = session_factory
+        self._mutation_capability = mutation_capability
         self._run_repository = run_repository or RunRepository(session_factory)
 
     @staticmethod
@@ -96,8 +104,9 @@ class ScheduledTaskRunRepository:
         if row.started_at is None:
             row.started_at = candidate.created_at
 
-    @staticmethod
-    def _associate_task_with_run(
+    async def _associate_task_with_run(
+        self,
+        session: AsyncSession,
         task: ScheduledTaskRow | None,
         row: ScheduledTaskRunRow,
         candidate: RunRow,
@@ -121,7 +130,13 @@ class ScheduledTaskRunRepository:
         task.lease_owner = None
         task.lease_expires_at = None
         if task.schedule_type == "once":
-            if candidate.status == "success":
+            from deerflow.persistence.scheduled_completion import aggregate_parent_outcome
+
+            if self.aggregate_completion_pending is not None and await self.aggregate_completion_pending(session, task_id=task.id, occurrence_id=row.id, run_id=candidate.run_id):
+                task.status, task.last_error = "running", None
+            elif (outcome := await aggregate_parent_outcome(self.aggregate_completion_outcome, session, task_id=task.id, occurrence_id=row.id, run_id=candidate.run_id)) is not None:
+                task.status, task.last_error = outcome["status"], outcome["last_error"]
+            elif candidate.status == "success":
                 task.status = "completed"
                 task.last_error = None
             elif candidate.status in {"error", "timeout"}:
@@ -153,6 +168,7 @@ class ScheduledTaskRunRepository:
         expected_task_lease_owner: str | None = None,
         release_task_lease_status: str | None = None,
     ) -> dict[str, Any]:
+        reject_remote_operation(self._mutation_capability)
         row = ScheduledTaskRunRow(
             id=run_record_id,
             task_id=task_id,
@@ -291,8 +307,10 @@ class ScheduledTaskRunRepository:
         now: datetime,
         lease_seconds: int,
         global_max_concurrent_runs: int,
+        execution_admission=None,
     ) -> dict[str, Any] | None:
         """Atomically move one waiting row into the lease-fenced launch phase."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             if session.get_bind().dialect.name == "postgresql":
                 await session.execute(
@@ -317,6 +335,21 @@ class ScheduledTaskRunRepository:
                     ),
                 )
             )
+            ticket = None
+            if execution_admission is not None:
+                locator = await session.get(ScheduledTaskRunRow, run_record_id)
+                if locator is None:
+                    await session.rollback()
+                    return None
+                task = await self._lock_task(session, locator.task_id)
+                row = await session.get(ScheduledTaskRunRow, run_record_id, with_for_update=True, populate_existing=True)
+                if row.status != "queued":
+                    await session.rollback()
+                    return None
+                ticket = await execution_admission(session, task=task, occurrence=row, lease_owner=lease_owner, lease_expires_at=now + timedelta(seconds=lease_seconds))
+                if ticket is False:
+                    await session.rollback()
+                    return None
             result = await session.execute(
                 update(ScheduledTaskRunRow)
                 .where(
@@ -336,7 +369,10 @@ class ScheduledTaskRunRepository:
                 return None
             await session.commit()
             row = await session.get(ScheduledTaskRunRow, run_record_id)
-            return self._row_to_dict(row) if row is not None else None
+            result = self._row_to_dict(row) if row is not None else None
+            if result is not None and ticket is not None:
+                result["_execution_ticket"] = ticket
+            return result
 
     async def requeue_claimed_run(
         self,
@@ -345,6 +381,7 @@ class ScheduledTaskRunRepository:
         lease_owner: str,
         error: str | None = None,
     ) -> bool:
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             result = await session.execute(
                 update(ScheduledTaskRunRow)
@@ -377,6 +414,7 @@ class ScheduledTaskRunRepository:
         transaction prevents a peer scheduler from taking a stale due-task
         lease between those two writes.
         """
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             candidate_keys = list(
                 (
@@ -406,6 +444,8 @@ class ScheduledTaskRunRepository:
                     await session.rollback()
                     continue
 
+                if self.execution_retirement is not None:
+                    await self.execution_retirement(session, task=task, occurrence=row, error=error, now=now)
                 row.status = "failed"
                 row.error = error
                 row.finished_at = now
@@ -451,6 +491,7 @@ class ScheduledTaskRunRepository:
         now: datetime,
     ) -> bool:
         """Fail a claimed launch and update its parent without a release gap."""
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             task = await self._lock_task(session, task_id)
             row = await session.get(ScheduledTaskRunRow, run_record_id, with_for_update=True)
@@ -505,6 +546,7 @@ class ScheduledTaskRunRepository:
         Parent-first locking restores the active slot before later parent
         bookkeeping can make the task due again.
         """
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             await self._lock_task(session, task_id)
             row = await session.get(ScheduledTaskRunRow, run_record_id, with_for_update=True)
@@ -540,6 +582,7 @@ class ScheduledTaskRunRepository:
 
     async def recover_expired_launch_claims(self, *, error: str, now: datetime) -> int:
         """Recover single-instance claims that outlived their short lease."""
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             select(
                 ScheduledTaskRunRow.id,
@@ -572,7 +615,7 @@ class ScheduledTaskRunRepository:
                     row.status = "queued"
                 else:
                     self._associate_scheduled_run(row, candidate)
-                    self._associate_task_with_run(task, row, candidate)
+                    await self._associate_task_with_run(session, task, row, candidate)
                     if candidate.status in {"pending", "running"}:
                         row.status = "running"
                         row.error = None
@@ -603,9 +646,21 @@ class ScheduledTaskRunRepository:
         finished_at: datetime | None = None,
         protect_terminal: bool = False,
         expected_lease_owner: str | None = None,
+        completion_task_id: str | None = None,
     ) -> bool:
         async with self._sf() as session:
-            row = await session.get(ScheduledTaskRunRow, run_record_id)
+            if self._mutation_capability is not None:
+                await session.begin()
+                from deerflow.persistence.scheduled_completion import lock_completion
+
+                bound = await lock_completion(
+                    session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id, aggregate_completion_outcome=self.aggregate_completion_outcome
+                )
+                _, row, expected_status, expected_error = bound
+                if status != expected_status or error != expected_error or finished_at is None or started_at is not None or protect_terminal or expected_lease_owner is not None:
+                    raise OwnershipRejected("Scheduled completion fields rejected")
+            else:
+                row = await session.get(ScheduledTaskRunRow, run_record_id)
             if row is None:
                 return False
             if protect_terminal and row.status in TERMINAL_RUN_STATUSES:
@@ -639,6 +694,11 @@ class ScheduledTaskRunRepository:
                 row.started_at = started_at
             if finished_at is not None:
                 row.finished_at = finished_at
+            if self._mutation_capability is not None:
+                await session.flush()
+                await lock_completion(
+                    session, self._mutation_capability, operation="scheduler.occurrence.complete", task_id=completion_task_id, occurrence_id=run_record_id, run_id=run_id, aggregate_completion_outcome=self.aggregate_completion_outcome
+                )
             await session.commit()
             return True
 
@@ -662,6 +722,7 @@ class ScheduledTaskRunRepository:
         ``launching`` row without a committed live run is safe to retry; a
         ``running`` row belonged to the dead in-process runtime.
         """
+        reject_remote_operation(self._mutation_capability)
         stmt = (
             select(
                 ScheduledTaskRunRow.id,
@@ -685,12 +746,17 @@ class ScheduledTaskRunRepository:
                 row.lease_owner = None
                 row.lease_expires_at = None
                 candidate = await self._find_underlying_run(session, row, task)
+                if candidate is not None and candidate.status in {"pending", "running"} and (candidate.kwargs_json or {}).get("execution_backend") == "fleet":
+                    self._associate_scheduled_run(row, candidate)
+                    await self._associate_task_with_run(session, task, row, candidate)
+                    row.status = "running"
+                    continue
                 if row.status == "launching" and candidate is None:
                     row.status = "queued"
                 else:
                     if candidate is not None:
                         self._associate_scheduled_run(row, candidate)
-                        self._associate_task_with_run(task, row, candidate)
+                        await self._associate_task_with_run(session, task, row, candidate)
                     if candidate is not None and candidate.status == "success":
                         row.status = "success"
                         row.error = None
@@ -718,6 +784,7 @@ class ScheduledTaskRunRepository:
         underlying run, or a queued row whose parent task still has a dispatch
         lease, belongs to another process and must survive this startup.
         """
+        reject_remote_operation(self._mutation_capability)
         async with self._sf() as session:
             result = await session.execute(
                 select(
@@ -769,6 +836,10 @@ class ScheduledTaskRunRepository:
                     stale += 1
                     continue
                 if candidate is not None and candidate.status in {"pending", "running"}:
+                    if candidate.kwargs_json.get("execution_backend") == "fleet":
+                        row.status = "running"
+                        row.lease_owner = row.lease_expires_at = None
+                        continue
                     if _lease_is_alive(candidate.lease_expires_at, now=now, grace_seconds=lease_grace_seconds):
                         # A peer can observe the committed durable run before
                         # the launcher writes its scheduled-run bookkeeping.
@@ -809,7 +880,7 @@ class ScheduledTaskRunRepository:
                 row.lease_expires_at = None
                 stale += 1
             for task, row, candidate in associations:
-                self._associate_task_with_run(task, row, candidate)
+                await self._associate_task_with_run(session, task, row, candidate)
             await session.commit()
             return stale
 

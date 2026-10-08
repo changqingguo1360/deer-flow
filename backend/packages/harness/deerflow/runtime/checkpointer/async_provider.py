@@ -185,7 +185,7 @@ async def _async_checkpointer_from_database(db_config) -> AsyncIterator[Checkpoi
 
 
 @contextlib.asynccontextmanager
-async def _select_inner_checkpointer(app_config: AppConfig) -> AsyncIterator[Checkpointer]:
+async def _select_inner_checkpointer(app_config: AppConfig, *, write_fence=None) -> AsyncIterator[Checkpointer]:
     """Yield the raw checkpointer selected by *app_config* (no delta-cache wrapping).
 
     Priority:
@@ -193,6 +193,25 @@ async def _select_inner_checkpointer(app_config: AppConfig) -> AsyncIterator[Che
     2. Unified ``database:`` config section
     3. Default InMemorySaver
     """
+    if write_fence is not None:
+        legacy = app_config.checkpointer
+        database = app_config.database
+        backend = legacy.type if legacy is not None else database.backend
+        if backend != "postgres":
+            raise ValueError("Execution write fence requires PostgreSQL")
+        connection = legacy.connection_string if legacy is not None else database.postgres_url
+        schema = legacy.postgres_schema if legacy is not None else database.postgres_schema
+        if not connection:
+            raise ValueError(POSTGRES_CONN_REQUIRED)
+        from deerflow.runtime.checkpointer.fenced_saver import FencedAsyncPostgresSaver
+
+        pool = _build_postgres_pool(connection, schema)
+        async with pool:
+            saver = FencedAsyncPostgresSaver(pool, write_fence=write_fence, schema=schema)
+            await saver.setup()
+            yield saver
+        return
+
     # Legacy: standalone checkpointer config takes precedence
     if app_config.checkpointer is not None:
         async with _async_checkpointer(app_config.checkpointer) as saver:
@@ -213,7 +232,7 @@ async def _select_inner_checkpointer(app_config: AppConfig) -> AsyncIterator[Che
 
 
 @contextlib.asynccontextmanager
-async def make_checkpointer(app_config: AppConfig | None = None) -> AsyncIterator[Checkpointer]:
+async def make_checkpointer(app_config: AppConfig | None = None, *, write_fence=None) -> AsyncIterator[Checkpointer]:
     """Async context manager that yields a checkpointer for the caller's lifetime.
     Resources are opened on enter and closed on exit -- no global state::
 
@@ -237,7 +256,7 @@ async def make_checkpointer(app_config: AppConfig | None = None) -> AsyncIterato
     if app_config is None:
         app_config = get_app_config()
 
-    async with _select_inner_checkpointer(app_config) as saver:
+    async with _select_inner_checkpointer(app_config, write_fence=write_fence) as saver:
         db_config = getattr(app_config, "database", None)
         mode = frozen_checkpoint_channel_mode() or (db_config.checkpoint_channel_mode if db_config is not None else "full")
         if mode == "delta":

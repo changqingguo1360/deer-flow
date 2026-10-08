@@ -13,8 +13,9 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
+from starlette.background import BackgroundTask
 
 from app.gateway.authz import SandboxRequestLease, require_permission, try_acquire_sandbox_for_request
 from app.gateway.deps import get_run_manager
@@ -342,13 +343,117 @@ def _sha256_of_file_cached(path: str, mtime_ns: int, size: int) -> str:
     return digest.hexdigest()
 
 
+def _parse_byte_range(range_header, size):
+    if not range_header.startswith("bytes=") or "," in range_header or "-" not in range_header:
+        raise ValueError("Unsupported byte range")
+    first, last = range_header[6:].split("-", 1)
+    if first:
+        start, end = int(first), min(int(last), size - 1) if last else size - 1
+    else:
+        suffix = int(last)
+        if suffix <= 0:
+            raise ValueError("Invalid suffix range")
+        start, end = max(0, size - suffix), size - 1
+    if size == 0 or start < 0 or start >= size or end < start:
+        raise ValueError("Unsatisfied byte range")
+    return start, end
+
+
+async def _accepted_workspace_response(request, thread_id, path, *, user_id, point_id, download):
+    normalized = path.lstrip("/")
+    prefix = "mnt/user-data/"
+    if not normalized.startswith(prefix):
+        raise HTTPException(status_code=404, detail="Accepted output not found")
+    relative = normalized[len(prefix) :]
+    archive_path, internal = relative.split(".skill/", 1) if ".skill/" in relative else (relative, None)
+    if internal is not None:
+        archive_path += ".skill"
+    try:
+        file, item, metadata = await request.app.state.fleet_workspace_files.open(archive_path, user_id=user_id, thread_id=thread_id, point_id=point_id)
+    except (LookupError, ValueError, OSError):
+        raise HTTPException(status_code=404, detail="Accepted output not found") from None
+    headers = {
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "ETag": f'"{item.sha256}"',
+        "X-DeerFlow-Workspace-Point": metadata["point_id"],
+        "X-DeerFlow-Workspace-Source-Thread": metadata["source_thread_id"],
+        "X-DeerFlow-Workspace-Manifest": metadata["manifest_id"],
+        "X-DeerFlow-Workspace-Checkpoint": metadata["checkpoint_id"],
+        "X-DeerFlow-Workspace-Partial": str(metadata["partial"]).lower(),
+    }
+    if internal is not None:
+        try:
+            content = await asyncio.to_thread(_extract_file_from_skill_archive, file, internal)
+            if content is None:
+                raise HTTPException(status_code=404, detail="Skill archive member not found")
+        finally:
+            file.close()
+        mime = (await asyncio.to_thread(mimetypes.guess_type, internal))[0] or "application/octet-stream"
+        member_etag = f'"{hashlib.sha256(content).hexdigest()}"'
+        ranged, status, range_headers = _slice_byte_range(content, request.headers.get("range") if request.headers.get("if-range") in (None, member_etag) else None)
+        headers.update(range_headers)
+        headers["ETag"] = f'"{hashlib.sha256(content).hexdigest()}"'
+        if download or mime in ACTIVE_CONTENT_MIME_TYPES:
+            headers.update(_build_attachment_headers(Path(internal).name))
+        return Response(content=ranged, status_code=status, media_type=mime, headers=headers)
+
+    def sniff():
+        mime = mimetypes.guess_type(relative)[0]
+        if mime is None:
+            sample = file.read(8192)
+            file.seek(0)
+            try:
+                if b"\0" not in sample:
+                    sample.decode("utf-8")
+                    return "text/plain"
+            except UnicodeDecodeError:
+                pass
+        return mime or "application/octet-stream"
+
+    try:
+        mime = await asyncio.to_thread(sniff)
+    except BaseException:
+        file.close()
+        raise
+    headers["Content-Disposition"] = _build_content_disposition("attachment" if download or mime in ACTIVE_CONTENT_MIME_TYPES else "inline", Path(relative).name)
+    headers["Accept-Ranges"] = "bytes"
+    start, end, status = 0, item.size - 1, 200
+    range_header = request.headers.get("range") if request.headers.get("if-range") in (None, headers["ETag"]) else None
+    if range_header:
+        try:
+            # Existing byte-range parser determines valid suffix/open ranges.
+            start, end = _parse_byte_range(range_header, item.size)
+            status = 206
+            headers["Content-Range"] = f"bytes {start}-{end}/{item.size}"
+        except (ValueError, TypeError):
+            file.close()
+            return Response(status_code=416, headers={**headers, "Content-Range": f"bytes */{item.size}"})
+    headers["Content-Length"] = str(max(0, end - start + 1))
+
+    async def chunks():
+        remaining = max(0, end - start + 1)
+        try:
+            await asyncio.to_thread(file.seek, start)
+            while remaining:
+                chunk = await asyncio.to_thread(file.read, min(65536, remaining))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+                yield chunk
+        finally:
+            await asyncio.to_thread(file.close)
+
+    return StreamingResponse(chunks(), status_code=status, media_type=mime, headers=headers, background=BackgroundTask(file.close))
+
+
 @router.get(
     "/threads/{thread_id}/artifacts/{path:path}",
     summary="Get Artifact File",
     description="Retrieve an artifact file generated by the AI agent. Text and binary files can be viewed inline, while active web content is always downloaded.",
 )
 @require_permission("threads", "read", owner_check=True)
-async def get_artifact(thread_id: ThreadId, path: str, request: Request, download: bool = False) -> Response:
+async def get_artifact(thread_id: ThreadId, path: str, request: Request, download: bool = False, workspace_point_id: str | None = None) -> Response:
     """Get an artifact file by its path.
 
     The endpoint automatically detects file types and returns appropriate content types.
@@ -390,6 +495,14 @@ async def get_artifact(thread_id: ThreadId, path: str, request: Request, downloa
     # effective user.
     raw_owner_user_id = get_trusted_internal_owner_user_id(request)
     owner_user_id = make_safe_user_id(raw_owner_user_id) if raw_owner_user_id else None
+
+    application = request.scope.get("app")
+    store = getattr(getattr(application, "state", None), "run_store", None)
+    backend = await store.thread_execution_backend(thread_id, user_id=owner_user_id or get_effective_user_id()) if store is not None and hasattr(store, "thread_execution_backend") else None
+    if backend is not None:
+        if backend != "fleet" or getattr(request.app.state, "fleet_workspace_files", None) is None:
+            raise HTTPException(status_code=503, detail="Thread artifact backend unavailable")
+        return await _accepted_workspace_response(request, thread_id, path, user_id=owner_user_id or get_effective_user_id(), point_id=workspace_point_id, download=download)
 
     # Check if this is a request for a file inside a .skill archive (e.g., xxx.skill/SKILL.md)
     if ".skill/" in path:

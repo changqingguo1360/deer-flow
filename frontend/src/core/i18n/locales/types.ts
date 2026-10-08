@@ -316,6 +316,7 @@ export interface Translations {
     resultArtifact: string;
     inputRequired: string;
     inputUnavailable: string;
+    reconciliationRequired: string;
     lastPollError: string;
     created: (time: string) => string;
     updated: (time: string) => string;
@@ -323,9 +324,45 @@ export interface Translations {
       submitted: string;
       working: string;
       inputRequired: string;
+      uncertain: string;
       completed: string;
       failed: string;
       cancelled: string;
+    };
+  };
+
+  fleetTasks: {
+    generation: string;
+    job: string;
+    parentRun: string;
+    history: string;
+    acceptedResult: string;
+    relatedTruncated: string;
+    cancelGoal: string;
+    resumeGoal: string;
+    resuming: string;
+    operationConflict: string;
+    operationFailed: string;
+    title: string;
+    run: string;
+    loadFailed: string;
+    location: { queued: string; remote: string };
+    status: {
+      queued: string;
+      running: string;
+      waiting_jobs: string;
+      paused: string;
+      input_required: string;
+      unknown: string;
+      finishing: string;
+      recovery_required: string;
+      succeeded: string;
+      failed: string;
+      cancelled: string;
+      timed_out: string;
+      needsConfirmation: string;
+      stopping: string;
+      stopUnconfirmed: string;
     };
   };
 

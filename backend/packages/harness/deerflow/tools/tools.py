@@ -4,6 +4,7 @@ from langchain.tools import BaseTool
 
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
+from deerflow.mcp.tasks.fleet_runtime import get_fleet_job_profile_names, get_fleet_scheduled_job_slots, is_fleet_job_runtime_available
 from deerflow.mcp.tasks.runtime import is_mcp_task_runtime_available
 from deerflow.reflection import resolve_variable
 from deerflow.sandbox.security import is_host_bash_allowed
@@ -18,6 +19,7 @@ from deerflow.tools.builtins import (
     list_uploaded_files,
     present_file_tool,
     review_skill_package,
+    submit_fleet_job,
     task_tool,
     view_image_tool,
 )
@@ -111,6 +113,25 @@ def get_available_tools(
     builtin_tools = BUILTIN_TOOLS.copy()
     if is_mcp_task_runtime_available():
         builtin_tools.extend((list_background_tasks, cancel_background_task))
+    if is_fleet_job_runtime_available():
+        names = ", ".join(get_fleet_job_profile_names())
+        builtin_tools.append(
+            submit_fleet_job.model_copy(
+                update={
+                    "description": submit_fleet_job.description
+                    + "\nAvailable job profiles: "
+                    + names
+                    + "\nApproved scheduled job slots: "
+                    + ", ".join(f"{slot} (profile {profile})" for slot, profile in sorted(get_fleet_scheduled_job_slots().items()))
+                }
+            )
+        )
+    from deerflow.runtime.execution.yield_control import current_yield
+
+    if current_yield() is not None:
+        from deerflow.tools.builtins.fleet_await import await_fleet_jobs
+
+        builtin_tools.append(await_fleet_jobs)
     if include_upload_tool:
         builtin_tools.append(list_uploaded_files)
     skill_evolution_config = getattr(config, "skill_evolution", None)
@@ -137,17 +158,17 @@ def get_available_tools(
         logger.info(f"Including view_image_tool for model '{model_name}' (supports_vision=True)")
 
     # Get cached MCP tools if enabled
-    # NOTE: We use ExtensionsConfig.from_file() instead of config.extensions
+    # NOTE: We use (get_scoped_extensions_config() or ExtensionsConfig.from_file()) instead of config.extensions
     # to always read the latest configuration from disk. This ensures that changes
     # made through the Gateway API (which runs in a separate process) are immediately
     # reflected when loading MCP tools.
     mcp_tools = []
     if include_mcp:
         try:
-            from deerflow.config.extensions_config import ExtensionsConfig
+            from deerflow.config.extensions_config import ExtensionsConfig, get_scoped_extensions_config
             from deerflow.mcp.cache import get_cached_mcp_tools
 
-            extensions_config = ExtensionsConfig.from_file()
+            extensions_config = get_scoped_extensions_config() or ExtensionsConfig.from_file()
             if extensions_config.get_enabled_mcp_servers():
                 mcp_tools = get_cached_mcp_tools()
                 if mcp_tools:

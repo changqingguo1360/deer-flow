@@ -43,3 +43,34 @@ E2B output sync records remote file versions and actual host file metadata in a 
 - ACP results collect only `agent_message_chunk` text. Thought chunks remain internal and must not be concatenated into the tool result
 - Missing ACP executables now return an actionable error message instead of a raw `[Errno 2]`
 - Each ACP agent uses a per-thread workspace at `{base_dir}/users/{user_id}/threads/{thread_id}/acp-workspace/`. The workspace is accessible to the lead agent via the virtual path `/mnt/acp-workspace/` (read-only). In docker sandbox mode, the directory is volume-mounted into the container at `/mnt/acp-workspace` (read-only); in local sandbox mode, path translation is handled by `tools.py`
+
+Remote-bound setup/update require the original mutation context and private
+definition stores; missing scopes cannot fall back to Local SQL/files. Default
+global SOUL setup rejects before filesystem writes. OwnershipRejected must
+propagate through tools and middleware to the worker; ordinary tool errors retain
+existing recovery. Database definition guards share the actual writer transaction.
+
+
+`make_sync_tool_wrapper` must preserve concrete ToolRuntime injection metadata for
+coroutines that declare it: ToolNode inspects the sync `func` before `coroutine`.
+Keep explicit Runtime/RunnableConfig wrapper branches, existing config forwarding,
+ordinary user `config` arguments and contextvars across loop/thread execution.
+Do not copy arbitrary user annotations into the injected tool contract. Verify
+actual loaded MCP tools, original user/thread/run identity and both async/sync
+invocation; isolated coroutine tests miss the final bridge.
+
+
+For a bound remote workspace, `present_files` records a private trusted
+ExecutionInfo turn and stamps the successful ToolMessage with its stable
+presentation ID. Replaying the same graph task is idempotent; a new root tool
+turn presenting the same path is a new version. Runtime user/thread/run must
+match the original private execution context. Root versus subgraph is determined
+from the graph task namespace structure, independently of the saver namespace.
+Local presentation keeps its original message shape.
+
+
+Bound cooperative yield exposes `await_fleet_jobs` only through the private host
+controller. Validate optional requested job IDs against original awaited ownership;
+include all remaining awaited children. A request does not stop parallel ToolNode
+siblings: the first before_model hook ends the graph after every ToolMessage is
+saved, before another model call. See [BC02 boundary](../../../../../docs/ecs-fleet-bc02-runtime.md).

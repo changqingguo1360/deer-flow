@@ -25,6 +25,7 @@ from deerflow.mcp.tasks import (
     TaskSubmitRequest,
 )
 from deerflow.persistence.mcp_tasks import DuplicateMcpRemoteTaskError
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, current_remote_mutation_context, reject_remote_operation
 from deerflow.runtime.runs.manager import ConflictError
 from deerflow.runtime.runs.schemas import RunStatus
 
@@ -94,6 +95,11 @@ class McpTaskService:
         now: datetime | None = None,
     ) -> dict:
         """Submit through one driver and persist the remote handle before returning."""
+        capability = getattr(self._repository, "_mutation_capability", None)
+        if capability is not None and (
+            current_remote_mutation_context() != capability.context or (request.user_id, request.thread_id, request.run_id) != (capability.context.user_id, capability.context.thread_id, capability.context.run_id)
+        ):
+            raise OwnershipRejected("Remote MCP submission original context rejected")
         driver = self._drivers.get(driver_name)
         if driver is None:
             raise LookupError(f"No MCP task driver registered as {driver_name!r}")
@@ -102,6 +108,22 @@ class McpTaskService:
         local_task_id = request.local_task_id or f"mcp-task-{uuid.uuid4().hex}"
         driver_request = replace(request, local_task_id=local_task_id)
         submission = await driver.submit(driver_request)
+        if submission.tracking_task_id is not None:
+            local_task_id = submission.tracking_task_id
+        if submission.reuse_existing:
+            # This driver returned accepted work owned by an earlier run. A
+            # failed lookup cannot authorize cancelling or replacing that work.
+            if submission.tracking_task_id is None:
+                raise McpTaskProtocolError("Existing task reuse requires tracking identity")
+            existing = await self._repository.get(local_task_id, user_id=request.user_id)
+            if existing is None:
+                raise RuntimeError("Original tracking commit is pending; retry submission")
+            if capability is not None and existing.get("run_id") != capability.context.run_id:
+                raise OwnershipRejected("Remote MCP reused handle belongs to another run")
+            expected = {"thread_id": request.thread_id, "server_name": request.server_name, "driver_name": driver_name, "remote_task_id": submission.remote_task_id}
+            if any(existing.get(key) != value for key, value in expected.items()):
+                raise DuplicateMcpRemoteTaskError("Tracking identity belongs to another execution")
+            return {**existing, "reused_existing": True}
         driver_data = {**request.driver_data, **submission.driver_data}
         task_reference = TaskReference(
             local_task_id=local_task_id,
@@ -116,7 +138,8 @@ class McpTaskService:
                 raise McpTaskProtocolError(f"MCP task remote_task_id must not exceed {MCP_TASK_REMOTE_ID_MAX_LENGTH} characters")
             snapshot = self._normalize_snapshot(submission.snapshot)
             next_poll_at = self._next_poll_at(snapshot, now=submitted_at)
-            return await self._repository.create(
+            create = self._repository.create_idempotent if submission.tracking_task_id is not None else self._repository.create
+            return await create(
                 task_id=local_task_id,
                 user_id=request.user_id,
                 thread_id=request.thread_id,
@@ -136,6 +159,8 @@ class McpTaskService:
                 next_poll_at=next_poll_at,
                 driver_data=driver_data,
             )
+        except OwnershipRejected:
+            raise
         except DuplicateMcpRemoteTaskError:
             # This handle already has a durable owner. Cancelling it as
             # compensation would terminate the pre-existing tracked task.
@@ -215,6 +240,7 @@ class McpTaskService:
                 continue
 
     async def run_once(self, *, now: datetime) -> None:
+        reject_remote_operation(getattr(self._repository, "_mutation_capability", None))
         await self._run_cancellations(now=now)
 
         claimed = await self._repository.claim_due_tasks(
@@ -390,6 +416,9 @@ class McpTaskService:
 
     async def _notify_one(self, record: dict[str, Any], *, now: datetime) -> None:
         task_id = record["id"]
+        permits = getattr(self._repository, "permits_notification", None)
+        if permits is not None and not await permits(task_id, user_id=record["user_id"], thread_id=record["thread_id"]):
+            return
         dispatch_version = int(record.get("dispatch_version") or 0)
         notification_attempts = max(0, int(record.get("notification_attempt_count") or 0))
         if notification_attempts >= _MAX_NOTIFICATION_ATTEMPTS:
@@ -641,6 +670,7 @@ class McpTaskService:
             raise McpTaskProtocolError(f"MCP task {field_name} is not valid JSON: {exc}") from exc
 
     async def start(self) -> None:
+        reject_remote_operation(getattr(self._repository, "_mutation_capability", None))
         if self._task is not None:
             return
         self._stop.clear()

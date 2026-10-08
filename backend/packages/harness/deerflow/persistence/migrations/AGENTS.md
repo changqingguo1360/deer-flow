@@ -154,3 +154,14 @@ on installs that never enabled it. The convention is:
 - `persistence/bootstrap.py` — `bootstrap_schema(engine, backend=...)`, the three-branch provisioning decision, locked revision validation, and the narrow 0019 forward-compatibility exception
 - `extensions/loader.py::load_extensions` — registers each spec's `table_prefix` with `register_extension_table_prefix()`
 - Tests: `tests/test_persistence_bootstrap.py` (branches), `tests/test_persistence_bootstrap_concurrency.py` (concurrency), `tests/test_persistence_bootstrap_regression.py` (issue #3682), `tests/test_persistence_migrations_env.py` (filter, including extension-owned tables), `tests/test_extension_loader.py::TestTablePrefixRegistration` (spec-to-filter wiring), `tests/blocking_io/test_persistence_bootstrap.py` (asyncio.to_thread anchor), `tests/test_migration_0004_run_ownership_dedupe.py` + `tests/test_migration_0007_scheduled_run_active_dedupe.py` (dedupe-before-unique-index pre-steps)
+
+### Fleet fork integration (2026-10-08)
+
+`0022_fleet_main_merge` joins `0019_scheduled_execution` (Fleet execution-binding
+branch) and `0019_thread_incarnations` (upstream Projects/acceptance/incarnation
+branch). It applies no DDL itself; both predecessor chains run normally, retaining
+all published revision identities. Current `upgrade head` has one head. Bootstrap
+and revision tests resolve that actual head rather than assuming the incarnation
+revision remains the newest. The historical rollback-floor checks above still
+apply to the original incarnation stamp; this merge revision does not authorize
+an old binary to accept the newer Fleet schema. Drain and back up before rollback.

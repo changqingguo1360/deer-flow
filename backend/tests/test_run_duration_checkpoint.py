@@ -463,4 +463,5 @@ async def test_successful_subsecond_run_persists_zero_duration(monkeypatch: pyte
         thread_id=record.thread_id,
         run_id=record.run_id,
         duration_seconds=0,
+        preserve_pending_accessor=None,
     )

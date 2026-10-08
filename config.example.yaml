@@ -2901,3 +2901,28 @@ authorization:
 #                                         # also match a host-owned table name.
 #     config:
 #       label: example                    # extension-private values, if any
+
+
+# ECS Fleet host worker CLI/deployment helpers are locally verified; B release gate remains pending.
+# See docs/deployment/ecs-fleet.md; full Compose daemon/production deployment is not yet verified.
+# All Fleet flags default to false. Install only with the trusted extension manager.
+# The example is intentionally disabled; configure absolute NAS root and immutable
+# image digests after the B release gate passes. See docs/superpowers/plans/
+# 2026-10-01-ecs-fleet-roadmap.md for prerequisites and verified delivery status.
+# plugins:
+#   - name: ecs-fleet
+#     package: deerflow-ecs-fleet
+#     use: deerflow_ecs_fleet:install
+#     enabled: false
+#     required: true
+#     table_prefix: fleet_
+#     config:
+#       enabled: false
+#       jobs_enabled: false
+#       agents_enabled: false
+#       continuations_enabled: false
+#       scheduled_job_slots: {}    # named slot -> approved job profile; default empty
+#       # Scheduled Fleet jobs require scheduler context_mode: reuse_thread.
+#       # Example after declaring a matching job profile under profiles:
+#       # scheduled_job_slots:
+#       #   daily-report: batch

@@ -7,6 +7,7 @@ import logging
 import re
 from collections.abc import Iterable, Mapping
 from datetime import timedelta
+from functools import wraps
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -15,7 +16,7 @@ from urllib.request import url2pathname
 from langchain_core.tools import BaseTool, StructuredTool
 from langgraph.config import get_config
 
-from deerflow.config.extensions_config import ExtensionsConfig, McpServerConfig, resolve_effective_mcp_routing
+from deerflow.config.extensions_config import ExtensionsConfig, McpServerConfig, get_scoped_extensions_config, resolve_effective_mcp_routing
 from deerflow.config.paths import VIRTUAL_PATH_PREFIX, Paths, get_paths
 from deerflow.constants import DEFAULT_MCP_SESSION_INIT_TIMEOUT, MCP_TMP_SUBDIR
 from deerflow.mcp.client import build_servers_config
@@ -30,6 +31,7 @@ from deerflow.mcp.tasks.runtime import (
     validate_mcp_task_config_snapshot,
 )
 from deerflow.reflection import resolve_variable
+from deerflow.runtime.execution.workspace_boundary import run_native_writer, settled_workspace_activity
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.mcp_metadata import tag_mcp_routing, tag_mcp_tool
 from deerflow.tools.sync import make_sync_tool_wrapper
@@ -473,6 +475,36 @@ def _resolve_session_init_timeout(server_cfg: Any) -> float | None:
     return float(value)
 
 
+def _capture_workspace_mcp_binding():
+    from deerflow.runtime.execution.mutation_context import OwnershipRejected, current_remote_mutation_context, remote_mutation_scope
+    from deerflow.runtime.execution.workspace_boundary import current_workspace_controller, workspace_writer_scope
+
+    # These tools belong to the host's private snapshot, not a client runtime
+    # identity or the Local global cache. Some original adapter call paths have
+    # no injected Runtime/context; retain their original owner at construction.
+    original_context = current_remote_mutation_context()
+    original_controller = current_workspace_controller()
+    if original_context is not None and original_controller is None:
+        raise OwnershipRejected("Original MCP writer controller is unavailable")
+
+    def bind_original_scope(activity):
+        if original_context is None:
+            return activity
+
+        @wraps(activity)
+        async def owned(*args, **kwargs):
+            active_context = current_remote_mutation_context()
+            active_controller = current_workspace_controller()
+            if (active_context is not None and active_context != original_context) or (active_controller is not None and active_controller is not original_controller):
+                raise OwnershipRejected("Private MCP tool belongs to another original execution")
+            with remote_mutation_scope(original_context), workspace_writer_scope(original_controller):
+                return await activity(*args, **kwargs)
+
+        return owned
+
+    return original_context, bind_original_scope
+
+
 def _make_session_pool_tool(
     tool: BaseTool,
     server_name: str,
@@ -500,13 +532,16 @@ def _make_session_pool_tool(
         original_name = original_name[len(prefix) :]
 
     pool = get_session_pool()
+    original_context, bind_original_scope = _capture_workspace_mcp_binding()
 
+    @bind_original_scope
+    @settled_workspace_activity
     async def call_with_persistent_session(
         runtime: Runtime | None = None,
         **arguments: Any,
     ) -> Any:
-        thread_id = _extract_thread_id(runtime)
-        user_id = resolve_runtime_user_id(runtime)
+        thread_id = original_context.thread_id if original_context is not None else _extract_thread_id(runtime)
+        user_id = original_context.user_id if original_context is not None else resolve_runtime_user_id(runtime)
         # Scope the pooled session by user *and* thread. Filesystem isolation is
         # per-(user_id, thread_id), so a thread_id alone could otherwise let two
         # users with a colliding thread_id share one stateful MCP session.
@@ -525,7 +560,7 @@ def _make_session_pool_tool(
             # Bundle the synchronous filesystem prep (dir creation, temp-dir
             # setup, pre-call snapshot) and run it off the event loop — the
             # snapshot walks the whole workspace and would otherwise block.
-            source_base_dir, tmp_dir, before_files = await asyncio.to_thread(_prepare_stdio_workspace, paths, thread_id=thread_id, user_id=user_id)
+            source_base_dir, tmp_dir, before_files = await run_native_writer(_prepare_stdio_workspace, paths, thread_id=thread_id, user_id=user_id)
             # Stdio MCP servers resolve relative output links against their
             # process cwd. Keep that cwd inside the thread's mounted user-data
             # tree so files produced by tools like Playwright land where the
@@ -623,8 +658,8 @@ def _make_session_pool_tool(
         # the event loop.
         changed_files: list[Path] | None = None
         if is_stdio and before_files is not None and _result_has_text_content(call_tool_result):
-            changed_files = await asyncio.to_thread(_changed_workspace_files, source_base_dir, before_files)
-        return await asyncio.to_thread(
+            changed_files = await run_native_writer(_changed_workspace_files, source_base_dir, before_files)
+        return await run_native_writer(
             _convert_call_tool_result,
             call_tool_result,
             thread_id=thread_id,
@@ -633,6 +668,10 @@ def _make_session_pool_tool(
             changed_files=changed_files,
         )
 
+    # StructuredTool validates the original public MCP schema first. Its
+    # injected-argument recovery inspects concrete signature annotations, so
+    # an optional / postponed Runtime annotation would discard ToolNode input.
+    call_with_persistent_session.__annotations__["runtime"] = Runtime
     return StructuredTool(
         name=tool.name,
         description=tool.description,
@@ -666,15 +705,20 @@ def _make_background_submit_tool(
 ) -> BaseTool:
     background_contract = f"Submitted as durable background task {task_name!r}; returns a DeerFlow task ID immediately and status polling is handled automatically."
 
+    original_context, bind_original_scope = _capture_workspace_mcp_binding()
+    original_submitter = get_mcp_task_submitter() if original_context is not None else None
+
+    @bind_original_scope
+    @settled_workspace_activity
     async def submit_in_background(
         runtime: Runtime | None = None,
         **arguments: Any,
     ) -> dict[str, Any]:
-        submitter = get_mcp_task_submitter()
-        thread_id = _extract_thread_id(runtime)
-        user_id = resolve_runtime_user_id(runtime)
+        submitter = original_submitter if original_context is not None else get_mcp_task_submitter()
+        thread_id = original_context.thread_id if original_context is not None else _extract_thread_id(runtime)
+        user_id = original_context.user_id if original_context is not None else resolve_runtime_user_id(runtime)
         context = runtime.context if runtime is not None and runtime.context else {}
-        run_id = context.get("run_id")
+        run_id = original_context.run_id if original_context is not None else context.get("run_id")
         tool_call_id = getattr(runtime, "tool_call_id", None) if runtime is not None else None
         created = await submitter.submit(
             driver_name=ORDINARY_MCP_TASK_DRIVER,
@@ -700,6 +744,7 @@ def _make_background_submit_tool(
             "message": "Task is running in the background.",
         }
 
+    submit_in_background.__annotations__["runtime"] = Runtime
     return StructuredTool(
         name=tool.name,
         description=(f"{tool.description}\n\n{background_contract}" if tool.description else background_contract),
@@ -774,8 +819,8 @@ async def get_mcp_tools() -> list[BaseTool]:
 
     Tools using stdio transport are wrapped with persistent-session logic so
     consecutive calls within the same thread reuse the same MCP session.
-    HTTP/SSE tools are returned unwrapped to avoid cross-task TaskGroup
-    cleanup errors.
+    HTTP/SSE sessions remain owned by their original SDK call task. C tools
+    bind their original workspace scope and track that task through cleanup.
 
     Returns:
         List of LangChain tools from all enabled MCP servers.
@@ -791,7 +836,9 @@ async def get_mcp_tools() -> list[BaseTool]:
     # to always read the latest configuration from disk. This ensures that changes
     # made through the Gateway API (which runs in a separate process) are immediately
     # reflected when initializing MCP tools.
-    extensions_config = ExtensionsConfig.from_file()
+    extensions_config = get_scoped_extensions_config()
+    if extensions_config is None:
+        extensions_config = ExtensionsConfig.from_file()
     validate_mcp_task_config_snapshot(extensions_config)
     servers_config = build_servers_config(extensions_config)
 
@@ -942,6 +989,12 @@ async def get_mcp_tools() -> list[BaseTool]:
                             source_name,
                             transport,
                         )
+                    original_context, bind_original_scope = _capture_workspace_mcp_binding()
+                    if original_context is not None and getattr(tool, "coroutine", None) is not None:
+                        # Keep HTTP/SSE SDK contexts in the original call task;
+                        # the outer binder restores trusted C ownership before
+                        # admission and the ticket lasts through SDK __aexit__.
+                        tool.coroutine = bind_original_scope(settled_workspace_activity(tool.coroutine))
                     current_server_tools.append(tool)
 
             if server_cfg is not None:

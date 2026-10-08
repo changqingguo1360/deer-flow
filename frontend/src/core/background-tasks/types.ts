@@ -24,6 +24,7 @@ export type BackgroundTask = {
   error: string | null;
   tracking_degraded: boolean;
   cancel_requested: boolean;
+  execution_uncertain?: boolean;
 };
 
 export type BackgroundTaskDetail = BackgroundTask & {

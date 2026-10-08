@@ -3,12 +3,27 @@
 import asyncio
 import logging
 import threading
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 from langchain_core.tools import BaseTool
 
 from deerflow.config.file_signature import ConfigSignature as _ConfigSignature
 from deerflow.config.file_signature import get_config_signature as _get_config_signature
+
+_scoped_mcp_tools: ContextVar[tuple[BaseTool, ...] | None] = ContextVar("deerflow_private_mcp_tools", default=None)
+
+
+@contextmanager
+def mcp_tools_scope(tools):
+    """Bind privately discovered clients without touching the Local global cache."""
+    token = _scoped_mcp_tools.set(tuple(tools))
+    try:
+        yield
+    finally:
+        _scoped_mcp_tools.reset(token)
+
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +222,9 @@ def get_cached_mcp_tools() -> list[BaseTool]:
     Returns:
         List of cached MCP tools.
     """
+    scoped = _scoped_mcp_tools.get()
+    if scoped is not None:
+        return list(scoped)
     while True:
         retired_pool = None
         with _init_lock:

@@ -30,3 +30,17 @@ Lets a caller pass per-request, short-lived end-user credentials (e.g. an ERP to
 - **Leak surfaces sealed** (verified by a real-gateway e2e run — secret reaches the sandbox but none of these): prompt (value never in a message), trace (`tracing/metadata.py` never copies `context`), checkpoint (secrets live on `runtime.context`, not graph state), audit (journal records names only), stdout (`tools.py::mask_secret_values` redacts injected values from bash output), and **run-record persistence + run API** (`services.py::start_run` stores `redact_config_secrets(body.config)` so `runs.kwargs_json` and `RunResponse.kwargs` never carry the secret).
 - **Historical retention**: API response hiding prevents legacy `metadata.auth_token` and `config.metadata.auth_token` from being returned now; it does not delete values already retained in databases, run events, logs, snapshots, exports, or backups. Deployments that ever used either legacy carrier must rotate the credential and clean every retained copy under their retention policy. Restarting or upgrading DeerFlow performs neither action.
 - **Scope / non-goals**: no persistence/vaulting — values are request-scoped and never stored server-side, so long-lived use means the caller re-supplies `context.secrets` on each request while the skill stays in `skill_context`; subagents do not inherit the skill injection set. MCP interceptors may independently consume the same supported request-scoped carrier. Tests: `tests/test_skill_request_scoped_secrets.py`, `tests/test_mcp_session_pool.py`.
+
+
+### Frozen remote enabled state (C04 locally verified)
+
+SkillStorage, UserScopedSkillStorage, enabled-state projection and sandbox file
+checks consult `get_scoped_extensions_config()` when a trusted remote execution
+snapshot is active. Without it, they retain the existing file-backed state path.
+The runner's installed bundle records actual skill package content and validates
+the enabled/disabled snapshot; declarations alone are not proof of loaded skills.
+
+This bridge does not change LocalSandbox's skill-isolation capabilities or make
+its path mapping a host filesystem security boundary. Remote tool isolation
+depends on the enclosing Agent container and guarded private runner process.
+Remote admission remains closed pending the remaining durable write fences and gates.

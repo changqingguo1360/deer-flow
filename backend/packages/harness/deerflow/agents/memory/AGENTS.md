@@ -25,6 +25,99 @@ Backend-specific tests use `backend/tests/test_<backend>_memory_backend.py`.
 Resolve users with `resolve_runtime_user_id(runtime)` in middleware and tools.
 This keeps Gateway and standalone LangGraph runs in the same user scope.
 
+**Configuration** (`config.yaml` → `memory`):
+- `enabled` / `injection_enabled` - Master switches
+- `mode` - Operation mode: `middleware` (default passive background extraction) or `tool` (experimental model-driven memory tools). Modes are mutually exclusive.
+- `storage_path` - DeerMem storage root; one global summary JSON lives under each user and Markdown facts remain under agent buckets
+- `storage_class` - `file` or a dotted `MemoryStorage` class; invalid persistent backends fail fast
+- `strict_user_scope` - Require `user_id` for all storage access (default `false` for no-auth/legacy compatibility)
+- `manifest_filename` - User-global summary JSON filename (kept for configuration compatibility)
+- `file_lock_timeout_seconds` - Scope-lock wait; Markdown facts and the recovery journal are required storage invariants rather than configurable modes
+- `retrieval_adapter` - `fts5` by default, empty to disable, or a dotted factory receiving `DeerMemConfig` and returning a retrieval-port implementation
+- `debounce_seconds` - Wait time before processing (default: 30)
+- `shutdown_flush_timeout_seconds` - Hard budget (seconds) reserved for draining the memory backend's pending-update buffer on Gateway graceful shutdown (default: 30; 1–300). Each pending item does one LLM call, so large IM batches may need more. The Gateway lifespan calls `MemoryManager.shutdown_flush(timeout)` after channels/scheduler stop and after waiting at most one additional second for the derived retrieval warm-up; the backend short-circuits on an idle buffer, so the host calls it unconditionally (no pending/processing gate). The retrieval wait does not reduce this canonical flush budget. The combined shutdown hooks, brief retrieval wait, flush budget, and scheduling margin must fit inside the pod's K8s `terminationGracePeriodSeconds` (gateway Helm chart default: 45s) or K8s SIGKILLs the drain mid-flight.
+- `model_name` - LLM for updates (null = default model)
+- `max_facts` / `fact_confidence_threshold` - Fact storage limits (100 / 0.7)
+- `fact_eviction_policy` / `fact_eviction_shadow_enabled` - Capacity policy (`confidence` default; opt-in `hybrid-v1`) and non-enforcing hybrid comparison audit
+- `eviction_confidence_weight` / `eviction_confirmation_weight` / `eviction_access_weight` - Hybrid weights (0.65 / 0.25 / 0.10; must sum to 1.0)
+- `eviction_confirmation_half_life_days` / `eviction_access_half_life_days` - Confirmation and query-heat decay windows (90 / 30 days)
+- `eviction_correction_reserved_fraction` / `eviction_correction_reserved_max` - Bounded minimum correction capacity (0.10 / 10; unused slots are released)
+- `eviction_audit_max_entries` - Metadata-only capacity audit bound per user/agent scope (200; 0 disables)
+- `max_injection_tokens` - Token limit for prompt injection (2000)
+- `token_counting` - Token counting strategy for the injection budget: `tiktoken` (default, accurate but may download BPE data from a public endpoint on first use — can block for a long time in network-restricted environments, see issues #3402/#3429) or `char` (network-free CJK-aware char estimate, never touches tiktoken)
+- `staleness_review_enabled` - Enable proactive staleness pruning of aged facts (default: `true`; only triggers when aged candidates exist)
+- `staleness_age_days` - Age in days before a fact becomes a staleness candidate (default: 90; range: 30–365)
+- `staleness_min_candidates` - Minimum aged candidates required to trigger a review cycle (default: 3; range: 1–50)
+- `staleness_max_removals_per_cycle` - Maximum facts removed in a single cycle; lowest-confidence entries are kept when the LLM requests more (default: 10; range: 1–50)
+- `staleness_protected_categories` - Fact categories that are never pruned by staleness review (default: `["correction"]`)
+- `staleness_max_lifetime_multiplier` - Creation-time cap multiplier for a fact's LLM-assigned `expected_valid_days`: stored value is clamped to `staleness_age_days × multiplier` so the model cannot defer first review indefinitely (default: 20.0; range: 1.0–100.0). Default 20.0 (90 × 20 = 1800 d ≈ 5 years) is generous enough to support the very-stable prompt tier without needing multiple review cycles to escape the cap.
+- `staleness_max_extension_days` - Absolute upper bound (in days) on `expected_valid_days` after a lifetime extension (`staleFactsToExtend`). Applied at write time as `min(days_since + extend_by, staleness_max_extension_days)`. Uses an absolute ceiling rather than the multiplier because extensions are deliberate review decisions; prevents `timedelta` overflow and LLM misfire from permanently deferring a fact (default: 3650 = 10 years; range: 90–36500).
+- `consolidation_enabled` - Enable memory consolidation (default: `true`; no extra API call — runs in the same LLM invocation as the normal memory update)
+- `consolidation_min_facts` - Minimum facts in a category to trigger consolidation review (default: 8; range: 3–30)
+- `consolidation_max_groups_per_cycle` - Maximum categories the LLM can merge in one cycle (default: 3; range: 1–10; also controls the LLM's prompt instruction)
+- `consolidation_max_sources` - Maximum source facts per merge group; prevents over-merging (default: 8; range: 2–20)
+- `watermark_max_keys` - Soft cap on the in-memory conversation-watermark cache (one entry per distinct thread/user/agent). A bounded LRU: when over capacity the least-recently-used entry is dropped, and a dropped key re-extracts one batch on that thread's next turn (same as a restart). Bounds memory in long-lived gateways handling many threads (default: 4096; 0 = unbounded)
+
+
+### Remote execution memory boundary (C06c)
+
+The private remote factory resolves backend compatibility before `from_config` or
+warm-up. `MemoryManager.remote_mutation_mode` defaults to `unsupported`; noop is
+stateless, while an operator-trusted adapted backend declares `transactional`.
+A declaration does not fence file storage or an external SDK. Existing DeerMem,
+mem0, Honcho and OpenViking implementations are not atomic remote-write adapters.
+Local backend selection and the Local singleton retain their existing behavior.
+
+`make_remote_memory_manager` supplies private host transaction hooks separately
+from private `backend_config`. Remote public AppConfig exposes only validated
+`failure_policy.read` (`fail_closed`/`fail_open`), preserving prompt behavior;
+constructor options stay private. `memory_manager_scope` selects the bound manager
+before consulting the Local singleton. Missing or different original execution context
+rejects access instead of falling back to an unbound manager. Adapted backends
+use `BoundMutationTransactions` on the actual writer connection/transaction and
+hold original execution locks through commit or rollback. Memory writes are
+active-only; read-only recall does not grant later write authority.
+
+Capture the original context and bound capability at enqueue, retain both per
+item across raw threads and shutdown drain, and separate attempts when coalescing.
+Validate again after extraction, inside the actual write transaction. Memory CRUD
+tools and emergency summarization hooks propagate nonretryable `OwnershipRejected`
+instead of returning an ordinary error string or swallowing it. The configured
+PostgreSQL fixture proves real durable behavior; it is not a new default memory
+product. C06 acceptance evidence belongs to the external plan; activation stays closed.
+
+
+The remote host wires `RunContext.before_terminal_mutations` to drain the private
+manager's original queued work before durable terminal status is committed.
+This preserves the normal `MemoryMiddleware.aafter_agent` -> `manager.aadd`
+queue path; models and tools do not manage the queue's lifecycle. Resource close
+after terminal does not authorize remaining memory writes. Local hosts without
+that optional hook retain their asynchronous policy. Installed verification of
+both middleware and tool modes is required before full C06c acceptance.
+
+
+The host locks the original memory-user domain after six execution locks and
+before fresh clock validation. The same writer transaction revalidates its original
+capability after ORM flush and before commit, so expiry during target-table/row waits
+rolls back the write. Backend callbacks cannot choose advisory keys.
+
+Remote teardown requires positive native-worker quiescence before service stop
+and resource unwind. `shutdown_flush(False)` or an exception does not prove
+worker completion; default `close()` is not a drain. The private host retains
+original resources/phase Tasks and retries within the first monotonic 120s total
+budget, keeping isolated-worker deadline exit armed. Memory extraction and owned
+observers can enqueue each other: drain to joint quiescence using original-scope
+enqueue/actual-Task completion revisions, then repeat after service stop. Only
+then call memory close. Local/Gateway best-effort shutdown is unchanged. Verify
+real configured native queue/SQL barriers, positive completion, round-trip enqueue
+and isolated deadline exit with independent PG rollback/connection/lock checks.
+
+BC07 candidate: private memory construction rejects explicit alternate model/LLM
+settings before effects. Default factory models consult the opaque task budget at
+every request; directly cached DeerMem models reject private calls unless supported.
+Trusted queue/thread dispatch must preserve execution ContextVars. Native budget
+main passed; memory/installed budget wiring remains within subsequent qualification.
+
 Server-owned `langgraph_auth_user_id` takes precedence over ordinary client identity.
 Lead-agent construction normalizes it with `make_safe_user_id`.
 Memory, custom agents, user skills, skill policy, and prompt assembly reuse that identity.

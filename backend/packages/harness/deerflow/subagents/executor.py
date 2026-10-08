@@ -32,6 +32,7 @@ from deerflow.authz.principal import normalize_authz_attributes
 from deerflow.config import get_app_config
 from deerflow.config.app_config import AppConfig
 from deerflow.models import create_chat_model
+from deerflow.runtime.execution.workspace_boundary import settled_workspace_activity
 from deerflow.runtime.user_context import DEFAULT_USER_ID
 from deerflow.skills.types import Skill
 from deerflow.subagents.capacity import (
@@ -1278,6 +1279,7 @@ class SubagentExecutor:
 
         return state, final_tools, deferred_setup
 
+    @settled_workspace_activity
     async def _aexecute(self, task: str, result_holder: SubagentResult | None = None) -> SubagentResult:
         """Execute after acquiring the process-wide native-subagent slot.
 
@@ -1517,7 +1519,12 @@ class SubagentExecutor:
                 )
                 return result
 
-            async for chunk in agent.astream(state, config=run_config, context=context, stream_mode="values"):  # type: ignore[arg-type]
+            from deerflow.runtime.execution.mutation_context import current_remote_mutation_context
+
+            # This one-shot graph has no saver. Keep the durable remote root's
+            # sync mode from leaking into a child with no checkpoint future.
+            stream_options = {"durability": "async"} if current_remote_mutation_context() is not None else {}
+            async for chunk in agent.astream(state, config=run_config, context=context, stream_mode="values", **stream_options):  # type: ignore[arg-type]
                 # A yielded values chunk is already executed state.  Retain it
                 # before observing cooperative cancellation so terminal receipt
                 # harvesting includes a tool result that completed while the

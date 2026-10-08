@@ -166,7 +166,7 @@ class _Config:
 @pytest.mark.asyncio
 async def test_create_scheduled_task_uses_repo():
     repo = _Repo()
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     body = scheduled_tasks.ScheduledTaskCreateRequest(
         thread_id="thread-1",
         title="Daily summary",
@@ -210,7 +210,7 @@ async def test_create_scheduled_task_uses_repo():
 @pytest.mark.asyncio
 async def test_create_fresh_thread_task_does_not_require_thread_id():
     repo = _Repo()
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     body = scheduled_tasks.ScheduledTaskCreateRequest(
         context_mode="fresh_thread_per_run",
         thread_id=None,
@@ -267,7 +267,7 @@ async def test_trigger_scheduled_task_dispatches_manual_run():
         timezone="UTC",
         next_run_at=None,
     )
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -311,7 +311,7 @@ async def test_trigger_scheduled_task_returns_conflict_when_dispatch_conflicts()
         timezone="UTC",
         next_run_at=None,
     )
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -352,7 +352,7 @@ async def test_update_scheduled_task_writes_repo():
         timezone="UTC",
         next_run_at=None,
     )
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
     config = _Config()
     thread_store = SimpleNamespace(check_access=AsyncMock(return_value=True))
@@ -430,7 +430,7 @@ async def test_update_rechecks_atomic_mutability_after_router_precheck(tmp_path)
             call_unwrapped(
                 scheduled_tasks.update_scheduled_task,
                 task_id=task["id"],
-                request=SimpleNamespace(),
+                request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())),
                 body=scheduled_tasks.ScheduledTaskUpdateRequest(prompt="changed after admission"),
             )
         )
@@ -476,7 +476,7 @@ async def test_delete_scheduled_task_deletes_repo_row():
         timezone="UTC",
         next_run_at=None,
     )
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -514,7 +514,7 @@ async def test_pause_and_resume_scheduled_task_update_status():
         timezone="UTC",
         next_run_at=None,
     )
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -559,7 +559,7 @@ async def test_pause_cancels_waiting_occurrence_before_pausing_task():
         next_run_at=None,
     )
     repo.active_status = "queued"
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -597,7 +597,7 @@ async def test_delete_rejects_occurrence_that_has_started_launching():
         next_run_at=None,
     )
     repo.active_status = "launching"
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -636,7 +636,7 @@ async def test_pause_rejects_running_task():
         next_run_at=None,
     )
     task["status"] = "running"
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -675,7 +675,7 @@ async def test_update_rejects_running_task():
         next_run_at=None,
     )
     task["status"] = "running"
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
     config = _Config()
     thread_store = SimpleNamespace(check_access=AsyncMock(return_value=True))
@@ -723,7 +723,7 @@ async def test_update_rejects_queued_task_definition_until_occurrence_finishes()
         next_run_at=None,
     )
     repo.active_status = "queued"
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
     config = _Config()
 
@@ -781,7 +781,7 @@ async def test_list_thread_scheduled_tasks_filters_by_thread_id():
         next_run_at=None,
     )
 
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -832,7 +832,7 @@ async def test_list_scheduled_task_runs_returns_persisted_rows_without_side_effe
             ]
         ),
     )
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_task_repo = scheduled_tasks.get_scheduled_task_repo
@@ -859,7 +859,7 @@ async def test_list_scheduled_task_runs_returns_persisted_rows_without_side_effe
 @pytest.mark.asyncio
 async def test_create_once_task_enforces_minimum_delay():
     repo = _Repo()
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     body = scheduled_tasks.ScheduledTaskCreateRequest(
         thread_id="thread-1",
         title="Soon task",
@@ -918,7 +918,7 @@ async def test_update_terminal_once_task_with_future_run_at_rearms_it():
     )
     task["status"] = "completed"
     future_run_at = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
-    request = SimpleNamespace()
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
     user = SimpleNamespace(id="user-1")
 
     old_repo = scheduled_tasks.get_scheduled_task_repo
@@ -971,7 +971,7 @@ async def _call_create(body, repo=None, config=None):
         scheduled_tasks.get_optional_user_from_request = AsyncMock(return_value=user)
         return await call_unwrapped(
             scheduled_tasks.create_scheduled_task,
-            request=SimpleNamespace(),
+            request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())),
             body=body,
         )
     finally:
@@ -992,7 +992,7 @@ async def _call_update(repo, task_id, body):
         return await call_unwrapped(
             scheduled_tasks.update_scheduled_task,
             task_id=task_id,
-            request=SimpleNamespace(),
+            request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())),
             body=body,
         )
     finally:
@@ -1248,7 +1248,7 @@ async def test_update_custom_assistant_id_is_persisted():
             updated = await call_unwrapped(
                 scheduled_tasks.update_scheduled_task,
                 task_id=task["id"],
-                request=SimpleNamespace(),
+                request=SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace())),
                 body=scheduled_tasks.ScheduledTaskUpdateRequest(assistant_id="triage-bot"),
             )
     finally:

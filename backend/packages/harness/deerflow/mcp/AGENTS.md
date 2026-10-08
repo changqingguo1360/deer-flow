@@ -35,6 +35,75 @@
   Verdicts are pinned against the real launchers: for npx, every argument vector the validator rejects is one `npx` actually executes, and every vector it allows is one `npx` passes through to the server. `env` screening covers names that execute code **unconditionally** at process startup, e.g. `PYTHONPATH`/`PYTHONHOME`, which run a caller-controlled `sitecustomize.py` at interpreter startup under plain `uvx`. Caller-controlled **search paths** are a weaker, conditional class and are an accepted residual: `LD_LIBRARY_PATH`/`DYLD_LIBRARY_PATH` (conditional on the process loading a shadowable library, and legitimately set by native-dependency servers) and `NODE_PATH` (searched *after* the local `node_modules` chain, so it cannot shadow an installed dependency, and ignored entirely by ESM `import` — it can only supply a CJS module that would otherwise fail to resolve). Do not move a search path into the set: it would make the "unconditional" rule untrue, which is how a defense-in-depth list starts being mistaken for a boundary. Remote transports skip all three — they spawn nothing.
   **This is defense in depth, not a trust boundary.** `npx`/`uvx` exist to fetch and execute remote packages, so an admin can still point one at a package they published; the boundary is admin authentication plus network reachability. Do not add a check here on the assumption that it makes MCP registration safe for untrusted admins — it does not, and the fix for that is not a bigger denylist.
 
+### Gateway durable-task integration
+
+- Long-running MCP work uses a separate durable task runtime rather than keeping remote task IDs or status polling inside the Agent loop. Explicit `task_toolsets` bind raw submit/status/cancel names; only submit remains Agent-visible, and its wrapper persists the remote handle before returning a local ID. `McpTaskService` claims due rows with leases, resolves a protocol-specific `McpTaskDriver`, and writes normalized snapshots back to `mcp_tasks`; expired leases are the restart-recovery mechanism, and a result returned after expiry or after a cancel request must be discarded even when the owner token still matches. The first cancel request fences an in-flight poll lease, while repeats preserve an active cancellation lease so they cannot issue concurrent remote cancels; cancellation backoff starts when the remote attempt finishes, so a slow timeout cannot consume the retry delay. Cancellation, polling, and notification batches isolate per-task exceptions; an unexpected cancellation/poll failure leaves that record's lease to expire, while notification failures release only the affected lease for retry. Input-required and terminal event snapshots are delivered by idempotent Agent runs and marked delivered only after run success; the trusted notification instruction stays outside the input boundary while the serialized remote event is framed as untrusted data. A busy-thread conflict is normalized back to the service boundary so the queued snapshot coalesces to the latest task event. A missing dispatched run becomes a failed delivery attempt, while transient run-store hydration errors stay distinguishable and retry the same lookup. The database is the source of truth; `ThreadState` receives only a bounded current-thread projection, and display names are neutralized at that model-state boundary. The installed process-local submitter is the source of truth for management-tool exposure; hot `mcp_tasks` edits take effect only after restart, and active skills must explicitly declare the list/cancel business tools.
+- MCP notification failures use a consecutive counter separate from the idempotency-key `dispatch_attempt`, capped exponential backoff, latest-event rebuilding before a run launches, and a five-attempt budget before `dead_letter`. A permanently missing/mismatched target thread is dead-lettered immediately instead of being recreated or reclaimed. HTTP and Agent cancellation requests return after the durable cancel fence; the background loop alone owns the potentially slow remote call and retry schedule. The HTTP cancel endpoint rejects requests with 503 when the loop is not running (`mcp_tasks_available` false, e.g. `mcp_tasks.enabled=false` with SQL persistence), so a cancellation is never acknowledged without a worker to perform it. The bounded notification error/count/status join poll and cancellation diagnostics in the task detail API and expanded card.
+
+
+### Private runner discovery (C04 locally verified)
+
+Actual `get_mcp_tools()` consults the trusted extensions snapshot when
+`extensions_config_scope` is active. The host pre-discovers tools under that
+scope and binds them through `mcp_tools_scope(tools)`; the synchronous
+`get_cached_mcp_tools()` then returns that execution's tools without initializing
+or mutating the Local global cache. Toolset enabled-server checks use the same
+private snapshot. Scope exit resets both carriers; no private authentication
+belongs in public AppConfig or a global tools/config cache.
+
+Installed runtime bindings approve MCP transports and endpoints, or bounded stdio
+commands/arguments and allowed target environment keys. Target service credentials
+are private; control database, node and attempt credentials cannot be forwarded to
+MCP subprocesses. Existing transport interceptors remain the authentication path.
+This C04 plumbing is locally verified; it does not supply C06 durable mutation
+fencing or activate remote Agent admission.
+
+
+### Remote durable task tracking (C06c)
+
+Durable submit tools resolve `get_mcp_task_submitter`, independently of the
+worker's task projection repository. A private `mcp_task_submitter_scope` binds
+the actual submission service, original capability and task-server snapshot;
+missing/wrong context rejects instead of reusing a Local/Gateway global service.
+The runner uses the normal tool -> McpTaskService -> bound repository path.
+Tracking creation, duplicate-handle ownership and cancellation requests validate
+the original user/thread/run on the actual transaction, including post-SQL/flush
+lease validation before commit after target or unique-conflict waits. Host poll,
+notification and service-start mutations remain unavailable to that repository.
+After unique-conflict rollback, recheck original authority before ordinary error
+handling or compensation.
+
+Propagate nonretryable `OwnershipRejected`; do not present it as degraded tracking
+or retry/compensate it as an ordinary submission error. Local/Gateway behavior
+retains its existing service ownership and compensation rules. External MCP
+effects are not transactionally rolled back or promised exactly-once. C06 acceptance
+evidence belongs to its external plan; activation stays closed.
+
+Dynamic MCP wrappers retain concrete `Runtime` annotations on both coroutine and
+final synchronous bridge: ToolNode prefers `tool.func` when present. Preserve
+injection through the original MCP args schema; optional/postponed annotations or
+an unannotated sync bridge can lose original run/user association. Runtime stays
+absent from the model schema. Test the loaded tool pipeline, not only a standalone
+coroutine wrapper; existing RunnableConfig injection and Local calls remain valid.
+
+### Private Fleet child submissions (BC01 source/native verified)
+
+`fleet_job_submitter_scope` binds the same private McpTaskService and its host-bound Fleet driver to the original remote mutation context. Missing/wrong context fails closed; remote calls never fall back to the Gateway global Fleet carrier. Profile names and scheduled slots come from approved operator configuration, and scope exit resets the carrier. `submit_fleet_job` exposes detached/awaited mode; awaited requires enabled continuations and authorized parent ownership. Same-transaction child links and sealed groups are owned by Fleet repositories with the host-injected capability. BC01–BC04 have native local acceptance; this does not prove the installed combined chain. BC05–BC10 remain pending. See [BC01 boundary](../../../../../docs/ecs-fleet-bc01-runtime.md).
+
+### Fleet result delivery ownership (BC04 native accepted)
+
+The Gateway binds an optional, neutral notification policy to the original SQL
+McpTaskRepository when the Fleet runtime is ready. The host adapter correlates
+immutable awaited links by tracking ID, user and thread; its SQL predicate filters
+notification claims before LIMIT. Polling may still update their projection.
+Both McpTaskService dispatch and the internal Gateway notification launcher recheck
+the same durable ownership before creating a run. Keep optional Fleet/app imports
+out of harness, avoid MCP-row-to-Fleet-job/task locks, and preserve ordinary MCP
+behavior when no policy is installed. Private Agent submission does not start a
+background notification service. Reuse the original notification idempotency and
+continuation receipts; see [BC04 runtime](../../../../../docs/ecs-fleet-bc04-runtime.md)
+for current verification limits.
+
 **Durable MCP task runtime** (`mcp_tasks`, `McpTaskService`; summarized in
 [backend/AGENTS.md](../../../../AGENTS.md)): Long-running MCP work uses a separate durable task runtime rather than keeping remote task IDs or status polling inside the Agent loop. Explicit `task_toolsets` bind raw submit/status/cancel names; only submit remains Agent-visible, and its wrapper persists the remote handle before returning a local ID. `McpTaskService` claims due rows with leases, resolves a protocol-specific `McpTaskDriver`, and writes normalized snapshots back to `mcp_tasks`; expired leases are the restart-recovery mechanism, and a result returned after expiry or after a cancel request must be discarded even when the owner token still matches. The first cancel request fences an in-flight poll lease, while repeats preserve an active cancellation lease so they cannot issue concurrent remote cancels; cancellation backoff starts when the remote attempt finishes, so a slow timeout cannot consume the retry delay. Cancellation, polling, and notification batches isolate per-task exceptions; an unexpected cancellation/poll failure leaves that record's lease to expire, while notification failures release only the affected lease for retry. Input-required and terminal event snapshots are delivered by idempotent Agent runs and marked delivered only after run success; the trusted notification instruction stays outside the input boundary while the serialized remote event is framed as untrusted data. A busy-thread conflict is normalized back to the service boundary so the queued snapshot coalesces to the latest task event. A missing dispatched run becomes a failed delivery attempt, while transient run-store hydration errors stay distinguishable and retry the same lookup. The database is the source of truth; `ThreadState` receives only a bounded current-thread projection, and display names are neutralized at that model-state boundary. The installed process-local submitter is the source of truth for management-tool exposure; hot `mcp_tasks` edits take effect only after restart, and active skills must explicitly declare the list/cancel business tools.
 

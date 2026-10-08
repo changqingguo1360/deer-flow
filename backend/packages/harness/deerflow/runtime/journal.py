@@ -44,6 +44,7 @@ from deerflow.runtime.events.catalog import (
     RUN_ERROR_EVENT,
     RUN_START_EVENT,
 )
+from deerflow.runtime.execution.mutation_context import OwnershipRejected
 from deerflow.utils.messages import message_to_text, restore_original_human_message
 
 if TYPE_CHECKING:
@@ -253,6 +254,7 @@ class RunJournal(BaseCallbackHandler):
 
         # Write buffer
         self._buffer: list[dict] = []
+        self._ownership_rejection: OwnershipRejected | None = None
         self._pending_llm_response: _PendingLlmResponse | None = None
         self._pending_flush_tasks: set[asyncio.Task[None]] = set()
         self._pending_progress_task: asyncio.Task[None] | None = None
@@ -825,7 +827,7 @@ class RunJournal(BaseCallbackHandler):
         call in the worker's ``finally`` block.
         """
         self._commit_pending_llm_response()
-        if not self._buffer:
+        if self._ownership_rejection is not None or not self._buffer:
             return
         # Skip if a flush is already in flight — avoids concurrent writes
         # to the same SQLite file from multiple fire-and-forget tasks.
@@ -849,6 +851,10 @@ class RunJournal(BaseCallbackHandler):
                 return
             await store.put_batch(batch)
             self._feed_generation += 1
+        except OwnershipRejected as exc:
+            self._ownership_rejection = exc
+            self._buffer.clear()
+            raise
         except Exception:
             logger.warning(
                 "Failed to flush %d events for run %s — returning to buffer",
@@ -1089,6 +1095,9 @@ class RunJournal(BaseCallbackHandler):
             if self._pending_progress_task is pending_progress_task:
                 self._pending_progress_task = None
 
+        if self._ownership_rejection is not None:
+            raise self._ownership_rejection
+
         while self._buffer:
             batch = self._buffer[: self._flush_threshold]
             del self._buffer[: self._flush_threshold]
@@ -1098,6 +1107,10 @@ class RunJournal(BaseCallbackHandler):
                     return
                 await store.put_batch(batch)
                 self._feed_generation += 1
+            except OwnershipRejected as exc:
+                self._ownership_rejection = exc
+                self._buffer.clear()
+                raise
             except Exception:
                 self._buffer = batch + self._buffer
                 raise
@@ -1204,6 +1217,10 @@ class RunJournal(BaseCallbackHandler):
         try:
             await self._progress_reporter(snapshot_to_write)
             self._last_progress_flush = time.monotonic()
+        except OwnershipRejected as exc:
+            self._ownership_rejection = exc
+            self._progress_dirty = False
+            raise
         except Exception:
             logger.warning("Failed to persist progress snapshot for run %s", self.run_id, exc_info=True)
         if dirty_before_write or self._progress_dirty:

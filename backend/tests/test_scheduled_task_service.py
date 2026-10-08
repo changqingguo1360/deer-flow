@@ -137,6 +137,7 @@ async def test_service_claims_and_dispatches_due_task():
         assert kwargs["owner_user_id"] == "user-1"
         assert kwargs["metadata"]["scheduled_task_id"] == "task-1"
         assert kwargs["metadata"]["scheduled_trigger"] == "scheduled"
+        assert kwargs["metadata"]["scheduled_context_mode"] == "reuse_thread"
         return {"run_id": "run-1", "thread_id": kwargs["thread_id"]}
 
     task_repo = DummyTaskRepo(
@@ -217,6 +218,7 @@ async def test_manual_trigger_keeps_paused_cron_task_paused():
 async def test_fresh_thread_per_run_creates_new_execution_thread():
     async def fake_launch(**kwargs):
         assert kwargs["thread_id"] != "thread-template"
+        assert kwargs["metadata"]["scheduled_context_mode"] == "fresh_thread_per_run"
         return {"run_id": "run-3", "thread_id": kwargs["thread_id"]}
 
     task_repo = DummyTaskRepo(

@@ -7,6 +7,7 @@ from langgraph.types import Command
 from deerflow.config.agents_config import SOUL_FILENAME, validate_agent_name
 from deerflow.config.paths import get_paths
 from deerflow.persistence.agents import get_agent_store
+from deerflow.runtime.execution.mutation_context import OwnershipRejected, require_definition_mutation_scope
 from deerflow.runtime.user_context import resolve_runtime_user_id
 from deerflow.tools.types import Runtime
 
@@ -50,7 +51,10 @@ def setup_agent(
     agent_name: str | None = runtime.context.get("agent_name") if runtime.context else None
 
     try:
+        remote = require_definition_mutation_scope(runtime)
         agent_name = validate_agent_name(agent_name)
+        if remote and not agent_name:
+            raise OwnershipRejected("Remote global SOUL file mutation is unsupported")
         if agent_name:
             # Custom agents are persisted under the current user's bucket (via
             # the configured store — file or db) so different users, and
@@ -79,6 +83,8 @@ def setup_agent(
             }
         )
 
+    except OwnershipRejected:
+        raise
     except Exception as e:
         logger.error(f"[agent_creator] Failed to create agent '{agent_name}': {e}", exc_info=True)
         return Command(update={"messages": [ToolMessage(content=f"Error: {e}", tool_call_id=runtime.tool_call_id)]})

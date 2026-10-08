@@ -22,7 +22,7 @@ from langchain_core.messages import BaseMessage
 from langchain_core.messages.utils import convert_to_messages
 from langgraph.types import Command
 
-from app.gateway.auth_disabled import AUTH_SOURCE_INTERNAL
+from app.gateway.auth_disabled import AUTH_SOURCE_AUTH_DISABLED, AUTH_SOURCE_INTERNAL, AUTH_SOURCE_PAT, AUTH_SOURCE_SESSION
 from app.gateway.authz import require_cancel_permission_if
 from app.gateway.deps import get_checkpointer, get_local_provider, get_run_context, get_run_manager, get_stream_bridge
 from app.gateway.internal_auth import (
@@ -94,14 +94,36 @@ async def reserve_checkpoint_write(
     user_id: str | None = None,
 ) -> AsyncIterator[None]:
     """Serialize an out-of-run checkpoint writer against all thread operations."""
-    run_manager = get_run_manager(request)
-    async with goal_thread_lock(thread_id):
-        async with run_manager.reserve_thread_operation(
-            thread_id,
-            kind=ThreadOperationKind.checkpoint_write,
-            user_id=user_id,
-        ):
-            yield
+    async with reserve_trusted_thread_operation(request, thread_id, operation="checkpoint_write", user_id=user_id):
+        yield
+
+
+@asynccontextmanager
+async def reserve_trusted_thread_operation(request, thread_id, *, operation, user_id):
+    """Retry only the rolled-back final human handoff, never the mutation."""
+    from contextlib import AsyncExitStack
+    from uuid import uuid4
+
+    manager = get_run_manager(request)
+    participant, expected = None, None
+    fleet = getattr(request.app.state, "fleet_ownership", None) is not None
+    key = request.headers.get("Idempotency-Key") or uuid4().hex
+    async with goal_thread_lock(thread_id), AsyncExitStack() as stack:
+        for retry in range(2):
+            if fleet:
+                from app.fleet.task_admission import HumanOperationNeedsStop, neutral_participant
+                from app.gateway.deps import get_current_user
+
+                participant = await neutral_participant(request, thread_id, operation, user_id or await get_current_user(request), operation_key=key, expected=expected)
+            try:
+                await stack.enter_async_context(manager.reserve_thread_operation(thread_id, kind=ThreadOperationKind(operation), user_id=user_id, **({"participant": participant} if participant is not None else {})))
+            except ConflictError as exc:
+                if not fleet or retry or not isinstance(exc, HumanOperationNeedsStop):
+                    raise
+                expected = (exc.task_id, exc.generation)
+            else:
+                break
+        yield
 
 
 _TERMINAL_RUN_STATUSES = {
@@ -223,6 +245,9 @@ async def _ensure_thread_metadata(
 
 async def _terminal_record_stream_missing(bridge: StreamBridge, record: RunRecord) -> bool:
     """True when a terminal run has no retained stream on bridges that can tell."""
+    remote = getattr(bridge, "is_remote", None)
+    if remote is not None and await remote(record.run_id):
+        return False
     if not _run_is_terminal(record):
         return False
     stream_exists = getattr(bridge, "stream_exists", None)
@@ -242,6 +267,7 @@ async def _terminal_record_stream_missing(bridge: StreamBridge, record: RunRecor
 async def _orphan_recovery_observed_after_heartbeat(
     record: RunRecord,
     run_mgr: RunManager,
+    bridge: StreamBridge | None = None,
 ) -> bool:
     """Return whether durable orphan recovery is the consumer's liveness edge.
 
@@ -251,6 +277,9 @@ async def _orphan_recovery_observed_after_heartbeat(
     ``stop_reason`` is written atomically with the terminal status. Only that
     explicit signal may synthesize END after a heartbeat.
     """
+    remote = getattr(bridge, "is_remote", None)
+    if remote is not None and await remote(record.run_id):
+        return False
     if not record.store_only:
         return False
     refreshed = await run_mgr.get(record.run_id, user_id=record.user_id)
@@ -428,10 +457,14 @@ _CONTEXT_INTERNAL_CALLER_KEYS: frozenset[str] = frozenset({"non_interactive"})
 #   ``authz_attributes``        — Phase 1A has no Gateway-side producer; cleared.
 #   ``channel_user_id``         — accepted only from trusted internal context.
 #   ``langgraph_auth_user*``    — populated only by LangGraph Server auth.
-#   ``sandbox_*_id``           — created only inside the run/subagent lifecycle.
 _SERVER_OWNED_RUNTIME_CONTEXT_KEYS: frozenset[str] = (
     frozenset(
         {
+            "execution_backend",
+            "placement",
+            "token",
+            "owner_worker_id",
+            "lease_expires_at",
             "is_internal",
             "authz_attributes",
             "channel_user_id",
@@ -1263,6 +1296,11 @@ async def start_run(
     *,
     idempotency_key: str | None = None,
     require_existing_thread: bool = False,
+    trusted_schedule_id: str | None = None,
+    trusted_schedule_mode: str = "reuse_thread",
+    execution_backend=None,
+    execution_ticket=None,
+    execution_lease_owner=None,
 ) -> RunRecord:
     """Create a RunRecord and launch the background agent task.
 
@@ -1324,6 +1362,9 @@ async def start_run(
             )
 
     owner_user_id = get_trusted_internal_owner_user_id(request)
+    from app.gateway.internal_auth import authenticated_channel_human_event
+
+    channel_human = authenticated_channel_human_event(request, thread_id, body.input)
     # Stateless run endpoints carry thread_id in the request *body*, so the
     # @require_permission(owner_check=True) decorator -- which resolves ownership
     # from the path param -- cannot protect them. Enforce thread ownership here,
@@ -1394,6 +1435,11 @@ async def start_run(
             # ``body.config`` is free-form and copied verbatim by
             # ``build_run_config``; scrub internal-only keys smuggled there.
             strip_internal_context_keys(config)
+        from app.fleet.scheduled_jobs import apply_scheduled_job_context
+
+        if trusted_schedule_id is not None and not is_internal_caller:
+            raise HTTPException(status_code=403, detail="Scheduled identity requires internal authentication")
+        apply_scheduled_job_context(config, schedule_id=trusted_schedule_id, context_mode=trusted_schedule_mode)
         internal_owner_user = await resolve_trusted_internal_owner_for_attribution(request, owner_user_id)
         inject_authenticated_user_context(
             config,
@@ -1401,6 +1447,71 @@ async def start_run(
             internal_owner_user=internal_owner_user,
             request_context=getattr(body, "context", None),
         )
+
+        from deerflow.runtime.execution.contracts import RunExecutionParameters
+        from deerflow.runtime.execution.local import LocalExecutionBackend
+        from deerflow.runtime.user_context import AUTO, resolve_user_id
+
+        parameters = RunExecutionParameters(
+            thread_id=thread_id,
+            assistant_id=body.assistant_id,
+            user_id=owner_user_id or resolve_user_id(AUTO, method_name="start_run execution"),
+            graph_input=graph_input,
+            normalized_config=config,
+            stream_modes=tuple(stream_modes),
+            stream_subgraphs=body.stream_subgraphs,
+            interrupt_before=tuple(body.interrupt_before) if isinstance(body.interrupt_before, list) else body.interrupt_before,
+            interrupt_after=tuple(body.interrupt_after) if isinstance(body.interrupt_after, list) else body.interrupt_after,
+            public_kwargs={"input": body.input, "config": redact_config_secrets(body.config)},
+            model_name=model_name,
+        )
+        fleet_human_retry = None
+        if execution_backend is None:
+            resolver = getattr(request.app.state, "bound_run_execution_backend", None)
+            if resolver is not None:
+                try:
+                    human_resolver = getattr(resolver, "resolve_human", None)
+                    if human_resolver is not None and (channel_human is not None or getattr(request.state, "auth_source", None) in {AUTH_SOURCE_SESSION, AUTH_SOURCE_PAT, AUTH_SOURCE_AUTH_DISABLED}):
+                        ownership = getattr(request.app.state, "fleet_ownership", None)
+                        fleet_bound = False
+                        if ownership is not None:
+                            from app.fleet.execution import BoundFleetRunBackend
+
+                            fleet_bound = isinstance(resolver, BoundFleetRunBackend)
+                        if fleet_bound:
+                            from uuid import uuid4
+
+                            from app.fleet.task_admission import message_digest, owned_message_backend, scoped_operation_key
+                            from app.fleet.task_operations import stop_before_human
+
+                            caller_key = request.headers.get("Idempotency-Key")
+                            if caller_key is not None and (not caller_key or len(caller_key) > 128):
+                                raise HTTPException(400, "Idempotency-Key must contain 1 to 128 characters")
+                            operation_key = caller_key or uuid4().hex
+                            if channel_human is None or channel_human[1]:
+                                await stop_before_human(ownership, parameters, operation_key, request, digest=message_digest(parameters))
+                            execution_backend = await owned_message_backend(resolver, parameters, operation_key, allow_fresh=channel_human is None or channel_human[1])
+                            if getattr(execution_backend, "human_operation", None) and (channel_human is None or channel_human[1]):
+                                fleet_human_retry = (ownership, resolver, operation_key)
+                            if caller_key is not None and getattr(execution_backend, "human_operation", None):
+                                idempotency_key = scoped_operation_key(parameters.user_id, thread_id, caller_key)
+                        else:
+                            execution_backend = await human_resolver(parameters)
+                        if getattr(execution_backend, "human_operation", None):
+                            if fleet_bound:
+                                from app.fleet.task_admission import bind_cancel_permission
+
+                                await bind_cancel_permission(request, execution_backend)
+                            else:
+                                require_cancel_permission_if(request, True)
+                    else:
+                        execution_backend = await resolver(parameters)
+                except ConflictError as exc:
+                    raise HTTPException(status_code=409, detail=str(exc)) from exc
+        from app.fleet.routing import resolve_execution_backend
+
+        execution_backend = await resolve_execution_backend(request.app, body.execution, parameters, bound=execution_backend, ticket=execution_ticket, lease_owner=execution_lease_owner)
+        execution_plan = (execution_backend or LocalExecutionBackend()).plan(parameters)
 
         async def run_after_metadata(record: RunRecord) -> None:
             metadata_task = asyncio.create_task(
@@ -1495,29 +1606,53 @@ async def start_run(
                 # cannot both succeed across Gateway workers.
                 if require_existing_thread and not await thread_access_allowed():
                     raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
-                record = await run_mgr.create_or_reject(
-                    thread_id,
-                    body.assistant_id,
-                    on_disconnect=disconnect,
-                    metadata=run_metadata,
-                    # Persist a secret-redacted copy of the config: the run record is
-                    # written to runs.kwargs_json and echoed by the run API, so a
-                    # request-scoped secret (#3861) must not ride along. The live
-                    # config built above keeps the secrets for the actual run.
-                    kwargs={"input": body.input, "config": redact_config_secrets(body.config)},
-                    multitask_strategy=body.multitask_strategy,
-                    model_name=model_name,
-                    user_id=owner_user_id,
-                    idempotency_key=idempotency_key,
-                )
+
+                async def admit_current_plan():
+                    return await run_mgr.create_or_reject(
+                        thread_id,
+                        body.assistant_id,
+                        on_disconnect=disconnect,
+                        metadata=run_metadata,
+                        # Persist a secret-redacted copy of the config: the run record is
+                        # written to runs.kwargs_json and echoed by the run API, so a
+                        # request-scoped secret (#3861) must not ride along. The live
+                        # config built above keeps the secrets for the actual run.
+                        kwargs=execution_plan.public_kwargs,
+                        multitask_strategy=body.multitask_strategy,
+                        model_name=model_name,
+                        user_id=parameters.user_id if execution_plan.store_only else owner_user_id,
+                        idempotency_key=idempotency_key,
+                        **({"execution_plan": execution_plan} if execution_plan.store_only else {}),
+                    )
+
+                for retry in range(2):
+                    try:
+                        record = await admit_current_plan()
+                    except ConflictError as exc:
+                        if fleet_human_retry is None or retry:
+                            raise
+                        from app.fleet.task_admission import HumanOperationNeedsStop, bind_cancel_permission, message_digest, owned_message_backend
+                        from app.fleet.task_operations import stop_before_human
+
+                        if not isinstance(exc, HumanOperationNeedsStop):
+                            raise
+                        ownership, resolver, operation_key = fleet_human_retry
+                        await stop_before_human(ownership, parameters, operation_key, request, digest=message_digest(parameters), expected=(exc.task_id, exc.generation))
+                        execution_backend = await owned_message_backend(resolver, parameters, operation_key)
+                        if execution_backend is None:
+                            raise ConflictError("Original human handoff unavailable")
+                        await bind_cancel_permission(request, execution_backend)
+                        execution_plan = execution_backend.plan(parameters)
+                    else:
+                        break
 
                 if record.idempotency_reused:
+                    # Fleet compares immutable execution inputs in its admission
+                    # participant; its public kwargs deliberately omit the input.
                     stored = record.kwargs or {}
-                    if stored.get("input") != body.input or record.assistant_id != body.assistant_id:
-                        raise HTTPException(
-                            status_code=409,
-                            detail="Idempotency-Key already used with a different request",
-                        )
+                    if (stored.get("execution_backend") != "fleet" and stored.get("input") != body.input) or record.assistant_id != body.assistant_id:
+                        raise HTTPException(status_code=409, detail="Idempotency-Key already used with a different request")
+                if record.idempotency_reused or execution_plan.store_only:
                     return record
 
                 worker = run_after_metadata(record)
@@ -1559,6 +1694,9 @@ async def launch_scheduled_thread_run(
     app: Any | None = None,
     owner_user_id: str | None = None,
     metadata: dict[str, Any] | None = None,
+    execution=None,
+    execution_ticket=None,
+    execution_lease_owner=None,
 ) -> dict[str, Any]:
     if request is None:
         if app is None:
@@ -1573,6 +1711,7 @@ async def launch_scheduled_thread_run(
             cookies={},
         )
     body = RunCreateRequest(
+        execution=execution or {},
         assistant_id=assistant_id,
         input={"messages": [{"role": "user", "content": prompt}]},
         command=None,
@@ -1598,20 +1737,20 @@ async def launch_scheduled_thread_run(
         if_not_exists="create",
         feedback_keys=None,
     )
+    if getattr(request.state, "auth_source", None) != AUTH_SOURCE_INTERNAL:
+        raise HTTPException(status_code=403, detail="Scheduled launch requires internal authentication")
     scheduled_task_run_id = (metadata or {}).get("scheduled_task_run_id")
     idempotency_key = f"scheduled-task:{scheduled_task_run_id}" if isinstance(scheduled_task_run_id, str) else None
-    # Non-HTTP entry point: the lifespan scheduler calls this with a synthetic
-    # request, so TraceMiddleware never runs. The scope is opened per launch,
-    # never around the poller loop, or every scheduled run would collapse onto
-    # one id. Reached from inside an HTTP request -- a manual trigger, or the
-    # scheduler service's own per-occurrence scope -- ensure_trace_context
-    # keeps that trace instead of minting a competing one.
+    # Each background launch receives its own trace, preserving any existing scope.
     with ensure_trace_context():
         record = await start_run(
             body,
             thread_id,
             request,
             idempotency_key=idempotency_key,
+            execution_ticket=execution_ticket,
+            execution_lease_owner=execution_lease_owner,
+            **({"trusted_schedule_id": metadata["scheduled_task_id"], "trusted_schedule_mode": metadata.get("scheduled_context_mode", "reuse_thread")} if metadata and "scheduled_task_id" in metadata else {}),
         )
     return {"run_id": record.run_id, "thread_id": record.thread_id}
 
@@ -1641,6 +1780,10 @@ async def launch_mcp_task_notification_run(
     event: dict[str, Any],
 ) -> dict[str, Any]:
     """Idempotently launch the Agent run that delivers one task event."""
+    repository = getattr(app.state, "mcp_task_repo", None)
+    permits = getattr(repository, "permits_notification", None)
+    if permits is not None and not await permits(task_id, user_id=owner_user_id, thread_id=thread_id):
+        raise PermanentNotificationError("Task result belongs to its durable coordinator")
     request = SimpleNamespace(
         app=app,
         headers={INTERNAL_OWNER_USER_ID_HEADER_NAME: owner_user_id},
@@ -1705,6 +1848,21 @@ async def launch_mcp_task_notification_run(
     return {"run_id": record.run_id, "thread_id": record.thread_id}
 
 
+async def should_wait_for_run_stream(bridge, record):
+    if record.task is not None:
+        return True
+    remote = getattr(bridge, "is_remote", None)
+    if remote is not None and await remote(record.run_id):
+        return True
+    return bool(getattr(record, "store_only", False) and getattr(bridge, "supports_cross_process", False))
+
+
+async def prepare_sse_subscription(bridge, record, request):
+    """Run optional bridge cursor validation before HTTP streaming headers."""
+    prepare = getattr(bridge, "prepare", None)
+    return await prepare(record, request.headers.get("Last-Event-ID")) if prepare is not None else None
+
+
 async def sse_consumer(
     bridge: StreamBridge,
     record: RunRecord,
@@ -1712,6 +1870,7 @@ async def sse_consumer(
     run_mgr: RunManager,
     *,
     apply_on_disconnect: bool = True,
+    prepared_subscription=None,
     emit_gap_on_missing_stream: bool = False,
 ):
     """Async generator that yields SSE frames from the bridge.
@@ -1757,7 +1916,8 @@ async def sse_consumer(
 
     gap_emitted = False
     try:
-        async for entry in bridge.subscribe(record.run_id, last_event_id=last_event_id):
+        subscription = bridge.subscribe_prepared(record.run_id, prepared_subscription) if prepared_subscription is not None else bridge.subscribe(record.run_id, last_event_id=last_event_id)
+        async for entry in subscription:
             if await request.is_disconnected():
                 break
 
@@ -1777,7 +1937,7 @@ async def sse_consumer(
                 return
 
             if entry is HEARTBEAT_SENTINEL:
-                if await _orphan_recovery_observed_after_heartbeat(record, run_mgr):
+                if await _orphan_recovery_observed_after_heartbeat(record, run_mgr, bridge):
                     yield format_sse("end", None)
                     return
                 yield ": heartbeat\n\n"
@@ -1811,8 +1971,10 @@ async def wait_for_run_completion(
     Creator-side only, unlike ``sse_consumer``'s observer joins: every caller
     must be the endpoint that created the run or a path reached only after an
     explicit, permission-gated cancel. This helper intentionally keeps
-    applying the record's ``on_disconnect`` policy on disconnect — do not
-    wire it to observer surfaces.
+    applying the Local creator's ``on_disconnect`` policy on disconnect — do
+    not wire it to observer surfaces. Remote store-only records observe an
+    already authorized cancel request and never add cancellation on disconnect
+    or unsealed EOF.
 
     The non-streaming ``/wait`` endpoints used to ``await record.task``
     directly with no disconnect handling.  When the client (or an
@@ -1836,6 +1998,12 @@ async def wait_for_run_completion(
         response.
     """
     completed = False
+    remote = getattr(bridge, "is_remote", None)
+    is_remote = remote is not None and await remote(record.run_id)
+    # Bind the actual caller record before entering disconnect cleanup. A
+    # queued remote wait must retain its original user/thread while it awaits
+    # the first accepted attempt; invalid ownership cannot request cancellation.
+    prepared = await bridge.prepare(record, None) if is_remote else None
     if await _terminal_record_stream_missing(bridge, record):
         return True
 
@@ -1843,7 +2011,8 @@ async def wait_for_run_completion(
     try:
         while True:
             gap_seen = False
-            async for entry in bridge.subscribe(record.run_id, last_event_id=resume_from_event_id):
+            subscription = bridge.subscribe_prepared(record.run_id, prepared) if is_remote else bridge.subscribe(record.run_id, last_event_id=resume_from_event_id)
+            async for entry in subscription:
                 # END_SENTINEL means the run reached a terminal state; honour it
                 # even if the client just disconnected so the caller still serializes
                 # the real final checkpoint.
@@ -1857,7 +2026,7 @@ async def wait_for_run_completion(
                     resume_from_event_id = entry.latest_available_event_id
                     gap_seen = True
                     break
-                if entry is HEARTBEAT_SENTINEL and await _orphan_recovery_observed_after_heartbeat(record, run_mgr):
+                if entry is HEARTBEAT_SENTINEL and await _orphan_recovery_observed_after_heartbeat(record, run_mgr, bridge):
                     completed = True
                     return True
                 if await request.is_disconnected():
@@ -1866,6 +2035,6 @@ async def wait_for_run_completion(
             if not gap_seen:
                 return completed
     finally:
-        if not completed and record.status in (RunStatus.pending, RunStatus.running):
+        if not completed and not (is_remote and record.store_only) and record.status in (RunStatus.pending, RunStatus.running):
             if record.on_disconnect == DisconnectMode.cancel:
                 await run_mgr.cancel(record.run_id)
