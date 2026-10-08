@@ -33,8 +33,10 @@ async def test_upgrade_and_downgrade_preserve_legacy_batch_item(tmp_path, source
                     "VALUES ('i','b','k',0,'p','succeeded',1,'old result',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
                 )
             )
-        await bootstrap.bootstrap_schema(engine, backend="sqlite")
-        await bootstrap.bootstrap_schema(engine, backend="sqlite")
+        # Audit the upstream branch in isolation: the combined Fleet head has
+        # a deliberately irreversible downgrade and is outside this audit.
+        await asyncio.to_thread(bootstrap._upgrade, cfg, bootstrap._FORWARD_COMPATIBLE_REVISION)
+        await asyncio.to_thread(bootstrap._upgrade, cfg, bootstrap._FORWARD_COMPATIBLE_REVISION)
         async with engine.connect() as conn:
             columns = await conn.run_sync(lambda sync: {col["name"] for col in sa.inspect(sync).get_columns("subagent_batch_items")})
             assert {"acceptance_criteria", "acceptance_verdict"} <= columns
@@ -65,14 +67,14 @@ async def test_forward_revision_cannot_skip_required_batch_columns(tmp_path, mon
             await conn.execute(sa.text("ALTER TABLE mcp_tasks ADD COLUMN thread_incarnation VARCHAR(32)"))
         if race:
             current_head, current_revisions = bootstrap._get_revision_metadata()
-            assert current_head == "0019_thread_incarnations"
+            assert current_head == bootstrap._get_head_revision()
             assert {"0020_threads_meta_project_id", "0021_batch_acceptance", current_head} <= current_revisions
             monkeypatch.setattr(
                 bootstrap,
                 "_get_revision_metadata",
                 lambda: (
                     "0020_threads_meta_project_id",
-                    current_revisions - {"0021_batch_acceptance", current_head},
+                    current_revisions - {"0021_batch_acceptance", bootstrap._FORWARD_COMPATIBLE_REVISION, current_head},
                 ),
             )
 
