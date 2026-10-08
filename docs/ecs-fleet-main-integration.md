@@ -34,3 +34,5 @@
 新增选择配置验证：普通 Fleet presentation 1 passed / 0 skipped；原 main HTTP 夹具下 BC09 主干 1 passed，另一边界因名称选择被过滤。前端 check 通过。Buzz 原失败时序项在本地重查 1 passed，不据此宣称整个云端 CI 通过。
 
 修正 PR 的定向合并复查：8 个兼容测试文件合跑 578 passed / 1 skipped（PostgreSQL 专用项未配置）；0018 合流保护检查单独 1 passed；离线 Fleet 基础检查 22 passed；指南测试 12 passed，24 份指南 0 errors / 0 warnings。保留全部指南内容并移到必读模块文档，未提高预算上限。
+
+GitHub Actions 由仓库所有者关闭（enabled=false）。关闭前第 1、3、4 后端分片和前后端 lint、单测、回放等已通过；第 2 分片唯一失败为旧 Gateway PostgreSQL 测试的连接驱动选择。测试连接串规范化为 asyncpg 后，以真实 PostgreSQL 和普通 postgresql:// 输入重查该失败项：1 passed / 0 skipped。最新修正未重新运行云端 Actions，不宣称完整 CI 全绿。
