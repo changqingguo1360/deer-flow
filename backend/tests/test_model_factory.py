@@ -85,17 +85,20 @@ def _capturing_class(base_cls: type, captured: dict) -> type:
 
     ``_apply_stream_chunk_timeout_default`` gates on ``issubclass(model_class,
     BaseChatOpenAI)``, so the resolved class must genuinely subclass the real
-    provider for the test to exercise that gate. ``__init__`` only records the
-    constructor kwargs and deliberately skips the provider's real ``__init__`` (so no
-    api_key / network / event loop is required); the factory never reads the returned
-    instance's fields when tracing is patched to ``[]``, so a bare instance is safe
-    for these config-level assertions.
+    provider for the test to exercise that gate. ChatOpenAI also needs its real
+    SDK clients for the factory's budget guard, so initialize those with a dummy
+    key (construction makes no network requests). Other providers only need their
+    class fields and methods for these config-level assertions.
     """
 
     class _Capturing(base_cls):  # type: ignore[valid-type,misc]
         def __init__(self, **kwargs):
             captured.clear()
             captured.update(kwargs)
+            from langchain_openai import ChatOpenAI
+
+            if base_cls is ChatOpenAI:
+                super().__init__(**{**kwargs, "api_key": kwargs.get("api_key") or "test-key"})
 
     return _Capturing
 

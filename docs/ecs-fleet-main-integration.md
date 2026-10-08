@@ -24,3 +24,13 @@
 - OpenSpec 严格验证 3 passed / 0 failed；24 份开发指导检查 0 errors / 7 soft warnings。
 
 原安装镜像、浏览器和集中故障验收继续保持[原交付记录](ecs-fleet-delivery.md)的历史源码范围。本轮没有重新构建安装镜像，也未完成阿里云真实 ECS/NAS 部署验证。新配置 flags 仍默认关闭；发布新镜像前需按[部署手册](deployment/ecs-fleet.md)构建与验证相应产物。
+
+## 普通 CI 与专用验收入口
+
+主干普通 CI 未提供 Fleet 安装镜像、节点凭据、隔离数据库 URL、原始证据目录或真实 Gateway，因此 core backend shards 明确排除 `tests/fleet`，不冒充 Fleet 验收通过。默认安装 collection 仍收集全部测试，并执行不依赖部署资源的 Fleet 配置与元数据隔离检查（本地 22 passed）。Fleet 必须走部署手册中的显式 gate 和已记录安装主干/故障入口；本配置没有删除或跳过其必需用例。
+
+普通 DOM CI 不选择需要真实 HTTP 夹具的 BC09 验收文件；设置 `BC09_HTTP_FIXTURE` 后恢复选择，缺少内部必需数据仍失败。普通 demo Playwright 不选择 BC10 安装验收；设置 `BC10_THREAD_ID` 后恢复选择，其其他 required() 输入检查保留。
+
+新增选择配置验证：普通 Fleet presentation 1 passed / 0 skipped；原 main HTTP 夹具下 BC09 主干 1 passed，另一边界因名称选择被过滤。前端 check 通过。Buzz 原失败时序项在本地重查 1 passed，不据此宣称整个云端 CI 通过。
+
+修正 PR 的定向合并复查：8 个兼容测试文件合跑 578 passed / 1 skipped（PostgreSQL 专用项未配置）；0018 合流保护检查单独 1 passed；离线 Fleet 基础检查 22 passed；指南测试 12 passed，24 份指南 0 errors / 0 warnings。保留全部指南内容并移到必读模块文档，未提高预算上限。

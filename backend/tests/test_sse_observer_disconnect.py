@@ -124,9 +124,16 @@ def test_join_routes_wire_sse_consumer_as_observers():
             else:
                 assert len(policy) == 1 and isinstance(policy[0], ast.Constant) and policy[0].value is False, handler_name
 
-    thread_runs_source = inspect.getsource(thread_runs)
-    # stream_run — creating retry opts into missing-stream gap; first create does not
-    assert "emit_gap_on_missing_stream=record.idempotency_reused" in thread_runs_source
+    # Creating retries opt into a missing-stream gap; first creates keep the
+    # default. Follow the call's flag back to its assignment rather than pinning
+    # a variable name or the complete source line.
+    tree = ast.parse(inspect.getsource(thread_runs))
+    handler = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef) and node.name == "stream_run")
+    call = next(node for node in ast.walk(handler) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "sse_consumer")
+    gap_flag = next(keyword.value for keyword in call.keywords if keyword.arg == "emit_gap_on_missing_stream")
+    assert isinstance(gap_flag, ast.Name)
+    assignment = next(node for node in ast.walk(handler) if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == gap_flag.id for target in node.targets))
+    assert ast.unparse(assignment.value) == "bool(getattr(record, 'idempotency_reused', False))"
 
     runs_source = inspect.getsource(runs_router)
     # stateless create-and-stream — creator on_disconnect policy, not the retry gap

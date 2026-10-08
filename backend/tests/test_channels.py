@@ -57,6 +57,18 @@ def test_strip_leading_mentions_only_drops_flush_leading_mentions():
     assert not is_known_channel_command("@bot /goal")
 
 
+@pytest.fixture
+def absent_fleet_projection(monkeypatch):
+    """Local channel compositions have no Gateway Fleet task projection.
+
+    These tests already replace the run API. Model its companion optional
+    reader explicitly; real absent/disabled Fleet responds with an empty list.
+    """
+    reader = AsyncMock(return_value="")
+    monkeypatch.setattr("app.channels.manager.read_fleet_summary", reader)
+    return reader
+
+
 def _make_channel_skill(tmp_path: Path, name: str, *, enabled: bool = True) -> Skill:
     skill_dir = tmp_path / name
     skill_dir.mkdir(parents=True, exist_ok=True)
@@ -982,7 +994,7 @@ class TestChannelManager:
         anonymous = InboundMessage(channel_name="slack", chat_id="C1", user_id="", text="hi")
         assert _channel_storage_user_id(anonymous) is None
 
-    def test_handle_chat_creates_thread(self):
+    def test_handle_chat_creates_thread(self, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         async def go():
@@ -1614,7 +1626,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_chat_marks_clarification_outbound_metadata(self):
+    def test_handle_chat_marks_clarification_outbound_metadata(self, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         async def go():
@@ -1656,7 +1668,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_chat_does_not_mark_regular_outbound_as_clarification(self):
+    def test_handle_chat_does_not_mark_regular_outbound_as_clarification(self, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         async def go():
@@ -1776,7 +1788,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_clarification_follow_up_preserves_history(self, monkeypatch):
+    def test_clarification_follow_up_preserves_history(self, monkeypatch, absent_fleet_projection):
         """Conversation should continue after ask_clarification instead of resetting history."""
         from app.channels.manager import ChannelManager
 
@@ -1997,7 +2009,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_feishu_chat_streams_multiple_outbound_updates(self, monkeypatch):
+    def test_handle_feishu_chat_streams_multiple_outbound_updates(self, monkeypatch, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         monkeypatch.setattr("app.channels.manager.STREAM_UPDATE_MIN_INTERVAL_SECONDS", 0.0)
@@ -2065,7 +2077,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_streaming_chat_accepts_runtime_messages_event(self, monkeypatch):
+    def test_handle_streaming_chat_accepts_runtime_messages_event(self, monkeypatch, absent_fleet_projection):
         """The embedded runtime emits SSE event name "messages" (LangGraph
         Platform semantics) for the requested "messages-tuple" stream mode —
         the manager must accumulate text from those events too."""
@@ -2135,7 +2147,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_feishu_streaming_marks_only_final_clarification_outbound(self, monkeypatch):
+    def test_handle_feishu_streaming_marks_only_final_clarification_outbound(self, monkeypatch, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         monkeypatch.setattr("app.channels.manager.STREAM_UPDATE_MIN_INTERVAL_SECONDS", 0.0)
@@ -2248,7 +2260,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_feishu_stream_conflict_sends_busy_message(self, monkeypatch):
+    def test_handle_feishu_stream_conflict_sends_busy_message(self, monkeypatch, absent_fleet_projection):
         import httpx
         from langgraph_sdk.errors import ConflictError
 
@@ -2302,7 +2314,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_feishu_same_thread_messages_queue_instead_of_busy(self, monkeypatch):
+    def test_handle_feishu_same_thread_messages_queue_instead_of_busy(self, monkeypatch, absent_fleet_projection):
         from app.channels.manager import THREAD_BUSY_MESSAGE, ChannelManager
 
         monkeypatch.setattr("app.channels.manager.STREAM_UPDATE_MIN_INTERVAL_SECONDS", 0.0)
@@ -2668,7 +2680,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_command_outbound_thread_id_uses_topic_thread(self):
+    def test_handle_command_outbound_thread_id_uses_topic_thread(self, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         async def go():
@@ -2703,7 +2715,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_command_slash_skill_routes_to_chat(self, tmp_path):
+    def test_handle_command_slash_skill_routes_to_chat(self, tmp_path, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         async def go():
@@ -2741,7 +2753,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_command_slash_skill_with_attachment_preserves_original_content(self, monkeypatch, tmp_path):
+    def test_handle_command_slash_skill_with_attachment_preserves_original_content(self, monkeypatch, tmp_path, absent_fleet_projection):
         from app.channels.manager import ChannelManager
 
         async def fake_ingest(thread_id, msg, *, user_id=None):
@@ -3581,7 +3593,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_command_bootstrap_with_text(self):
+    def test_handle_command_bootstrap_with_text(self, absent_fleet_projection):
         """/bootstrap <text> should route to chat with is_bootstrap=True in run_context."""
         from app.channels.manager import ChannelManager
 
@@ -3672,7 +3684,7 @@ class TestChannelManager:
 
         _run(go())
 
-    def test_handle_command_bootstrap_feishu_uses_streaming(self, monkeypatch):
+    def test_handle_command_bootstrap_feishu_uses_streaming(self, monkeypatch, absent_fleet_projection):
         """/bootstrap from feishu should go through the streaming path."""
         from app.channels.manager import ChannelManager
 
@@ -5852,7 +5864,7 @@ class TestHandleChatWithArtifacts:
 
         _run(go())
 
-    def test_hidden_human_control_message_does_not_trigger_no_response_fallback(self):
+    def test_hidden_human_control_message_does_not_trigger_no_response_fallback(self, absent_fleet_projection):
         """Plan-mode hidden control messages should not mask the final AI response."""
         from app.channels.manager import ChannelManager
 
@@ -10952,7 +10964,7 @@ def test_accumulate_stream_text_hidden_context_between_assistant_chunks_never_en
     assert buffers == {"ai-1": "Deploy succeeded."}
 
 
-def test_streaming_chat_never_publishes_hidden_memory_context(monkeypatch):
+def test_streaming_chat_never_publishes_hidden_memory_context(monkeypatch, absent_fleet_projection):
     """End-to-end through _handle_streaming_chat: the hidden <memory> HumanMessage
     the live relay actually received must reach no outbound message at all."""
     from app.channels.manager import ChannelManager
