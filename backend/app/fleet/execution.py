@@ -278,6 +278,20 @@ class FleetRunAdmission:
         for name in ("source_workspace_point_id", "source_workspace_thread_id", "source_workspace_checkpoint_id"):
             if getattr(spec, name) is not None:
                 self.inputs[name] = getattr(spec, name)
+        # A retry has its own request trace, but the execution keeps the trace
+        # frozen at admission. Compare all execution inputs using that original
+        # server-issued correlation value, never the new HTTP request's value.
+        from deerflow.trace_context import DEERFLOW_TRACE_METADATA_KEY
+
+        normalized = dict(self.inputs["normalized_config"])
+        metadata = dict(normalized.get("metadata") or {})
+        original_metadata = spec.normalized_config.get("metadata") or {}
+        if DEERFLOW_TRACE_METADATA_KEY in original_metadata:
+            metadata[DEERFLOW_TRACE_METADATA_KEY] = original_metadata[DEERFLOW_TRACE_METADATA_KEY]
+        else:
+            metadata.pop(DEERFLOW_TRACE_METADATA_KEY, None)
+        normalized["metadata"] = metadata
+        self.inputs["normalized_config"] = normalized
         expected = self.spec_for(run_id=spec.run_id, agent_task_id=spec.agent_task_id, generation=spec.generation, execution_deadline=spec.execution_deadline)
         if spec.payload_digest() != expected.payload_digest():
             raise ValueError("Run idempotency execution inputs conflict")

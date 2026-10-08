@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -16,18 +17,23 @@ from app.gateway.deps import (
     get_scheduled_task_service,
     get_thread_store,
 )
+from deerflow.config.agents_config import AGENT_NAME_PATTERN, load_agent_config
 from deerflow.persistence.scheduled_tasks import ActiveScheduledTaskMutationConflict
 from deerflow.runtime.execution.preference import ExecutionPreference
 from deerflow.scheduler.schedules import (
-    next_run_at as compute_next_run_at,
+    MAX_INTERVAL_SECONDS,
+    normalize_cron_expression,
+    parse_interval_seconds,
+    validate_timezone,
 )
 from deerflow.scheduler.schedules import (
-    normalize_cron_expression,
-    validate_timezone,
+    next_run_at as compute_next_run_at,
 )
 from deerflow.utils.thread_id import ThreadId
 
 router = APIRouter(prefix="/api", tags=["scheduled-tasks"])
+
+_DEFAULT_ASSISTANT_ID = "lead_agent"
 
 
 def _active_occurrence_conflict_detail(status: str) -> str:
@@ -35,6 +41,51 @@ def _active_occurrence_conflict_detail(status: str) -> str:
     if status == "queued":
         detail += " or cancel the queued occurrence by pausing the task"
     return detail
+
+
+def _validate_interval_seconds(schedule_spec: dict[str, Any], min_seconds: int) -> int:
+    every_seconds = parse_interval_seconds(schedule_spec)
+    if every_seconds < min_seconds:
+        raise HTTPException(
+            status_code=422,
+            detail=f"interval schedule must be at least {min_seconds} seconds",
+        )
+    if every_seconds > MAX_INTERVAL_SECONDS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"interval schedule must be at most {MAX_INTERVAL_SECONDS} seconds",
+        )
+    return every_seconds
+
+
+async def resolve_scheduled_task_assistant_id(raw: str | None, *, user_id: str) -> str:
+    """Return a stored assistant id, defaulting to lead_agent.
+
+    Custom names are normalized the same way IM/run creation already does
+    (lowercase, underscore to hyphen) and must exist for this owner.
+    """
+    if raw is None:
+        return _DEFAULT_ASSISTANT_ID
+    value = raw.strip()
+    if not value:
+        raise HTTPException(status_code=422, detail="assistant_id must not be empty")
+    normalized = value.lower().replace("_", "-")
+    if normalized == _DEFAULT_ASSISTANT_ID.replace("_", "-"):
+        return _DEFAULT_ASSISTANT_ID
+    if not AGENT_NAME_PATTERN.fullmatch(normalized):
+        raise HTTPException(
+            status_code=422,
+            detail=(f"Invalid assistant_id {raw!r}. Use 'lead_agent' or a custom agent name containing only letters, digits, and hyphens."),
+        )
+    try:
+        config = await asyncio.to_thread(load_agent_config, normalized, user_id=user_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=422, detail=f"Unknown assistant_id {raw!r}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if config is None:
+        raise HTTPException(status_code=422, detail=f"Unknown assistant_id {raw!r}")
+    return normalized
 
 
 async def _ensure_task_mutable(task: dict[str, Any], repo) -> None:
@@ -55,6 +106,7 @@ class ScheduledTaskCreateRequest(BaseModel):
     execution: ExecutionPreference = Field(default_factory=ExecutionPreference)
     thread_id: ThreadId | None = None
     context_mode: str = "fresh_thread_per_run"
+    assistant_id: str | None = Field(default=None, min_length=1)
     title: str = Field(min_length=1)
     prompt: str = Field(min_length=1)
     schedule_type: str
@@ -66,6 +118,7 @@ class ScheduledTaskUpdateRequest(BaseModel):
     execution: ExecutionPreference | None = None
     context_mode: str | None = None
     thread_id: ThreadId | None = None
+    assistant_id: str | None = Field(default=None, min_length=1)
     title: str | None = Field(default=None, min_length=1)
     prompt: str | None = Field(default=None, min_length=1)
     schedule_spec: dict[str, Any] | None = None
@@ -99,7 +152,7 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
             raise HTTPException(status_code=422, detail="reuse_thread requires thread_id")
         if not await thread_store.check_access(body.thread_id, str(user.id), require_existing=True):
             raise HTTPException(status_code=404, detail="Thread not found")
-    if body.schedule_type not in {"once", "cron"}:
+    if body.schedule_type not in {"once", "cron", "interval"}:
         raise HTTPException(status_code=422, detail="Unsupported schedule_type")
 
     schedule_spec = dict(body.schedule_spec)
@@ -110,6 +163,8 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
             if not isinstance(raw_cron, str):
                 raise HTTPException(status_code=422, detail="cron schedule requires schedule_spec.cron")
             schedule_spec["cron"] = normalize_cron_expression(raw_cron)
+        if body.schedule_type == "interval":
+            _validate_interval_seconds(schedule_spec, config.scheduler.min_once_delay_seconds)
         next_run_at = compute_next_run_at(
             body.schedule_type,
             schedule_spec,
@@ -130,12 +185,13 @@ async def create_scheduled_task(request: Request, body: ScheduledTaskCreateReque
     from app.fleet.routing import validate_execution_preference
 
     validate_execution_preference(request.app, body.execution, str(user.id))
+    assistant_id = await resolve_scheduled_task_assistant_id(body.assistant_id, user_id=str(user.id))
     return await repo.create(
         task_id=f"task-{uuid.uuid4().hex}",
         user_id=str(user.id),
         thread_id=body.thread_id,
         context_mode=body.context_mode,
-        assistant_id="lead_agent",
+        assistant_id=assistant_id,
         execution=body.execution.model_dump(mode="json"),
         title=body.title,
         prompt=body.prompt,
@@ -178,6 +234,11 @@ async def update_scheduled_task(task_id: str, request: Request, body: ScheduledT
 
         validate_execution_preference(request.app, body.execution, str(user.id))
     updates = body.model_dump(exclude_none=True)
+    if "assistant_id" in updates:
+        updates["assistant_id"] = await resolve_scheduled_task_assistant_id(
+            updates["assistant_id"],
+            user_id=str(user.id),
+        )
     if "context_mode" in updates:
         if updates["context_mode"] not in {"fresh_thread_per_run", "reuse_thread"}:
             raise HTTPException(status_code=422, detail="Unsupported context_mode")
@@ -211,12 +272,31 @@ async def update_scheduled_task(task_id: str, request: Request, body: ScheduledT
                         detail="cron schedule requires schedule_spec.cron",
                     )
                 schedule_spec["cron"] = normalize_cron_expression(raw_cron)
-            next_run_at = compute_next_run_at(
-                existing["schedule_type"],
-                schedule_spec,
-                timezone,
-                now=datetime.now(UTC),
-            )
+            if existing["schedule_type"] == "interval":
+                every_seconds = _validate_interval_seconds(
+                    schedule_spec,
+                    config.scheduler.min_once_delay_seconds,
+                )
+                try:
+                    previous_seconds = parse_interval_seconds(dict(existing["schedule_spec"]))
+                except ValueError:
+                    previous_seconds = None
+                if previous_seconds == every_seconds and existing.get("next_run_at") is not None:
+                    next_run_at = existing["next_run_at"]
+                else:
+                    next_run_at = compute_next_run_at(
+                        existing["schedule_type"],
+                        schedule_spec,
+                        timezone,
+                        now=datetime.now(UTC),
+                    )
+            else:
+                next_run_at = compute_next_run_at(
+                    existing["schedule_type"],
+                    schedule_spec,
+                    timezone,
+                    now=datetime.now(UTC),
+                )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if existing["schedule_type"] == "once" and next_run_at is None:

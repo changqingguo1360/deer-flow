@@ -144,7 +144,10 @@ async def test_restart_retry_reuses_original_remote_admission_and_rejects_change
     monkeypatch.setattr(services, "run_agent", worker)
     for i in range(3):
         manager = RunManager(store=RunRepository(sf))
-        record = await services.start_run(body(), "thread-retry", request(manager, user), execution_backend=backend(), idempotency_key="retry-key")
+        from deerflow.trace_context import request_trace_context
+
+        with request_trace_context(f"retry-request-{i}"):
+            record = await services.start_run(body(), "thread-retry", request(manager, user), execution_backend=backend(), idempotency_key="retry-key")
         if i == 0:
             first = record.run_id
         assert record.run_id == first and record.idempotency_reused == (i != 0)

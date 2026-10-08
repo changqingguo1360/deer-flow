@@ -105,7 +105,7 @@ def test_join_routes_wire_sse_consumer_as_observers():
     from app.gateway.routers import thread_runs
 
     for module, expected in [
-        (thread_runs, {"stream_run": True, "join_run": False, "stream_existing_run": False}),
+        (thread_runs, {"stream_run": True, "join_run": False, "_stream_existing_run": False}),
         (runs_router, {"stateless_stream": True}),
     ]:
         tree = ast.parse(inspect.getsource(module))
@@ -123,3 +123,12 @@ def test_join_routes_wire_sse_consumer_as_observers():
                 assert not policy, f"{handler_name} must retain the creator default"
             else:
                 assert len(policy) == 1 and isinstance(policy[0], ast.Constant) and policy[0].value is False, handler_name
+
+    thread_runs_source = inspect.getsource(thread_runs)
+    # stream_run — creating retry opts into missing-stream gap; first create does not
+    assert "emit_gap_on_missing_stream=record.idempotency_reused" in thread_runs_source
+
+    runs_source = inspect.getsource(runs_router)
+    # stateless create-and-stream — creator on_disconnect policy, not the retry gap
+    assert "sse_consumer(bridge, record, request, run_mgr, apply_on_disconnect=False)" not in runs_source
+    assert "emit_gap_on_missing_stream" not in runs_source
