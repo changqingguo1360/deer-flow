@@ -1,5 +1,7 @@
 # 个人 Agent 系统 · ECS 机器池托管 设计文档
 
+> 阅读说明（2026-10-08）：本文保留原设计时的状态与拟议名称；当前本地实现/验收范围见[交付记录](../../ecs-fleet-delivery.md)，实际字段、约束和迁移见[库表参考](../../ecs-fleet-database.md)。
+
 日期：2026-10-01
 状态：待评审
 分支：`feature/personal-agent-ecs`（worktree: `~/.codex/worktrees/deerflow2/personal-agent-ecs`）
